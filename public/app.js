@@ -121,6 +121,8 @@ const PROFILE_FILTERS = {
     { id: 'convocatoria', label: 'Convocatorias (Fondos)', icon: SVG_ICONS.sprout },
     { id: 'ia', label: 'IA & Agentes', icon: SVG_ICONS.robot },
     { id: 'auto', label: 'Automatizaciones', icon: SVG_ICONS.zap },
+    { id: 'software', label: 'Software & Apps', icon: SVG_ICONS.file },
+    { id: 'medida', label: 'A la Medida', icon: SVG_ICONS.target },
     { id: 'high', label: 'Score > 70%', icon: SVG_ICONS.target },
     { id: 'favs', label: 'Favoritos', icon: SVG_ICONS.star }
   ],
@@ -203,6 +205,8 @@ async function loadOportunidades() {
     if (activeFilter === 'convocatoria') params.append('tipoProceso', 'CONVOCATORIA');
     if (activeFilter === 'ia') params.append('keyword', 'inteligencia artificial');
     if (activeFilter === 'auto') params.append('keyword', 'automatiz');
+    if (activeFilter === 'software') params.append('keyword', 'software');
+    if (activeFilter === 'medida') params.append('keyword', 'medida');
     if (activeFilter === 'velas') params.append('keyword', 'vela');
     if (activeFilter === 'artesanal') params.append('keyword', 'artesani');
     if (activeFilter === 'obsequios') params.append('keyword', 'obsequios');

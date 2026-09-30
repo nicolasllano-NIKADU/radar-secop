@@ -125,6 +125,38 @@ class Scanner {
       score = Math.max(score, 50);
     }
 
+    // Desarrollos y Software a la Medida
+    if (combined.includes('desarrollo a la medida') || combined.includes('desarrollos a la medida') || combined.includes('software a la medida') || combined.includes('a la medida')) {
+      if (hasTechContext || combined.includes('software') || combined.includes('sistema') || combined.includes('aplicacion')) {
+        matched.push('desarrollo a la medida');
+        score = Math.max(score, 85);
+      }
+    }
+
+    // Fábrica y desarrollo de software
+    if (combined.includes('desarrollo de software') || combined.includes('fabrica de software')) {
+      matched.push('desarrollo de software');
+      score = Math.max(score, 80);
+    } else if (/\bsoftware\b/i.test(combined)) {
+      matched.push('software');
+      score = Math.max(score, 50);
+    }
+
+    // Desarrollo de aplicaciones (móviles / web)
+    if (combined.includes('desarrollo de aplicaciones') || combined.includes('aplicaciones moviles') || combined.includes('aplicacion movil') || combined.includes('aplicaciones web') || combined.includes('aplicacion web')) {
+      matched.push('desarrollo de aplicaciones');
+      score = Math.max(score, 80);
+    } else if (/\b(aplicaciones|aplicacion)\b/i.test(combined) && hasTechContext) {
+      matched.push('aplicaciones');
+      score = Math.max(score, 55);
+    }
+
+    // APP / APPS (con límite de palabra estricto)
+    if (/\b(app|apps)\b/i.test(combined) && (hasTechContext || combined.includes('movil') || combined.includes('web') || combined.includes('dispositivo') || combined.includes('celular') || combined.includes('usuario'))) {
+      matched.push('app');
+      score = Math.max(score, 75);
+    }
+
     // Palabras de alta relevancia del config
     for (const kw of cfg.keywords.high) {
       const normKw = this.normalizeText(kw);
@@ -366,7 +398,7 @@ class Scanner {
           if (result.isNew) {
             nuevosContador++;
             console.log(`✨ [${profileKey} - ${tipoProceso}] Nueva: [${score}%] ${id} - ${item.entidad}`);
-            if (score >= 40) {
+            if (score >= 65) {
               await notifier.notifyOportunidad(oportunidad);
             }
           }

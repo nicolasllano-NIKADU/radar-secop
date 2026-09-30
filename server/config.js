@@ -29,24 +29,32 @@ module.exports = {
       name: 'NIKADU IA',
       tag: '🤖 NIKADU IA',
       icon: '🤖',
-      description: 'Inteligencia Artificial, Agentes y Automatizaciones',
+      description: 'IA, Agentes, Automatizaciones, Software y Apps a la Medida',
       color: '#10b981',
       keywords: {
         high: [
           'inteligencia artificial', 'agente de ia', 'agentes de ia', 'agente inteligente',
           'agentes inteligentes', 'ia generativa', 'machine learning', 'aprendizaje automatico',
           'rpa', 'automatizacion de procesos', 'automatizaciones', 'modelo de lenguaje',
-          'llm', 'chatbot', 'bot conversacional', 'asistente virtual'
+          'llm', 'chatbot', 'bot conversacional', 'asistente virtual',
+          'desarrollos a la medida', 'desarrollo a la medida', 'software a la medida',
+          'desarrollo de software', 'fabrica de software',
+          'desarrollo de aplicaciones', 'aplicaciones moviles', 'aplicacion movil',
+          'aplicacion', 'aplicaciones', 'software', 'app', 'apps'
         ],
         medium: [
           'vision artificial', 'procesamiento de lenguaje natural', 'nlp',
           'analitica avanzada', 'ciencia de datos', 'automatizacion',
-          'mineria de datos', 'transformacion digital', 'fabrica de software',
-          'desarrollo de software'
+          'mineria de datos', 'transformacion digital', 'sistemas de informacion',
+          'arquitectura de software', 'desarrollo web', 'aplicacion web', 'aplicaciones web'
         ]
       },
       unspscCodes: ['43230000', '81110000', '81111500', '80101500', '43211500'],
-      soqlTerms: ['inteligencia artificial', 'machine learning', 'automatiz', 'agente', 'chatbot', 'rpa'],
+      soqlTerms: [
+        'inteligencia artificial', 'machine learning', 'automatiz', 'agente',
+        'chatbot', 'rpa', 'software', 'desarrollo a la medida',
+        'desarrollos a la medida', 'aplicacion', 'aplicaciones', 'a la medida'
+      ],
       negativeTerms: [
         'agente de transito', 'agentes de transito', 'agente vial', 'agentes viales',
         'regulacion del transito', 'regulador de transito', 'seguridad vial',
