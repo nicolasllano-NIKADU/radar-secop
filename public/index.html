@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#090c13">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Radar SECOP - NIKADU IA & CERABELA</title>
+  
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/png" href="/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body data-theme="NIKADU_IA">
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast">Mensaje de notificación</div>
+
+  <!-- Header Fijo Superior -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-icon" id="brandIcon">
+        <svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <rect x="4" y="4" width="16" height="16" rx="3"/>
+          <rect x="9" y="9" width="6" height="6" rx="1"/>
+          <path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-title" id="brandTitle">NIKADU IA</div>
+        <div class="brand-subtitle" id="brandSubtitle">Radar SECOP Colombia</div>
+      </div>
+    </div>
+    <div class="status-pill" id="scannerStatusPill" title="Escaneo automático ejecutándose cada hora">
+      <div class="pulsing-dot"></div>
+      <span id="scannerStatusText">Cada 1h</span>
+    </div>
+  </header>
+
+  <!-- Contenedor Principal de Vistas -->
+  <main class="container">
+
+    <!-- ================= VISTA 1: RADAR EN VIVO ================= -->
+    <section id="view-radar" class="view-section active">
+      
+      <!-- Selector de Empresa (NIKADU IA vs CERABELA vs TODAS) -->
+      <div class="company-switcher-bar">
+        <button class="company-btn active" data-profile="NIKADU_IA">
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <rect x="4" y="4" width="16" height="16" rx="3"/>
+            <rect x="9" y="9" width="6" height="6" rx="1"/>
+            <path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/>
+          </svg>
+          <span>NIKADU IA</span>
+        </button>
+        <button class="company-btn" data-profile="CERABELA">
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M12 2c-.5 1.5-2 3-2 4.5a2 2 0 0 0 4 0c0-1.5-1.5-3-2-4.5z"/>
+            <path d="M7 10h10v11a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V10z"/>
+            <line x1="7" y1="14" x2="17" y2="14"/>
+          </svg>
+          <span>CERABELA</span>
+        </button>
+        <button class="company-btn" data-profile="ALL">
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+            <polyline points="2 17 12 22 22 17"/>
+            <polyline points="2 12 12 17 22 12"/>
+          </svg>
+          <span>Todas</span>
+        </button>
+      </div>
+
+      <!-- Stats Resumen Financiero y Métricas -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-val tabular-nums" id="statContrataciones" style="color: var(--tech-cyan);">--</div>
+          <div class="stat-label">Contrataciones (SECOP)</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val tabular-nums" id="statConvocatorias" style="color: var(--success);">--</div>
+          <div class="stat-label">Convocatorias (Fondos)</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val tabular-nums" id="statHighRel" style="color: var(--primary);">--</div>
+          <div class="stat-label">Alta Relevancia</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val tabular-nums" id="statBudget" style="font-size: 1.05rem; color: var(--champagne);">--</div>
+          <div class="stat-label">Presupuesto Total</div>
+        </div>
+      </div>
+
+      <!-- Barra de Búsqueda y Acción -->
+      <div class="action-bar">
+        <div class="search-input-wrap">
+          <span class="search-icon-slot">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </span>
+          <input type="text" id="searchInput" class="search-input" placeholder="Buscar por entidad, objeto, referencia...">
+        </div>
+        <button id="btnScanNow" class="btn-scan">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+          </svg>
+          <span>Escanear</span>
+        </button>
+      </div>
+
+      <!-- Filtros Rápidos Deslizables (Adaptables por Empresa) -->
+      <div class="filter-scroll" id="filtersScroll">
+        <!-- Renderizado dinámico desde public/app.js con SVGs -->
+      </div>
+
+      <!-- Lista de Oportunidades -->
+      <div id="cardsList" class="cards-list">
+        <div class="empty-state">
+          <div class="empty-state-icon">
+            <svg class="icon icon-lg" style="width: 42px; height: 42px;" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M12 2a10 10 0 0 1 10 10"/>
+              <path d="M12 6a6 6 0 0 1 6 6"/>
+              <circle cx="12" cy="12" r="2"/>
+              <path d="M12 14v8"/>
+              <path d="M8 22h8"/>
+            </svg>
+          </div>
+          <p>Sincronizando con SECOP II y Fondo Emprender...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= VISTA 2: FONDOS NO REEMBOLSABLES & OTRAS FUENTES ================= -->
+    <section id="view-sources" class="view-section">
+      <div style="margin-bottom: 18px;">
+        <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--champagne); margin-bottom: 6px;">Ecosistema de Fondos y Portales</h2>
+        <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;">
+          Directorio permanente de convocatorias del Estado, capital semilla no reembolsable y compras institucionales.
+        </p>
+      </div>
+
+      <div id="sourcesList">
+        <!-- Renderizado dinámico desde server/sources.js -->
+      </div>
+    </section>
+
+    <!-- ================= VISTA 3: CONFIGURACIÓN & MÓVIL ================= -->
+    <section id="view-config" class="view-section">
+      <div style="margin-bottom: 18px;">
+        <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--champagne); margin-bottom: 6px;">Configuración y Canales Móviles</h2>
+        <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;">
+          Alertas push inmediatas a tu smartphone y parámetros de ejecución del escáner autónomo.
+        </p>
+      </div>
+
+      <!-- Tarjeta Instalación Móvil (PWA) -->
+      <div class="config-card">
+        <div class="config-title">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+            <line x1="12" y1="18" x2="12.01" y2="18"/>
+          </svg>
+          <span>Instalar en tu Celular (PWA)</span>
+        </div>
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
+          Esta aplicación funciona como una app nativa en Android y iPhone, con pantalla completa, icono de inicio y acceso ultrarrápido:
+        </p>
+        <ul style="font-size: 0.8rem; color: var(--text-warm); padding-left: 20px; margin-bottom: 16px; line-height: 1.6;">
+          <li><b>Android (Chrome):</b> Toca el menú de tres puntos ⋮ y pulsa <i>"Instalar aplicación"</i> o <i>"Añadir a pantalla de inicio"</i>.</li>
+          <li><b>iPhone (Safari):</b> Presiona el botón Compartir ⎋ y selecciona <i>"Añadir a pantalla de inicio"</i>.</li>
+        </ul>
+        <button id="btnInstallPwa" class="btn-action btn-action-primary" style="display: none; width: 100%;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <polyline points="9 9 12 12 15 9"/>
+            <line x1="12" y1="3" x2="12" y2="12"/>
+            <path d="M5 20h14"/>
+          </svg>
+          <span>Instalar Aplicación en Pantalla de Inicio</span>
+        </button>
+      </div>
+
+      <!-- Tarjeta Telegram Bot -->
+      <div class="config-card">
+        <div class="config-title">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+          <span>Bot de Telegram (Alertas Push al Celular)</span>
+        </div>
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 14px; line-height: 1.5;">
+          Recibe notificaciones automáticas cada vez que el escáner descubra nuevas oportunidades afines a NIKADU IA o CERABELA.
+        </p>
+        
+        <div class="form-group">
+          <label class="form-label">Telegram Bot Token (desde @BotFather):</label>
+          <input type="password" id="cfgBotToken" class="form-input" placeholder="Ej: 1234567890:ABCdefGHIjklMNOpqrSTUvwxyz">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Tu Chat ID de Telegram (desde @userinfobot):</label>
+          <input type="text" id="cfgChatId" class="form-input" placeholder="Ej: 987654321">
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+          <button id="btnSaveTelegram" class="btn-save-cfg" style="flex: 2;">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
+            <span>Guardar Credenciales</span>
+          </button>
+          <button id="btnTestTelegram" class="btn-action btn-action-tele" style="flex: 1;">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+            <span>Probar Envío</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tarjeta Parámetros del Escáner -->
+      <div class="config-card">
+        <div class="config-title">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+          <span>Parámetros del Escáner Autónomo</span>
+        </div>
+        <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.6;">
+          • <b>Frecuencia:</b> Cada 60 minutos (Expresión cron: <code>0 * * * *</code>)<br>
+          • <b>SECOP II:</b> Socrata Open Data API (SODA) — Dataset <code>p6dx-8zbt</code><br>
+          • <b>Fondo Emprender:</b> Extractor automatizado de convocatorias activas (SENA)<br>
+          • <b>Perfiles:</b> NIKADU IA (Deep Tech / IA / Automatización) & CERABELA (Velas / Artesanías)<br>
+          • <b>Persistencia:</b> Base de datos SQLite nativa con control de duplicados
+        </p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Barra de Navegación Inferior (Mobile First Ergonomics) -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-target="view-radar">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M12 2a10 10 0 0 1 10 10"/>
+        <path d="M12 6a6 6 0 0 1 6 6"/>
+        <circle cx="12" cy="12" r="2"/>
+        <path d="M12 14v8"/>
+        <path d="M8 22h8"/>
+      </svg>
+      <span>Radar</span>
+    </button>
+    <button class="nav-item" data-target="view-sources">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <line x1="2" y1="22" x2="22" y2="22"/>
+        <line x1="4" y1="18" x2="20" y2="18"/>
+        <path d="M6 18V9"/>
+        <path d="M10 18V9"/>
+        <path d="M14 18V9"/>
+        <path d="M18 18V9"/>
+        <polygon points="12 2 2 7 22 7 12 2"/>
+      </svg>
+      <span>Fondos & Portales</span>
+    </button>
+    <button class="nav-item" data-target="view-config">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+      <span>Configuración</span>
+    </button>
+  </nav>
+
+  <!-- Modal Detalle del Pliego -->
+  <div id="detailModal" class="modal-backdrop">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div id="modalBadge" class="entity-badge">ENTIDAD</div>
+          <span id="modalTipoBadge" class="badge-tipo">CONTRATACIÓN</span>
+        </div>
+        <button id="btnCloseModal" class="btn-close-modal" aria-label="Cerrar modal">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <h3 id="modalTitle" style="font-size: 1.15rem; font-weight: 700; color: var(--champagne); margin-bottom: 6px;">Título de la Convocatoria</h3>
+      <div style="font-size: 0.75rem; color: var(--text-faint); margin-bottom: 12px;" id="modalRef">Proceso: --</div>
+
+      <div class="opp-dates-bar" id="modalDatesBar">
+        <div class="date-item">
+          <span class="date-label">Publicado:</span>
+          <span class="date-value tabular-nums" id="modalFechaPub">--</span>
+        </div>
+        <div class="date-item">
+          <span class="date-label">Cierre:</span>
+          <span class="date-value tabular-nums" id="modalFechaCierre">--</span>
+        </div>
+      </div>
+
+      <div style="background: var(--lacquer-deep); border: 1px solid var(--hairline); padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 16px;">
+        <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.04em;">Presupuesto Oficial Base</div>
+        <div id="modalPrice" class="tabular-nums" style="font-size: 1.35rem; font-weight: 800; color: var(--champagne);">--</div>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); margin-bottom: 6px;">DESCRIPCIÓN DEL OBJETO</div>
+        <p id="modalDesc" style="font-size: 0.85rem; color: var(--text-warm); line-height: 1.55;"></p>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); margin-bottom: 6px;">PALABRAS CLAVE DETECTADAS</div>
+        <div id="modalKeywords" class="keywords-tags"></div>
+      </div>
+
+      <div style="display: flex; gap: 8px;">
+        <a id="modalSecopLink" href="#" target="_blank" class="btn-action btn-action-primary" style="flex: 1;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          <span id="modalSecopLinkText">Abrir en SECOP II</span>
+        </a>
+        <button id="modalNotifyBtn" class="btn-action btn-action-tele" style="flex: 1;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+          <span>Enviar a Telegram</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

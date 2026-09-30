@@ -1,0 +1,30 @@
+{
+  "name": "radar-secop",
+  "version": "1.0.0",
+  "main": "server/app.js",
+  "scripts": {
+    "start": "node server/app.js",
+    "dev": "node --watch server/app.js",
+    "scan": "node -e \"require('./server/scanner').runScheduledScan()\""
+  },
+  "keywords": [
+    "secop",
+    "colombia",
+    "inteligencia-artificial",
+    "radar",
+    "pwa"
+  ],
+  "author": "NIKADU IA",
+  "license": "MIT",
+  "description": "Radar autónomo de convocatorias SECOP II de Inteligencia Artificial y Automatización para NIKADU IA",
+  "dependencies": {
+    "cheerio": "^1.2.0",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.4",
+    "express": "^5.2.1",
+    "node-cron": "^4.6.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
