@@ -137,6 +137,22 @@ app.post('/api/telegram/test', async (req, res) => {
   }
 });
 
+app.post('/api/telegram/detect', async (req, res) => {
+  try {
+    const detectedId = await notifier.autoDetectChatId();
+    if (detectedId) {
+      res.json({ success: true, chatId: detectedId });
+    } else {
+      res.json({
+        success: false,
+        error: "No se detectó ningún mensaje. Abre en Telegram https://t.me/SECOP_Agente_bot, presiona 'INICIAR' (o escríbele 'Hola') y vuelve a intentar."
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // 8. Reenviar notificación de una oportunidad específica a Telegram
 app.post('/api/oportunidades/:id/notificar', async (req, res) => {
   try {

@@ -591,6 +591,25 @@ document.getElementById('btnSaveTelegram').addEventListener('click', async () =>
   }
 });
 
+const btnAutoDetect = document.getElementById('btnAutoDetectChatId');
+if (btnAutoDetect) {
+  btnAutoDetect.addEventListener('click', async () => {
+    showToast('Consultando mensajes recibidos en Telegram...');
+    try {
+      const res = await fetch('/api/telegram/detect', { method: 'POST' });
+      const json = await res.json();
+      if (json.success && json.chatId) {
+        document.getElementById('cfgChatId').value = json.chatId;
+        showToast(`¡Chat ID detectado con éxito! (${json.chatId})`);
+      } else {
+        showToast(json.error || 'Abre el bot en Telegram y pulsa Iniciar primero');
+      }
+    } catch (e) {
+      showToast('Error de conexión');
+    }
+  });
+}
+
 document.getElementById('btnTestTelegram').addEventListener('click', async () => {
   showToast('Enviando mensaje de prueba al celular...');
   try {
