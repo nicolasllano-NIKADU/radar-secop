@@ -1,5 +1,6 @@
 const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
+const opsFilter = require('./opsFilter');
 
 const dbPath = path.join(__dirname, '..', 'radar_secop.db');
 const db = new DatabaseSync(dbPath);
@@ -75,6 +76,10 @@ module.exports = {
   db,
 
   saveOportunidad(item) {
+    if (opsFilter.isIndividualOps(item)) {
+      return { isNew: false, id: item.id, ignored: true };
+    }
+
     const existing = db.prepare('SELECT id, notificado, favorito, perfil, tipo_proceso FROM oportunidades WHERE id = ?').get(item.id);
     if (existing) {
       // Actualizar datos conservando favorito y notificado
@@ -147,11 +152,12 @@ module.exports = {
       params.push(tipoProceso);
     }
 
-    // Excluir procesos cerrados, cancelados, con fecha de cierre en el pasado o enlaces inválidos
-    sql += " AND (estado NOT IN ('Cerrado', 'Cancelado', 'Terminado', 'Desierto', 'Liquidado', 'Seleccionado') OR estado IS NULL)";
+    // Excluir procesos cerrados, cancelados, adjudicados, con fecha de cierre en el pasado, enlaces inválidos o contratos OPS
+    sql += " AND (estado NOT IN ('Cerrado', 'Cancelado', 'Terminado', 'Desierto', 'Liquidado', 'Seleccionado', 'Adjudicado') OR estado IS NULL)";
     sql += " AND (fecha_cierre IS NULL OR fecha_cierre = '' OR fecha_cierre >= date('now'))";
     sql += " AND url NOT LIKE '%/STS/Users/Login%'";
     sql += " AND url NOT IN ('https://artesaniasdecolombia.com.co', 'https://colombiacrea.org', 'https://minciencias.gov.co/convocatorias')";
+    sql += opsFilter.OPS_SQL_WHERE_EXCLUSION;
 
     if (fuente) {
       sql += ' AND fuente = ?';
@@ -228,7 +234,7 @@ module.exports = {
   },
 
   getStats(perfil = null) {
-    let whereClause = " WHERE (estado NOT IN ('Cerrado', 'Cancelado', 'Terminado', 'Desierto', 'Liquidado', 'Seleccionado') OR estado IS NULL) AND (fecha_cierre IS NULL OR fecha_cierre = '' OR fecha_cierre >= date('now')) AND url NOT LIKE '%/STS/Users/Login%' AND url NOT IN ('https://artesaniasdecolombia.com.co', 'https://colombiacrea.org', 'https://minciencias.gov.co/convocatorias')";
+    let whereClause = " WHERE (estado NOT IN ('Cerrado', 'Cancelado', 'Terminado', 'Desierto', 'Liquidado', 'Seleccionado', 'Adjudicado') OR estado IS NULL) AND (fecha_cierre IS NULL OR fecha_cierre = '' OR fecha_cierre >= date('now')) AND url NOT LIKE '%/STS/Users/Login%' AND url NOT IN ('https://artesaniasdecolombia.com.co', 'https://colombiacrea.org', 'https://minciencias.gov.co/convocatorias')" + opsFilter.OPS_SQL_WHERE_EXCLUSION;
     const params = [];
 
     if (perfil && perfil !== 'ALL' && perfil !== 'TODOS') {
@@ -274,10 +280,10 @@ module.exports = {
   },
 
   purgeOldClosed() {
-    // Elimina de la base de datos registros cancelados, terminados, cerrados, enlaces inválidos de login o sintéticos
+    // 1. Elimina de la base de datos registros cancelados, terminados, cerrados, adjudicados, enlaces inválidos y patrones OPS por SQL
     db.exec(`
       DELETE FROM oportunidades 
-      WHERE estado IN ('Cancelado', 'Borrador', 'Terminado', 'Liquidado', 'Desierto', 'Seleccionado')
+      WHERE estado IN ('Cancelado', 'Borrador', 'Terminado', 'Liquidado', 'Desierto', 'Seleccionado', 'Adjudicado')
          OR (fecha_cierre IS NOT NULL AND fecha_cierre != '' AND fecha_cierre < date('now'))
          OR url LIKE '%/STS/Users/Login%'
          OR url = 'https://artesaniasdecolombia.com.co'
@@ -286,7 +292,49 @@ module.exports = {
          OR url LIKE '%/aldea'
          OR url LIKE '%/convocatorias'
          OR id IN ('MINCIENCIAS-CONV-2026-IA', 'MINTIC-SOFISTICA-2026', 'INNPULSA-ALDEA-2026-IA', 'ARTESANIAS-NACIONAL-2026', 'ZASCA-ARTESANAL-2026', 'COCREA-ESTIMULOS-2026')
-         OR (fecha_publicacion < '2025-01-01' AND (fecha_cierre IS NULL OR fecha_cierre < date('now')));
+         OR (fecha_publicacion < '2025-01-01' AND (fecha_cierre IS NULL OR fecha_cierre < date('now')))
+         OR lower(nombre) LIKE '%prestacion de servicios profesionales%'
+         OR lower(nombre) LIKE '%prestación de servicios profesionales%'
+         OR lower(nombre) LIKE '%apoyo a la gestion%'
+         OR lower(nombre) LIKE '%apoyo a la gestión%'
+         OR lower(nombre) LIKE '%orden de prestaci%'
+         OR lower(nombre) LIKE '%prestar como contratista%'
+         OR lower(descripcion) LIKE '%prestacion de servicios profesionales%'
+         OR lower(descripcion) LIKE '%prestación de servicios profesionales%'
+         OR lower(descripcion) LIKE '%prestar servicios profesionales%'
+         OR lower(descripcion) LIKE '%prestar los servicios profesionales%'
+         OR lower(descripcion) LIKE '%apoyo a la gestion%'
+         OR lower(descripcion) LIKE '%apoyo a la gestión%'
+         OR lower(descripcion) LIKE '%apoyo a la gestion institucional%'
+         OR lower(descripcion) LIKE '%apoyo a la gestión institucional%'
+         OR lower(descripcion) LIKE '%orden de prestacion de servicios%'
+         OR lower(descripcion) LIKE '%orden de prestación de servicios%'
+         OR lower(descripcion) LIKE '%prestar como contratista sus servicios%'
+         OR lower(descripcion) LIKE '%prestar sus servicios como contratista%'
+         OR lower(referencia) LIKE 'ops%'
+         OR lower(referencia) LIKE 'opsp%'
+         OR lower(referencia) LIKE 'ods %'
+         OR id LIKE 'OPS%'
+         OR id LIKE 'OPSP%'
+         OR score_relevancia <= 0
+         OR palabras_clave_match = '[]'
+         OR palabras_clave_match IS NULL;
     `);
+
+    // 2. Segunda pasada exhaustiva con isIndividualOps para eliminar contrataciones de personas naturales por nombre propio en título
+    try {
+      const rows = db.prepare('SELECT id, referencia, nombre, descripcion FROM oportunidades').all();
+      const deleteStmt = db.prepare('DELETE FROM oportunidades WHERE id = ?');
+      for (const row of rows) {
+        if (opsFilter.isIndividualOps(row)) {
+          deleteStmt.run(row.id);
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ Error en pasada secundaria de depuración OPS:', e.message);
+    }
   }
 };
+
+// Ejecutar depuración al inicio para garantizar que la base de datos esté libre de OPS
+module.exports.purgeOldClosed();

@@ -3,6 +3,7 @@ const db = require('./database');
 const notifier = require('./notifier');
 const fondoEmprender = require('./fondoEmprender');
 const sourcesCatalog = require('./sources');
+const opsFilter = require('./opsFilter');
 
 class Scanner {
   constructor() {
@@ -11,13 +12,12 @@ class Scanner {
 
   // Normaliza texto eliminando tildes y caracteres extraños para comparación
   normalizeText(text) {
-    if (!text) return '';
-    return text
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
+    return opsFilter.normalizeText(text);
+  }
+
+  // Detecta si un proceso corresponde a una OPS o prestación de servicios individual para persona natural
+  isIndividualOps(item) {
+    return opsFilter.isIndividualOps(item);
   }
 
   // Clasifica dinámicamente un proceso de SECOP II en CONVOCATORIA (abierta/competitiva) o CONTRATACION (directa)
@@ -79,6 +79,11 @@ class Scanner {
     const hasPureAi = combined.includes('inteligencia artificial') || combined.includes('machine learning') || combined.includes('ia generativa');
 
     if (hasNegative && !hasPureAi) {
+      return { score: 0, matched: [] };
+    }
+
+    // Exclusión estricta de contratos de prestación de servicios individuales (OPS)
+    if (this.isIndividualOps({ nombre: title, descripcion: description })) {
       return { score: 0, matched: [] };
     }
 
@@ -206,6 +211,11 @@ class Scanner {
       return { score: 0, matched: [] };
     }
 
+    // Exclusión estricta de contratos de prestación de servicios individuales (OPS)
+    if (this.isIndividualOps({ nombre: title, descripcion: description })) {
+      return { score: 0, matched: [] };
+    }
+
     const matched = [];
     let score = 0;
 
@@ -278,8 +288,8 @@ class Scanner {
       likeConditions = `(${likeConditions})`;
     }
 
-    // Filtrar estrictamente: solo procesos Publicados o Abiertos, NO adjudicados
-    let whereClause = `${likeConditions} and estado_del_procedimiento in ('Publicado', 'Abierto') and adjudicado != 'Si'`;
+    // Filtrar estrictamente: solo procesos Publicados o Abiertos, NO adjudicados y sin contratos de prestación de servicios individuales (OPS)
+    let whereClause = `${likeConditions} and estado_del_procedimiento in ('Publicado', 'Abierto') and adjudicado != 'Si' and ${opsFilter.OPS_SOQL_EXCLUSIONS}`;
 
     if (hoursBack) {
       const pastDate = new Date(Date.now() - hoursBack * 60 * 60 * 1000).toISOString();
@@ -324,6 +334,11 @@ class Scanner {
       for (const item of data) {
         const id = item.referencia_del_proceso || item.id_del_proceso;
         if (!id) continue;
+
+        // EXCLUSIÓN ESTRICTA DE OPS: Descartar contratos de prestación de servicios profesionales y de apoyo a la gestión (personas naturales)
+        if (this.isIndividualOps(item)) {
+          continue;
+        }
 
         // VALIDACIÓN CRÍTICA DE URL: Solo aceptar enlaces directos al pliego público OpportunityDetail
         const procesoUrl = item.urlproceso && item.urlproceso.url ? item.urlproceso.url : null;
