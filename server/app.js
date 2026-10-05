@@ -14,11 +14,35 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
+// Verificación inteligente para entornos serverless/PaaS (Render free tier):
+// Si el contenedor se despierta o el usuario entra y el último escaneo tiene más de 45 minutos, escanea en segundo plano
+let lastAutoCheckTime = 0;
+function triggerAutoSyncIfNeeded() {
+  const now = Date.now();
+  if (now - lastAutoCheckTime < 5 * 60 * 1000) return; // Evitar chequeos repetidos en ráfaga
+  lastAutoCheckTime = now;
+
+  try {
+    const stats = db.getStats();
+    const ultimoScan = stats.ultimoEscaneo;
+    const lastScanTime = ultimoScan && ultimoScan.fecha ? new Date(ultimoScan.fecha).getTime() : 0;
+    const elapsedMinutes = (now - lastScanTime) / (60 * 1000);
+
+    if ((elapsedMinutes > 45 || !ultimoScan) && !scanner.isScanning) {
+      console.log(`⏰ [Auto-Sync] Último escaneo fue hace ${Math.round(elapsedMinutes)} min. Sincronizando SECOP II en segundo plano...`);
+      scanner.runScheduledScan().catch(err => console.warn('⚠️ Error en auto-sync SECOP II:', err.message));
+    }
+  } catch (err) {
+    console.warn('⚠️ Error verificando estado de escaneo:', err.message);
+  }
+}
+
 // ==================== RUTAS DE LA API ====================
 
 // 1. Listar oportunidades con filtros avanzados
 app.get('/api/oportunidades', (req, res) => {
   try {
+    triggerAutoSyncIfNeeded();
     const { search, keyword, fuente, perfil, tipoProceso, minPrice, maxPrice, onlyFavorites, minScore, limit, offset } = req.query;
     const items = db.getOportunidades({
       search,
@@ -86,6 +110,7 @@ app.post('/api/scan', async (req, res) => {
 // 5. Estadísticas del Radar por Perfil
 app.get('/api/stats', (req, res) => {
   try {
+    triggerAutoSyncIfNeeded();
     const stats = db.getStats(req.query.perfil);
     res.json({ success: true, data: stats });
   } catch (err) {
@@ -185,11 +210,13 @@ const server = app.listen(config.port, async () => {
     scanner.runScheduledScan();
   });
 
-  // Ejecución inicial si la base de datos está vacía
+  // Sincronización al iniciar si la base de datos está vacía o si han pasado más de 45 min
   const stats = db.getStats();
   if (stats.totalOportunidades === 0) {
     console.log('🌱 Base de datos vacía. Ejecutando primer escaneo de inicialización...');
     scanner.runScheduledScan();
+  } else {
+    triggerAutoSyncIfNeeded();
   }
 });
 

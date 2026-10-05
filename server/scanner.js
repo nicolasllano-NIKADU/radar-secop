@@ -294,13 +294,15 @@ class Scanner {
     if (hoursBack) {
       const pastDate = new Date(Date.now() - hoursBack * 60 * 60 * 1000).toISOString();
       whereClause += ` and (fecha_de_publicacion_del >= '${pastDate}' or fecha_de_ultima_publicaci >= '${pastDate}')`;
+    } else {
+      whereClause += ` and fecha_de_publicacion_del >= '2025-01-01T00:00:00.000'`;
     }
 
     return whereClause;
   }
 
   // Ejecuta escaneo en SECOP II para un perfil determinado con validación rigurosa de URLs
-  async scanSECOPIIForProfile(profileKey, limit = 80, hoursBack = null) {
+  async scanSECOPIIForProfile(profileKey, limit = 120, hoursBack = null) {
     let nuevosContador = 0;
     let totalRevisados = 0;
     const todayStr = new Date().toISOString().slice(0, 10);
@@ -309,7 +311,7 @@ class Scanner {
       const whereClause = this.buildSoqlWhere(profileKey, hoursBack);
       const params = new URLSearchParams({
         $where: whereClause,
-        $order: 'id_del_proceso DESC',
+        $order: 'fecha_de_publicacion_del DESC',
         $limit: String(limit)
       });
 
@@ -443,10 +445,10 @@ class Scanner {
       db.purgeOldClosed();
 
       // 1. Escanear SECOP II para NIKADU IA (Contrataciones y convocatorias activas)
-      const nikaduRes = await this.scanSECOPIIForProfile('NIKADU_IA', 100, null);
+      const nikaduRes = await this.scanSECOPIIForProfile('NIKADU_IA', 120, null);
 
       // 2. Escanear SECOP II para CERABELA (Contrataciones y convocatorias activas de velas y artesanías)
-      const cerabelaRes = await this.scanSECOPIIForProfile('CERABELA', 100, null);
+      const cerabelaRes = await this.scanSECOPIIForProfile('CERABELA', 120, null);
 
       // 3. Escanear Fondo Emprender en fondoemprender.com (solo convocatorias vigentes con enlaces puntuales)
       let feRes = { nuevos: 0, total: 0 };
