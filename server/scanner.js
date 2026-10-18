@@ -415,8 +415,12 @@ class Scanner {
           if (result.isNew) {
             nuevosContador++;
             console.log(`✨ [${profileKey} - ${tipoProceso}] Nueva: [${score}%] ${id} - ${item.entidad}`);
-            if (score >= 65) {
+            const shouldNotify = (tipoProceso === 'CONVOCATORIA') ||
+                                 (profileKey === 'CERABELA' && score >= 25) ||
+                                 (profileKey === 'NIKADU_IA' && score >= 45);
+            if (shouldNotify) {
               await notifier.notifyOportunidad(oportunidad);
+              await new Promise(r => setTimeout(r, 1000));
             }
           }
         }
@@ -470,6 +474,9 @@ class Scanner {
         mensaje: `Escaneo completado. ${totalNuevos} nuevos (NIKADU: ${nikaduRes.nuevos || 0}, CERABELA: ${cerabelaRes.nuevos || 0}, FE: ${feRes.nuevos || 0}).`
       });
 
+      // 4. Vaciar cola de notificaciones pendientes (priorizando convocatorias, máx 5 por ciclo)
+      await this.flushPendingNotifications(5);
+
       return {
         success: true,
         nuevos: totalNuevos,
@@ -481,6 +488,22 @@ class Scanner {
       };
     } finally {
       this.isScanning = false;
+    }
+  }
+
+  // Notifica en Telegram oportunidades pendientes de notificación
+  async flushPendingNotifications(limit = 5) {
+    try {
+      const pending = db.getPendingNotifications(limit);
+      if (pending && pending.length > 0) {
+        console.log(`📨 [Telegram Queue] Despachando ${pending.length} notificaciones pendientes...`);
+        for (const item of pending) {
+          await notifier.notifyOportunidad(item);
+          await new Promise(r => setTimeout(r, 1200)); // Delay para respetar límites de Telegram
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ Error en cola de notificaciones pendientes:', e.message);
     }
   }
 }

@@ -130,23 +130,31 @@ class Notifier {
 
     const isCerabela = item.perfil === 'CERABELA';
     const brandIcon = isCerabela ? '🕯️' : '🤖';
-    const brandTitle = isCerabela ? 'Radar CERABELA - Velas Artesanales' : 'Radar NIKADU IA - Inteligencia Artificial';
+    const brandTitle = isCerabela ? 'Radar CERABELA - Velas & Artesanías' : 'Radar NIKADU IA - Inteligencia Artificial & Tech';
     const relLabel = isCerabela ? 'Relevancia Artesanal' : 'Relevancia IA';
 
+    const isConv = item.tipo_proceso === 'CONVOCATORIA';
+    const badge = isConv ? '📢 ¡NUEVA CONVOCATORIA DETECTADA!' : '📑 ¡NUEVA CONTRATACIÓN DETECTADA!';
+    const fechaPub = item.fecha_publicacion ? item.fecha_publicacion.slice(0, 10) : 'Reciente';
+    const fechaCierre = item.fecha_cierre ? item.fecha_cierre.slice(0, 10) : 'Vigente / Por definir';
+
     const message = `
-🚨 <b>¡NUEVA CONVOCATORIA DETECTADA!</b> ${brandIcon}
+${badge} ${brandIcon}
 <b>${brandTitle}</b>
 
 🏢 <b>Entidad:</b> ${item.entidad || 'No definida'}
 📍 <b>Ubicación:</b> ${item.ciudad || ''}, ${item.departamento || 'Colombia'}
 📌 <b>Proceso:</b> <code>${item.referencia || item.id}</code>
+📑 <b>Tipo:</b> <b>${item.tipo_proceso || 'CONTRATACION'}</b>
 💰 <b>Presupuesto:</b> <b>${precio}</b>
+📅 <b>Publicado:</b> ${fechaPub}
+⏳ <b>Cierre:</b> <b>${fechaCierre}</b>
 🎯 <b>${relLabel}:</b> <b>${item.score_relevancia}%</b>
 🏷️ <b>Keywords:</b> <i>${matches || 'General'}</i>
 📊 <b>Fase:</b> ${item.fase || 'Presentación de ofertas'}
 
 📝 <b>Objeto:</b>
-${(item.nombre || item.descripcion || '').slice(0, 300)}...
+${(item.nombre || item.descripcion || '').slice(0, 320)}...
     `.trim();
 
     const inlineKeyboard = [];

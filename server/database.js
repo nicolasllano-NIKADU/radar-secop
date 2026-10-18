@@ -225,6 +225,30 @@ module.exports = {
     db.prepare('UPDATE oportunidades SET notificado = 1 WHERE id = ?').run(id);
   },
 
+  getPendingNotifications(limit = 5) {
+    const sql = `
+      SELECT * FROM oportunidades 
+      WHERE notificado = 0 
+        AND (estado NOT IN ('Cerrado', 'Cancelado', 'Terminado', 'Desierto', 'Liquidado', 'Seleccionado', 'Adjudicado') OR estado IS NULL)
+        AND (fecha_cierre IS NULL OR fecha_cierre = '' OR fecha_cierre >= date('now'))
+        AND (
+          tipo_proceso = 'CONVOCATORIA'
+          OR (perfil = 'CERABELA' AND score_relevancia >= 25)
+          OR (perfil = 'NIKADU_IA' AND score_relevancia >= 45)
+        )
+      ORDER BY 
+        CASE WHEN tipo_proceso = 'CONVOCATORIA' THEN 1 ELSE 2 END,
+        COALESCE(NULLIF(fecha_publicacion, ''), creado_en) DESC, 
+        score_relevancia DESC
+      LIMIT ?
+    `;
+    const rows = db.prepare(sql).all(limit);
+    return rows.map(r => ({
+      ...r,
+      palabras_clave_match: JSON.parse(r.palabras_clave_match || '[]')
+    }));
+  },
+
   logScan(data) {
     const stmt = db.prepare(`
       INSERT INTO escaneo_logs (nuevos_encontrados, total_revisados, duracion_ms, estado, mensaje)
