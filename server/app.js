@@ -96,12 +96,34 @@ app.post('/api/oportunidades/:id/favorito', (req, res) => {
   }
 });
 
-// 4. Disparar escaneo manual bajo demanda
-app.post('/api/scan', async (req, res) => {
+// 4. Disparar escaneo manual o ping desde cron-job.org / uptime
+app.all(['/api/scan', '/api/cron'], async (req, res) => {
+  // Si la petición viene de un cron-job o navegador en segundo plano (GET/HEAD o query async)
+  // respondemos de inmediato con ~25 bytes para evitar 'Response data too big' y timeouts en cron-job.org
+  if (req.method === 'GET' || req.method === 'HEAD' || req.query.async === 'true') {
+    res.status(200).json({ ok: true, scanning: true });
+    if (!scanner.isScanning) {
+      console.log(`⚡ [Cron Ping - ${req.method}] Petición recibida en ${req.path}. Ejecutando escaneo en segundo plano...`);
+      scanner.runScheduledScan().catch(err => {
+        console.warn('⚠️ Error en escaneo disparado por cron-job:', err.message);
+      });
+    } else {
+      console.log(`⏳ [Cron Ping - ${req.method}] Escaneo ya en progreso.`);
+    }
+    return;
+  }
+
+  // Si es POST sincrónico (ej. botón 'Escanear' en la UI), ejecutamos y devolvemos resumen compacto (<100 bytes)
   try {
-    console.log('⚡ Disparo de escaneo manual recibido vía API');
+    console.log('⚡ Disparo de escaneo manual recibido vía POST');
     const result = await scanner.runScheduledScan();
-    res.json(result);
+    res.json({
+      success: result.success !== false,
+      ok: true,
+      nuevos: result.nuevos || 0,
+      total: result.total || 0,
+      mensaje: result.message || 'Escaneo completado'
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
