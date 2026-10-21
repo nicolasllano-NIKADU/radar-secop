@@ -316,10 +316,15 @@ class Scanner {
   }
 
   // Ejecuta escaneo incremental en SECOP II para un perfil determinado con validación rigurosa de URLs
-  async scanSECOPIIForProfile(profileKey, limit = 60, sinceDate = null) {
+  async scanSECOPIIForProfile(profileKey, limit = 60, sinceDate = null, notifyTelegram = true) {
     let nuevosContador = 0;
-    let totalRevisados = 0;
-    const todayStr = new Date().toISOString().slice(0, 10);
+    let notificacionesEnviadas = 0;
+    const MAX_NOTIFICACIONES_POR_CICLO = 3; // Cortacircuito estricto: máximo 3 alertas por perfil por ciclo
+
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    const yest = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const yesterdayStr = yest.toISOString().slice(0, 10);
 
     try {
       const whereClause = this.buildSoqlWhere(profileKey, sinceDate);
@@ -428,13 +433,28 @@ class Scanner {
           const result = db.saveOportunidad(oportunidad);
           if (result.isNew) {
             nuevosContador++;
-            console.log(`✨ [${profileKey} - ${tipoProceso}] Nueva: [${score}%] ${id} - ${item.entidad}`);
-            const shouldNotify = (tipoProceso === 'CONVOCATORIA') ||
+            console.log(`✨ [${profileKey} - ${tipoProceso}] Nueva en BD: [${score}%] ${id} - ${item.entidad}`);
+
+            // PROTECCIONES DE SEGURIDAD ESTRICTAS CONTRA SPAM Y RÁFAGAS:
+            // 1. Debe haber sido publicado HOY o AYER (NUNCA notificar a Telegram procesos con fecha anterior)
+            const esReciente = fechaPub >= yesterdayStr;
+
+            // 2. Criterio de relevancia para el perfil
+            const esRelevante = (tipoProceso === 'CONVOCATORIA') ||
                                  (profileKey === 'CERABELA' && score >= 25) ||
                                  (profileKey === 'NIKADU_IA' && score >= 45);
-            if (shouldNotify) {
+
+            // 3. Cortacircuito estricto: máximo MAX_NOTIFICACIONES_POR_CICLO por escaneo
+            const bajoLimite = notificacionesEnviadas < MAX_NOTIFICACIONES_POR_CICLO;
+
+            if (notifyTelegram && esReciente && esRelevante && bajoLimite) {
+              notificacionesEnviadas++;
+              console.log(`📢 [Telegram ${notificacionesEnviadas}/${MAX_NOTIFICACIONES_POR_CICLO}] Enviando alerta: ${id} (${item.entidad})`);
               await notifier.notifyOportunidad(oportunidad);
-              await new Promise(r => setTimeout(r, 1000));
+              await new Promise(r => setTimeout(r, 1200));
+            } else {
+              // Si no califica para alerta (ej. es histórico o superó el límite), se marca como visto silenciosamente
+              db.markNotificado(id);
             }
           }
         }
@@ -448,7 +468,7 @@ class Scanner {
   }
 
   // Escaneo incremental horario: solo consulta lo nuevo publicado tras la última consulta
-  async runScheduledScan() {
+  async runScheduledScan({ notifyTelegram = true } = {}) {
     if (this.isScanning) {
       console.log('⏳ Escaneo en progreso, omitiendo ejecución simultánea.');
       return { success: false, message: 'Escaneo en curso' };
@@ -457,17 +477,17 @@ class Scanner {
     this.isScanning = true;
     const startTime = Date.now();
     const sinceDate = this.getScanSinceDate();
-    console.log(`⏰ [${new Date().toLocaleTimeString('es-CO')}] Escáner incremental: buscando publicaciones desde ${sinceDate}...`);
+    console.log(`⏰ [${new Date().toLocaleTimeString('es-CO')}] Escáner incremental: buscando publicaciones desde ${sinceDate}... (Alertas Telegram: ${notifyTelegram})`);
 
     try {
       // 0. Depurar oportunidades cerradas o con enlaces inválidos de la base de datos
       db.purgeOldClosed();
 
       // 1. Escanear SECOP II para NIKADU IA (solo lo nuevo publicado tras la fecha de última consulta)
-      const nikaduRes = await this.scanSECOPIIForProfile('NIKADU_IA', 60, sinceDate);
+      const nikaduRes = await this.scanSECOPIIForProfile('NIKADU_IA', 60, sinceDate, notifyTelegram);
 
       // 2. Escanear SECOP II para CERABELA (solo lo nuevo publicado tras la fecha de última consulta)
-      const cerabelaRes = await this.scanSECOPIIForProfile('CERABELA', 60, sinceDate);
+      const cerabelaRes = await this.scanSECOPIIForProfile('CERABELA', 60, sinceDate, notifyTelegram);
 
       // 3. Escanear Fondo Emprender en fondoemprender.com (solo convocatorias vigentes)
       let feRes = { nuevos: 0, total: 0 };

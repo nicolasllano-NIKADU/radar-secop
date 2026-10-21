@@ -235,8 +235,8 @@ const server = app.listen(config.port, async () => {
   // Sincronización al iniciar si la base de datos está vacía o si han pasado más de 45 min
   const stats = db.getStats();
   if (stats.totalOportunidades === 0) {
-    console.log('🌱 Base de datos vacía. Ejecutando primer escaneo de inicialización...');
-    scanner.runScheduledScan();
+    console.log('🌱 Base de datos vacía. Ejecutando primer escaneo de inicialización silencioso...');
+    scanner.runScheduledScan({ notifyTelegram: false });
   } else {
     triggerAutoSyncIfNeeded();
   }
