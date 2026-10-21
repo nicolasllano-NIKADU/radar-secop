@@ -318,6 +318,7 @@ class Scanner {
   // Ejecuta escaneo incremental en SECOP II para un perfil determinado con validación rigurosa de URLs
   async scanSECOPIIForProfile(profileKey, limit = 60, sinceDate = null, notifyTelegram = true) {
     let nuevosContador = 0;
+    let totalRevisados = 0;
     let notificacionesEnviadas = 0;
     const MAX_NOTIFICACIONES_POR_CICLO = 3; // Cortacircuito estricto: máximo 3 alertas por perfil por ciclo
 
