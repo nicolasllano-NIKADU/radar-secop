@@ -274,8 +274,26 @@ class Scanner {
     };
   }
 
-  // Construye la cláusula SoQL $where para un perfil EXCLUSIVAMENTE CON PROCESOS ACTIVOS
-  buildSoqlWhere(profileKey, hoursBack = null) {
+  // Determina la fecha desde la cual consultar según la última consulta exitosa
+  getScanSinceDate() {
+    try {
+      const lastScanDate = db.getConfig('last_scan_date');
+      if (lastScanDate && /^\d{4}-\d{2}-\d{2}$/.test(lastScanDate)) {
+        return `${lastScanDate}T00:00:00.000`;
+      }
+    } catch (e) {
+      console.warn('⚠️ Error leyendo last_scan_date:', e.message);
+    }
+    // Si no hay registro previo, consultar desde ayer (últimas 24 horas)
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const yyyy = yesterday.getFullYear();
+    const mm = String(yesterday.getMonth() + 1).padStart(2, '0');
+    const dd = String(yesterday.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}T00:00:00.000`;
+  }
+
+  // Construye la cláusula SoQL $where para un perfil EXCLUSIVAMENTE CON PROCESOS ACTIVOS Y NUEVOS
+  buildSoqlWhere(profileKey, sinceDate = null) {
     let likeConditions = '';
     if (profileKey === 'CERABELA') {
       likeConditions = `(lower(descripci_n_del_procedimiento) like '%velas%' or lower(descripci_n_del_procedimiento) like '%velones%' or lower(descripci_n_del_procedimiento) like '%artesani%' or lower(descripci_n_del_procedimiento) like '%hecho a mano%' or lower(descripci_n_del_procedimiento) like '%cera de %' or lower(descripci_n_del_procedimiento) like '%parafina%' or lower(descripci_n_del_procedimiento) like '%obsequios%' or lower(descripci_n_del_procedimiento) like '%souvenirs%' or lower(descripci_n_del_procedimiento) like '%recordatorios%' or lower(nombre_del_procedimiento) like '%velas%' or lower(nombre_del_procedimiento) like '%artesani%') and not (lower(descripci_n_del_procedimiento) like '%pesca%')`;
@@ -291,24 +309,20 @@ class Scanner {
     // Filtrar estrictamente: solo procesos Publicados o Abiertos, NO adjudicados y sin contratos de prestación de servicios individuales (OPS)
     let whereClause = `${likeConditions} and estado_del_procedimiento in ('Publicado', 'Abierto') and adjudicado != 'Si' and ${opsFilter.OPS_SOQL_EXCLUSIONS}`;
 
-    if (hoursBack) {
-      const pastDate = new Date(Date.now() - hoursBack * 60 * 60 * 1000).toISOString();
-      whereClause += ` and (fecha_de_publicacion_del >= '${pastDate}' or fecha_de_ultima_publicaci >= '${pastDate}')`;
-    } else {
-      whereClause += ` and fecha_de_publicacion_del >= '2025-01-01T00:00:00.000'`;
-    }
+    const fromDate = sinceDate || this.getScanSinceDate();
+    whereClause += ` and (fecha_de_publicacion_del >= '${fromDate}' or fecha_de_ultima_publicaci >= '${fromDate}')`;
 
     return whereClause;
   }
 
-  // Ejecuta escaneo en SECOP II para un perfil determinado con validación rigurosa de URLs
-  async scanSECOPIIForProfile(profileKey, limit = 120, hoursBack = null) {
+  // Ejecuta escaneo incremental en SECOP II para un perfil determinado con validación rigurosa de URLs
+  async scanSECOPIIForProfile(profileKey, limit = 60, sinceDate = null) {
     let nuevosContador = 0;
     let totalRevisados = 0;
     const todayStr = new Date().toISOString().slice(0, 10);
 
     try {
-      const whereClause = this.buildSoqlWhere(profileKey, hoursBack);
+      const whereClause = this.buildSoqlWhere(profileKey, sinceDate);
       const params = new URLSearchParams({
         $where: whereClause,
         $order: 'fecha_de_publicacion_del DESC',
@@ -433,7 +447,7 @@ class Scanner {
     }
   }
 
-  // Escaneo integral horario de todos los perfiles y fuentes
+  // Escaneo incremental horario: solo consulta lo nuevo publicado tras la última consulta
   async runScheduledScan() {
     if (this.isScanning) {
       console.log('⏳ Escaneo en progreso, omitiendo ejecución simultánea.');
@@ -442,19 +456,20 @@ class Scanner {
 
     this.isScanning = true;
     const startTime = Date.now();
-    console.log(`⏰ [${new Date().toLocaleTimeString('es-CO')}] Iniciando escáner integral (NIKADU IA & CERABELA)...`);
+    const sinceDate = this.getScanSinceDate();
+    console.log(`⏰ [${new Date().toLocaleTimeString('es-CO')}] Escáner incremental: buscando publicaciones desde ${sinceDate}...`);
 
     try {
       // 0. Depurar oportunidades cerradas o con enlaces inválidos de la base de datos
       db.purgeOldClosed();
 
-      // 1. Escanear SECOP II para NIKADU IA (Contrataciones y convocatorias activas)
-      const nikaduRes = await this.scanSECOPIIForProfile('NIKADU_IA', 120, null);
+      // 1. Escanear SECOP II para NIKADU IA (solo lo nuevo publicado tras la fecha de última consulta)
+      const nikaduRes = await this.scanSECOPIIForProfile('NIKADU_IA', 60, sinceDate);
 
-      // 2. Escanear SECOP II para CERABELA (Contrataciones y convocatorias activas de velas y artesanías)
-      const cerabelaRes = await this.scanSECOPIIForProfile('CERABELA', 120, null);
+      // 2. Escanear SECOP II para CERABELA (solo lo nuevo publicado tras la fecha de última consulta)
+      const cerabelaRes = await this.scanSECOPIIForProfile('CERABELA', 60, sinceDate);
 
-      // 3. Escanear Fondo Emprender en fondoemprender.com (solo convocatorias vigentes con enlaces puntuales)
+      // 3. Escanear Fondo Emprender en fondoemprender.com (solo convocatorias vigentes)
       let feRes = { nuevos: 0, total: 0 };
       try {
         feRes = await fondoEmprender.scanFondoEmprender();
@@ -466,44 +481,32 @@ class Scanner {
       const totalRevisados = (nikaduRes.total || 0) + (cerabelaRes.total || 0) + (feRes.total || 0);
       const duracion = Date.now() - startTime;
 
+      // Actualizar marca de fecha del último escaneo
+      const todayStr = new Date().toISOString().slice(0, 10);
+      db.setConfig('last_scan_date', todayStr);
+
       db.logScan({
         nuevos: totalNuevos,
         total: totalRevisados,
         duracion,
         estado: 'OK',
-        mensaje: `Escaneo completado. ${totalNuevos} nuevos (NIKADU: ${nikaduRes.nuevos || 0}, CERABELA: ${cerabelaRes.nuevos || 0}, FE: ${feRes.nuevos || 0}).`
+        mensaje: `Escaneo incremental: ${totalNuevos} nuevos (NIKADU: ${nikaduRes.nuevos || 0}, CERABELA: ${cerabelaRes.nuevos || 0}, FE: ${feRes.nuevos || 0}).`
       });
 
-      // 4. Vaciar cola de notificaciones pendientes (priorizando convocatorias, máx 5 por ciclo)
-      await this.flushPendingNotifications(5);
+      console.log(`✅ Escaneo incremental finalizado: ${totalNuevos} nuevos detectados en esta consulta.`);
 
       return {
         success: true,
         nuevos: totalNuevos,
         total: totalRevisados,
         duracionMs: duracion,
+        consultadoDesde: sinceDate,
         nikadu: nikaduRes,
         cerabela: cerabelaRes,
         fondoEmprender: feRes
       };
     } finally {
       this.isScanning = false;
-    }
-  }
-
-  // Notifica en Telegram oportunidades pendientes de notificación
-  async flushPendingNotifications(limit = 5) {
-    try {
-      const pending = db.getPendingNotifications(limit);
-      if (pending && pending.length > 0) {
-        console.log(`📨 [Telegram Queue] Despachando ${pending.length} notificaciones pendientes...`);
-        for (const item of pending) {
-          await notifier.notifyOportunidad(item);
-          await new Promise(r => setTimeout(r, 1200)); // Delay para respetar límites de Telegram
-        }
-      }
-    } catch (e) {
-      console.warn('⚠️ Error en cola de notificaciones pendientes:', e.message);
     }
   }
 }
