@@ -25,6 +25,7 @@ const bidDocumentGenerator = require('./bidDocumentGenerator');
 const scoringEngine = require('./scoringEngine');
 const pliegoObservationsEngine = require('./pliegoObservationsEngine');
 const evaluationChallengeEngine = require('./evaluationChallengeEngine');
+const winRateAnalyticsEngine = require('./winRateAnalyticsEngine');
 const initDb = require('./initDb');
 
 const app = express();
@@ -1314,6 +1315,19 @@ app.get('/api/evaluacion/historial/:procesoId', async (req, res) => {
     res.json({ success: true, count: historial.length, data: historial });
   } catch (err) {
     console.error('Error listando memoriales de evaluación:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== MÓDULO: TABLERO EJECUTIVO DE WIN RATE & ROI ANALYTICS ====================
+
+app.get('/api/analytics/win-rate', async (req, res) => {
+  try {
+    const { empresaId, periodo } = req.query;
+    const analytics = await winRateAnalyticsEngine.getExecutiveAnalytics(empresaId || null, periodo || 'ALL');
+    res.json({ success: true, data: analytics });
+  } catch (err) {
+    console.error('Error calculando métricas de win rate y analytics:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

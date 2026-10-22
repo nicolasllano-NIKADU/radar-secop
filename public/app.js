@@ -4793,6 +4793,201 @@ document.getElementById('evaluationChallengeModal')?.addEventListener('click', (
   }
 });
 
+// ==================== MÓDULO 12: TABLERO EJECUTIVO DE WIN RATE & ROI ANALYTICS ====================
+
+let currentAnalyticsPeriodo = 'ALL';
+
+// Sub-navegación dentro de Pipeline (Kanban vs Analytics)
+document.getElementById('tabPipeKanbanBtn')?.addEventListener('click', () => {
+  const kanbanWrapper = document.getElementById('pipelineKanbanViewWrapper');
+  const analyticsContainer = document.getElementById('pipelineAnalyticsContainer');
+  const btnK = document.getElementById('tabPipeKanbanBtn');
+  const btnA = document.getElementById('tabPipeAnalyticsBtn');
+
+  if (kanbanWrapper) kanbanWrapper.style.display = 'block';
+  if (analyticsContainer) analyticsContainer.style.display = 'none';
+
+  if (btnK) btnK.style.cssText = 'font-size: 0.8rem; padding: 6px 14px; background: rgba(0, 229, 255, 0.15); border: 1px solid var(--tech-cyan); color: var(--tech-cyan); font-weight: 700;';
+  if (btnA) btnA.style.cssText = 'font-size: 0.8rem; padding: 6px 14px; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-warm);';
+});
+
+document.getElementById('tabPipeAnalyticsBtn')?.addEventListener('click', () => {
+  const kanbanWrapper = document.getElementById('pipelineKanbanViewWrapper');
+  const analyticsContainer = document.getElementById('pipelineAnalyticsContainer');
+  const btnK = document.getElementById('tabPipeKanbanBtn');
+  const btnA = document.getElementById('tabPipeAnalyticsBtn');
+
+  if (kanbanWrapper) kanbanWrapper.style.display = 'none';
+  if (analyticsContainer) analyticsContainer.style.display = 'flex';
+
+  if (btnA) btnA.style.cssText = 'font-size: 0.8rem; padding: 6px 14px; background: rgba(0, 229, 255, 0.15); border: 1px solid var(--tech-cyan); color: var(--tech-cyan); font-weight: 700;';
+  if (btnK) btnK.style.cssText = 'font-size: 0.8rem; padding: 6px 14px; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-warm);';
+
+  cargarWinRateAnalytics();
+});
+
+// Filtros de período analytics
+document.querySelectorAll('.btn-periodo-analytics').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    document.querySelectorAll('.btn-periodo-analytics').forEach(b => {
+      b.classList.remove('active');
+      b.style.background = 'var(--lacquer-surface)';
+      b.style.borderColor = 'var(--hairline)';
+      b.style.color = 'var(--text-warm)';
+    });
+    btn.classList.add('active');
+    btn.style.background = 'rgba(0, 229, 255, 0.15)';
+    btn.style.borderColor = 'var(--tech-cyan)';
+    btn.style.color = 'var(--tech-cyan)';
+
+    currentAnalyticsPeriodo = btn.dataset.periodo || 'ALL';
+    cargarWinRateAnalytics(currentAnalyticsPeriodo);
+  });
+});
+
+async function cargarWinRateAnalytics(periodo = currentAnalyticsPeriodo) {
+  try {
+    const res = await fetch(`/api/analytics/win-rate?periodo=${periodo}`);
+    const json = await res.json();
+    if (!json.success || !json.data) return;
+
+    renderWinRateAnalytics(json.data);
+  } catch (err) {
+    console.error('Error cargando analytics de win rate:', err);
+    showToast('Error cargando métricas ejecutivas: ' + err.message);
+  }
+}
+
+function renderWinRateAnalytics(data) {
+  const { kpis, funnel, segmentacionModalidad, segmentacionProponente, motivosPerdida, runRateProyeccion, recomendaciones } = data;
+
+  // 1. KPIs
+  const elOpp = document.getElementById('analyticsWinRateOpp');
+  const elOppSub = document.getElementById('analyticsWinRateOppSub');
+  const elFin = document.getElementById('analyticsWinRateFin');
+  const elAdj = document.getElementById('analyticsMontoAdj');
+  const elUtil = document.getElementById('analyticsUtilidadEst');
+  const elRoi = document.getElementById('analyticsRoiNeto');
+  const elCost = document.getElementById('analyticsCostosSub');
+
+  if (elOpp) elOpp.textContent = `${kpis.winRateOportunidades}%`;
+  if (elOppSub) elOppSub.textContent = `${kpis.adjudicados} ganados / ${kpis.adjudicados + kpis.perdidos} cerrados (${kpis.enCurso} en curso)`;
+  if (elFin) elFin.textContent = `${kpis.winRateFinanciero}%`;
+  if (elAdj) elAdj.textContent = formatCOP(kpis.montoAdjudicado);
+  if (elUtil) elUtil.textContent = `Utilidad Operativa Est. (8%): ${formatCOP(kpis.utilidadOperativaEstimada)}`;
+  if (elRoi) {
+    elRoi.textContent = `${kpis.roiLicitatorioNeto > 0 ? '+' : ''}${kpis.roiLicitatorioNeto}% ROI`;
+    elRoi.style.color = kpis.roiLicitatorioNeto >= 0 ? '#10b981' : '#ef4444';
+  }
+  if (elCost) elCost.textContent = `Costo est. estructuración: ${formatCOP(kpis.costoTotalEstructuracion)}`;
+
+  // 2. Embudo Funnel
+  const funnelContainer = document.getElementById('analyticsFunnelContainer');
+  if (funnelContainer) {
+    funnelContainer.innerHTML = funnel.map((f, idx) => `
+      <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--hairline); padding: 8px 12px; border-radius: 4px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; margin-bottom: 4px;">
+          <span><b>${f.icono} Paso ${idx + 1}: ${f.etapa}</b> (${f.cantidad} procesos)</span>
+          <span style="font-weight: 700; color: var(--champagne);">${formatCOP(f.volumenCOP)} <span style="color: var(--tech-cyan);">[${f.porcentajeRetencion}% retención]</span></span>
+        </div>
+        <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden;">
+          <div style="width: ${Math.max(4, Math.min(100, f.porcentajeRetencion))}%; height: 100%; background: #38bdf8; border-radius: 3px; transition: width 0.5s ease;"></div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // 3. Segmentación por Modalidad
+  const tbodyModalidades = document.getElementById('analyticsModalidadesTbody');
+  if (tbodyModalidades) {
+    if (segmentacionModalidad.length > 0) {
+      tbodyModalidades.innerHTML = segmentacionModalidad.map(m => `
+        <tr style="border-bottom: 1px solid var(--hairline);">
+          <td style="padding: 6px 8px; color: var(--champagne); font-weight: 600;">${m.modalidad.replace(/_/g, ' ')}</td>
+          <td style="padding: 6px 8px; text-align: center; color: var(--text-warm);">${m.total}</td>
+          <td style="padding: 6px 8px; text-align: center; color: #10b981; font-weight: 700;">${m.adjudicados}</td>
+          <td style="padding: 6px 8px; text-align: right; font-weight: 800; color: ${m.winRate >= 30 ? '#10b981' : '#f59e0b'};">
+            ${m.winRate}%
+          </td>
+        </tr>
+      `).join('');
+    } else {
+      tbodyModalidades.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 15px; color: var(--text-faint);">Sin registros de modalidades en el período.</td></tr>';
+    }
+  }
+
+  // 4. Segmentación por Tipo Proponente
+  const propContainer = document.getElementById('analyticsProponenteContainer');
+  if (propContainer) {
+    propContainer.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(255,255,255,0.02); border: 1px solid var(--hairline); border-radius: 4px;">
+        <div>
+          <div style="font-size: 0.8rem; font-weight: 700; color: var(--champagne);">🏢 Oferta Individual</div>
+          <div style="font-size: 0.72rem; color: var(--text-faint);">${segmentacionProponente.individual.total} licitaciones | ${segmentacionProponente.individual.adjudicados} ganadas</div>
+        </div>
+        <div style="font-size: 1.2rem; font-weight: 800; color: #38bdf8;">${segmentacionProponente.individual.winRate}%</div>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(255,255,255,0.02); border: 1px solid var(--hairline); border-radius: 4px;">
+        <div>
+          <div style="font-size: 0.8rem; font-weight: 700; color: var(--champagne);">🤝 Estructura Plural (Consorcio / UT)</div>
+          <div style="font-size: 0.72rem; color: var(--text-faint);">${segmentacionProponente.consorcio.total} licitaciones | ${segmentacionProponente.consorcio.adjudicados} ganadas</div>
+        </div>
+        <div style="font-size: 1.2rem; font-weight: 800; color: #a855f7;">${segmentacionProponente.consorcio.winRate}%</div>
+      </div>
+    `;
+  }
+
+  // 5. Motivos de Pérdida
+  const motivosContainer = document.getElementById('analyticsMotivosContainer');
+  if (motivosContainer) {
+    motivosContainer.innerHTML = motivosPerdida.map(m => `
+      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.74rem; padding: 4px 6px; background: rgba(255,255,255,0.02); border-radius: 3px;">
+        <span style="color: var(--text-warm);">${m.motivo.replace(/_/g, ' ')}</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-weight: 700; color: var(--champagne);">${m.count}</span>
+          <span style="font-size: 0.68rem; color: var(--text-faint); min-width: 35px; text-align: right;">${m.porcentaje}%</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // 6. Proyecciones Run-Rate
+  const runRateContainer = document.getElementById('analyticsRunRateContainer');
+  if (runRateContainer) {
+    runRateContainer.innerHTML = `
+      <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--hairline); padding: 8px; border-radius: 4px;">
+        <div style="font-size: 0.68rem; color: var(--text-faint); text-transform: uppercase;">Horizonte 30 Días</div>
+        <div style="font-size: 0.95rem; font-weight: 800; color: var(--champagne); margin-top: 2px;">${formatCOP(runRateProyeccion.d30)}</div>
+      </div>
+      <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--hairline); padding: 8px; border-radius: 4px;">
+        <div style="font-size: 0.68rem; color: var(--text-faint); text-transform: uppercase;">Horizonte 60 Días</div>
+        <div style="font-size: 0.95rem; font-weight: 800; color: var(--champagne); margin-top: 2px;">${formatCOP(runRateProyeccion.d60)}</div>
+      </div>
+      <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--hairline); padding: 8px; border-radius: 4px;">
+        <div style="font-size: 0.68rem; color: var(--text-faint); text-transform: uppercase;">Horizonte 90 Días</div>
+        <div style="font-size: 0.95rem; font-weight: 800; color: var(--champagne); margin-top: 2px;">${formatCOP(runRateProyeccion.d90)}</div>
+      </div>
+      <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--hairline); padding: 8px; border-radius: 4px;">
+        <div style="font-size: 0.68rem; color: var(--text-faint); text-transform: uppercase;">Horizonte 180 Días</div>
+        <div style="font-size: 0.95rem; font-weight: 800; color: var(--tech-cyan); margin-top: 2px;">${formatCOP(runRateProyeccion.d180)}</div>
+      </div>
+    `;
+  }
+
+  // 7. Recomendaciones
+  const recContainer = document.getElementById('analyticsRecomendacionesContainer');
+  if (recContainer) {
+    recContainer.innerHTML = recomendaciones.map(r => `
+      <div style="display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; background: rgba(0,0,0,0.25); border-left: 2px solid ${r.tipo === 'POSITIVO' ? '#10b981' : r.tipo === 'ALERTA' ? '#f59e0b' : '#38bdf8'}; border-radius: 3px;">
+        <div>
+          <div style="font-size: 0.78rem; font-weight: 700; color: var(--champagne);">${r.titulo}</div>
+          <div style="font-size: 0.73rem; color: var(--text-warm); line-height: 1.35; margin-top: 2px;">${r.mensaje}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
 // ==================== INICIALIZACIÓN ====================
 window.addEventListener('DOMContentLoaded', () => {
   checkUserSession();

@@ -636,40 +636,164 @@
 
     <!-- ================= VISTA 9: PIPELINE KANBAN Y GESTIÓN COMERCIAL (MÓDULO 6) ================= -->
     <section id="view-pipeline" class="view-section">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
         <div>
           <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--champagne); margin-bottom: 4px;">Pipeline de Licitación & Gestión en Equipo</h2>
-          <p style="font-size: 0.8rem; color: var(--text-muted);">Tablero Kanban transaccional de 6 fases, evaluación Go/No-Go y tareas interdisciplinarias</p>
+          <p style="font-size: 0.8rem; color: var(--text-muted);">Tablero Kanban transaccional, evaluación Go/No-Go y Analítica Ejecutiva de Win Rate</p>
         </div>
         <button id="btnNewPipelineProceso" class="btn-action btn-action-primary" style="padding: 8px 14px; font-size: 0.82rem; gap: 6px;">
           <span>➕ Incorporar Licitación al Pipeline</span>
         </button>
       </div>
 
-      <!-- Barra de Métricas y Valor en Riesgo de la Cartera -->
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 18px;">
-        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm);">
-          <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Valor Total en Pipeline</div>
-          <div id="pipeTotalVal" style="font-size: 1.3rem; font-weight: 800; color: var(--champagne); margin-top: 2px;" class="tabular-nums">$ 0 COP</div>
-          <div style="font-size: 0.7rem; color: var(--text-muted);" id="pipeCountProcs">0 procesos activos</div>
+      <!-- Sub-navegación dentro de Pipeline -->
+      <div style="display: flex; gap: 8px; margin-bottom: 14px; border-bottom: 1px solid var(--hairline); padding-bottom: 8px;">
+        <button id="tabPipeKanbanBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px; background: rgba(0, 229, 255, 0.15); border: 1px solid var(--tech-cyan); color: var(--tech-cyan); font-weight: 700;">
+          📋 Tablero Kanban de Gestión
+        </button>
+        <button id="tabPipeAnalyticsBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-warm);">
+          📈 Win Rate & ROI Analytics Ejecutivo
+        </button>
+      </div>
+
+      <!-- Wrapper para Vista Kanban -->
+      <div id="pipelineKanbanViewWrapper">
+        <!-- Barra de Métricas y Valor en Riesgo de la Cartera -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 18px;">
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm);">
+            <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Valor Total en Pipeline</div>
+            <div id="pipeTotalVal" style="font-size: 1.3rem; font-weight: 800; color: var(--champagne); margin-top: 2px;" class="tabular-nums">$ 0 COP</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted);" id="pipeCountProcs">0 procesos activos</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm);">
+            <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Valor Ponderado al Riesgo</div>
+            <div id="pipeWeightedVal" style="font-size: 1.3rem; font-weight: 800; color: var(--tech-cyan); margin-top: 2px;" class="tabular-nums">$ 0 COP</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted);">Σ (Presupuesto × Prob. Éxito)</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm);">
+            <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Tasa de Adjudicación (Win Rate)</div>
+            <div id="pipeWinRate" style="font-size: 1.3rem; font-weight: 800; color: var(--success); margin-top: 2px;" class="tabular-nums">0%</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted);" id="pipeAdjudicadosCount">0 adjudicados</div>
+          </div>
         </div>
 
-        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm);">
-          <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Valor Ponderado al Riesgo</div>
-          <div id="pipeWeightedVal" style="font-size: 1.3rem; font-weight: 800; color: var(--tech-cyan); margin-top: 2px;" class="tabular-nums">$ 0 COP</div>
-          <div style="font-size: 0.7rem; color: var(--text-muted);">Σ (Presupuesto × Prob. Éxito)</div>
-        </div>
-
-        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm);">
-          <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Tasa de Adjudicación (Win Rate)</div>
-          <div id="pipeWinRate" style="font-size: 1.3rem; font-weight: 800; color: var(--success); margin-top: 2px;" class="tabular-nums">0%</div>
-          <div style="font-size: 0.7rem; color: var(--text-muted);" id="pipeAdjudicadosCount">0 adjudicados</div>
+        <!-- Tablero Kanban Responsive con 6 Columnas -->
+        <div id="kanbanBoardContainer" style="display: flex; gap: 14px; overflow-x: auto; padding-bottom: 14px; min-height: 480px; align-items: flex-start;">
+          <div style="text-align: center; padding: 40px; color: var(--text-faint); width: 100%;">Cargando tablero Kanban...</div>
         </div>
       </div>
 
-      <!-- Tablero Kanban Responsive con 6 Columnas -->
-      <div id="kanbanBoardContainer" style="display: flex; gap: 14px; overflow-x: auto; padding-bottom: 14px; min-height: 480px; align-items: flex-start;">
-        <div style="text-align: center; padding: 40px; color: var(--text-faint); width: 100%;">Cargando tablero Kanban...</div>
+      <!-- Contenedor Analítico Ejecutivo: Win Rate, Embudo y ROI -->
+      <div id="pipelineAnalyticsContainer" style="display: none; flex-direction: column; gap: 16px;">
+        <!-- Barra de Filtros de Período -->
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm);">
+          <div style="font-size: 0.82rem; font-weight: 700; color: var(--champagne); display: flex; align-items: center; gap: 6px;">
+            <span>📊 Métricas de Eficiencia Comercial & Retorno Licitatorio</span>
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <button class="btn-action btn-periodo-analytics active" data-periodo="ALL" style="font-size: 0.72rem; padding: 4px 10px; background: rgba(0, 229, 255, 0.15); border: 1px solid var(--tech-cyan); color: var(--tech-cyan);">Todo el Historial</button>
+            <button class="btn-action btn-periodo-analytics" data-periodo="CURRENT_YEAR" style="font-size: 0.72rem; padding: 4px 10px; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-warm);">Año 2026</button>
+            <button class="btn-action btn-periodo-analytics" data-periodo="LAST_90_DAYS" style="font-size: 0.72rem; padding: 4px 10px; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-warm);">Últimos 90 Días</button>
+          </div>
+        </div>
+
+        <!-- 4 Tarjetas de KPIs Ejecutivos -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px;">
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm);">
+            <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Win Rate Oportunidades</div>
+            <div id="analyticsWinRateOpp" style="font-size: 1.5rem; font-weight: 800; color: #10b981; margin-top: 2px;">--%</div>
+            <div id="analyticsWinRateOppSub" style="font-size: 0.7rem; color: var(--text-muted);">0 ganados / 0 cerrados</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm);">
+            <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Win Rate Financiero (COP)</div>
+            <div id="analyticsWinRateFin" style="font-size: 1.5rem; font-weight: 800; color: var(--champagne); margin-top: 2px;">--%</div>
+            <div id="analyticsWinRateFinSub" style="font-size: 0.7rem; color: var(--text-muted);">Volumen adjudicado sobre ofertado</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm);">
+            <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Monto Adjudicado Total</div>
+            <div id="analyticsMontoAdj" style="font-size: 1.35rem; font-weight: 800; color: var(--champagne); margin-top: 2px;" class="tabular-nums">$ 0 COP</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted);" id="analyticsUtilidadEst">Utilidad Est. (8%): $ 0 COP</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm);">
+            <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">ROI Neto Licitatorio</div>
+            <div id="analyticsRoiNeto" style="font-size: 1.5rem; font-weight: 800; color: #38bdf8; margin-top: 2px;">--%</div>
+            <div id="analyticsCostosSub" style="font-size: 0.7rem; color: var(--text-muted);">Costo est.: $ 0 COP</div>
+          </div>
+        </div>
+
+        <!-- Embudo de Conversión Licitatoria (Funnel) -->
+        <div style="background: var(--lacquer-surface); border: 1px solid var(--hairline); border-radius: var(--radius-sm); padding: 16px;">
+          <div style="font-size: 0.85rem; font-weight: 700; color: var(--champagne); margin-bottom: 12px; display: flex; justify-content: space-between;">
+            <span>🎯 Embudo de Conversión Licitatoria (Pipeline Funnel)</span>
+            <span style="font-size: 0.72rem; color: var(--text-faint);">De la detección en radar a la adjudicación</span>
+          </div>
+          <div id="analyticsFunnelContainer" style="display: flex; flex-direction: column; gap: 8px;"></div>
+        </div>
+
+        <!-- Grid de Segmentaciones: Modalidad vs Tipo Proponente -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 14px;">
+          <!-- Segmentación por Modalidad -->
+          <div style="background: var(--lacquer-surface); border: 1px solid var(--hairline); border-radius: var(--radius-sm); padding: 14px;">
+            <div style="font-size: 0.82rem; font-weight: 700; color: var(--champagne); margin-bottom: 8px;">
+              ⚖️ Win Rate por Modalidad de Contratación
+            </div>
+            <div style="max-height: 200px; overflow-y: auto;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem;">
+                <thead>
+                  <tr style="border-bottom: 1px solid var(--hairline); color: var(--text-faint); text-align: left;">
+                    <th style="padding: 4px 6px;">Modalidad</th>
+                    <th style="padding: 4px 6px; text-align: center;">Procesos</th>
+                    <th style="padding: 4px 6px; text-align: center;">Ganados</th>
+                    <th style="padding: 4px 6px; text-align: right;">Win Rate</th>
+                  </tr>
+                </thead>
+                <tbody id="analyticsModalidadesTbody">
+                  <tr><td colspan="4" style="text-align: center; padding: 15px; color: var(--text-faint);">Cargando modalidades...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Segmentación por Tipo Proponente -->
+          <div style="background: var(--lacquer-surface); border: 1px solid var(--hairline); border-radius: var(--radius-sm); padding: 14px;">
+            <div style="font-size: 0.82rem; font-weight: 700; color: var(--champagne); margin-bottom: 8px;">
+              🤝 Rendimiento: Individual vs Consorcio (Estructura Plural)
+            </div>
+            <div id="analyticsProponenteContainer" style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;"></div>
+          </div>
+        </div>
+
+        <!-- Grid: Causas de Pérdida & Proyecciones Run-Rate -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 14px;">
+          <!-- Causas de Pérdida -->
+          <div style="background: var(--lacquer-surface); border: 1px solid var(--hairline); border-radius: var(--radius-sm); padding: 14px;">
+            <div style="font-size: 0.82rem; font-weight: 700; color: var(--champagne); margin-bottom: 8px;">
+              ❌ Análisis de Causas de Pérdida
+            </div>
+            <div id="analyticsMotivosContainer" style="display: flex; flex-direction: column; gap: 6px;"></div>
+          </div>
+
+          <!-- Proyecciones Run-Rate -->
+          <div style="background: var(--lacquer-surface); border: 1px solid var(--hairline); border-radius: var(--radius-sm); padding: 14px;">
+            <div style="font-size: 0.82rem; font-weight: 700; color: var(--champagne); margin-bottom: 8px;">
+              📅 Proyección de Ingresos Ponderados (Run-Rate)
+            </div>
+            <div id="analyticsRunRateContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;"></div>
+          </div>
+        </div>
+
+        <!-- Recomendaciones Estratégicas Algorítmicas -->
+        <div style="background: rgba(0, 229, 255, 0.03); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: var(--radius-sm); padding: 14px;">
+          <div style="font-size: 0.82rem; font-weight: 700; color: var(--tech-cyan); margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+            <span>💡 Recomendaciones Estratégicas del Motor de Inteligencia</span>
+          </div>
+          <div id="analyticsRecomendacionesContainer" style="display: flex; flex-direction: column; gap: 8px;"></div>
+        </div>
       </div>
     </section>
 
