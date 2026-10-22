@@ -15,6 +15,7 @@ const subsanabilidadEngine = require('./subsanabilidadEngine');
 const contractManager = require('./contractManager');
 const complianceEngine = require('./complianceEngine');
 const reportGenerator = require('./reportGenerator');
+const economicEngine = require('./economicEngine');
 
 const app = express();
 
@@ -417,6 +418,124 @@ app.get('/api/reportes/oportunidades/excel', async (req, res) => {
     res.send(xlsxBuffer);
   } catch (err) {
     console.error('Error exportando Excel:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 15. Módulo de Ponderación Económica y Simulación Monte Carlo (Pliegos Tipo ANCP-CCE)
+app.get('/api/economico/metodos', (req, res) => {
+  res.json({ success: true, data: economicEngine.METODOS });
+});
+
+app.post('/api/economico/evaluar', (req, res) => {
+  try {
+    const { presupuesto_oficial, ofertas = [], puntaje_maximo = 60 } = req.body;
+    const po = parseFloat(presupuesto_oficial);
+    if (!po || po <= 0) return res.status(400).json({ success: false, error: 'Presupuesto oficial inválido' });
+
+    const alertas = economicEngine.detectarPreciosArtificialmenteBajos(po, ofertas);
+    const evaluacion = economicEngine.evaluarTodosLosMetodos(po, ofertas, parseFloat(puntaje_maximo) || 60);
+
+    res.json({
+      success: true,
+      data: {
+        alertas_precios_bajos: alertas,
+        evaluacion_metodos: evaluacion
+      }
+    });
+  } catch (err) {
+    console.error('Error evaluando ofertas económicas:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/economico/montecarlo', (req, res) => {
+  try {
+    const {
+      presupuesto_oficial,
+      competidores_estimados = 6,
+      puntaje_maximo = 60,
+      iteraciones = 5000,
+      perfil_competencia = 'MODERADO',
+      oferta_usuario = null
+    } = req.body;
+
+    const po = parseFloat(presupuesto_oficial);
+    if (!po || po <= 0) return res.status(400).json({ success: false, error: 'Presupuesto oficial inválido' });
+
+    const resultado = economicEngine.simularMontecarlo(po, {
+      competidoresEstimados: parseInt(competidores_estimados, 10) || 6,
+      puntajeMax: parseFloat(puntaje_maximo) || 60,
+      iteraciones: Math.min(10000, Math.max(1000, parseInt(iteraciones, 10) || 5000)),
+      perfilCompetencia: perfil_competencia,
+      ofertaUsuario: oferta_usuario ? parseFloat(oferta_usuario) : null
+    });
+
+    res.json({ success: true, data: resultado });
+  } catch (err) {
+    console.error('Error en simulación Montecarlo:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/economico/guardar', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const {
+      empresa_id,
+      proceso_referencia,
+      entidad,
+      presupuesto_oficial,
+      puntaje_maximo = 60,
+      competidores_estimados = 6,
+      precio_optimo_sugerido,
+      porcentaje_optimo_po,
+      esperanza_puntaje,
+      desglose_metodos,
+      distribucion_simulada,
+      ofertas_reales
+    } = req.body;
+
+    const query = `
+      INSERT INTO simulaciones_economicas (
+        empresa_id, proceso_referencia, entidad, presupuesto_oficial, puntaje_maximo,
+        competidores_estimados, precio_optimo_sugerido, porcentaje_optimo_po, esperanza_puntaje,
+        desglose_metodos, distribucion_simulada, ofertas_reales
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING *;
+    `;
+    const values = [
+      empresa_id ? parseInt(empresa_id, 10) : null,
+      proceso_referencia || 'SIM-DIRECTA',
+      entidad || 'N/A',
+      parseFloat(presupuesto_oficial),
+      parseFloat(puntaje_maximo),
+      parseInt(competidores_estimados, 10) || 6,
+      precio_optimo_sugerido ? parseFloat(precio_optimo_sugerido) : null,
+      porcentaje_optimo_po ? parseFloat(porcentaje_optimo_po) : null,
+      esperanza_puntaje ? parseFloat(esperanza_puntaje) : null,
+      desglose_metodos ? JSON.stringify(desglose_metodos) : null,
+      distribucion_simulada ? JSON.stringify(distribucion_simulada) : null,
+      ofertas_reales ? JSON.stringify(ofertas_reales) : null
+    ];
+
+    const insertRes = await dbPostgres.query(query, values);
+    res.json({ success: true, data: insertRes.rows[0] });
+  } catch (err) {
+    console.error('Error guardando simulación económica:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/economico/historial', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const q = req.query.empresa_id 
+      ? await dbPostgres.query('SELECT * FROM simulaciones_economicas WHERE empresa_id = $1 ORDER BY creado_en DESC LIMIT 50', [parseInt(req.query.empresa_id, 10)])
+      : await dbPostgres.query('SELECT * FROM simulaciones_economicas ORDER BY creado_en DESC LIMIT 50');
+    res.json({ success: true, data: q.rows });
+  } catch (err) {
+    console.error('Error listando historial económico:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

@@ -1986,6 +1986,241 @@ async function runComplianceCheckNow() {
 
 document.getElementById('btnRunComplianceAudit')?.addEventListener('click', runComplianceCheckNow);
 
+// ==================== MÓDULO DE PONDERACIÓN ECONÓMICA Y PLIEGOS TIPO (CCE) ====================
+let lastSimulationResult = null;
+
+async function runMonteCarloSimulation() {
+  const container = document.getElementById('econResultsArea');
+  if (!container) return;
+
+  const po = parseFloat(document.getElementById('econPresupuesto')?.value || 0);
+  const ref = document.getElementById('econProcesoRef')?.value || 'SIM-DIRECTA';
+  const puntajeMax = parseFloat(document.getElementById('econPuntajeMax')?.value || 60);
+  const competidores = parseInt(document.getElementById('econCompetidores')?.value || 6, 10);
+  const perfil = document.getElementById('econPerfil')?.value || 'MODERADO';
+
+  if (!po || po <= 0) {
+    showToast('Ingresa un Presupuesto Oficial (PO) válido en COP');
+    return;
+  }
+
+  container.innerHTML = `
+    <div style="text-align: center; padding: 40px; color: var(--champagne); display: flex; flex-direction: column; align-items: center; gap: 12px;">
+      <div style="font-size: 1.5rem;">🎲</div>
+      <b>Ejecutando 5.000 iteraciones estocásticas de Monte Carlo...</b>
+      <span style="font-size: 0.78rem; color: var(--text-faint);">Evaluando curvas de TRM, dispersión de competidores y 5 fórmulas oficiales de Pliegos Tipo ANCP-CCE</span>
+    </div>
+  `;
+
+  try {
+    const res = await fetch('/api/economico/montecarlo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        presupuesto_oficial: po,
+        competidores_estimados: competidores,
+        puntaje_maximo: puntajeMax,
+        iteraciones: 5000,
+        perfil_competencia: perfil
+      })
+    });
+
+    const json = await res.json();
+    if (!json.success || !json.data) {
+      container.innerHTML = `<div style="color: var(--danger); padding: 20px;">Error: ${json.error || 'No se pudo completar la simulación'}</div>`;
+      return;
+    }
+
+    const data = json.data;
+    lastSimulationResult = data;
+    const rec = data.recomendacion_estrategica;
+    const desglose = rec.desglose_metodos_en_optimo || {};
+
+    container.innerHTML = `
+      <!-- Tarjeta Hero del Precio Óptimo -->
+      <div class="card-glass" style="background: linear-gradient(135deg, rgba(212, 175, 55, 0.12), rgba(15, 23, 42, 0.95)); border: 1px solid var(--gold); padding: 20px; border-radius: var(--radius-md);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid var(--hairline); padding-bottom: 14px;">
+          <div>
+            <span class="entity-badge" style="background: var(--gold); color: #000; font-size: 0.72rem; font-weight: 800;">OFERTA ECONÓMICA ÓPTIMA (P_opt)</span>
+            <div style="font-size: 1.85rem; font-weight: 900; color: var(--champagne); margin-top: 6px;" class="tabular-nums">
+              ${formatCOP(rec.precio_optimo_cop)} COP
+            </div>
+            <div style="font-size: 0.8rem; color: var(--text-warm);">
+              Equivale al <b>${rec.porcentaje_optimo}%</b> del Presupuesto Oficial ($ ${po.toLocaleString('es-CO')} COP)
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 1.35rem; font-weight: 800; color: var(--success);" class="tabular-nums">
+              ${rec.esperanza_puntaje_max} / ${data.puntaje_maximo} pts
+            </div>
+            <span style="font-size: 0.75rem; color: var(--text-faint);">Esperanza Matemática E[Puntaje] (${rec.eficiencia_esperada}% de efectividad)</span>
+            <div style="margin-top: 6px;">
+              <button id="btnSaveEconStrategy" class="btn-action" style="background: rgba(0, 230, 118, 0.15); border: 1px solid var(--success); color: var(--success); padding: 4px 12px; font-size: 0.75rem;">
+                💾 Guardar Estrategia
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rango Seguro y Alertas -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 14px;">
+          <div style="background: var(--lacquer-deep); padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
+            <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Rango Seguro Recomendado (≥ 96% Eficiencia)</div>
+            <div style="font-size: 0.95rem; font-weight: 700; color: var(--champagne); margin-top: 2px;">
+              ${rec.rango_seguro_recomendado.min_pct}% a ${rec.rango_seguro_recomendado.max_pct}% PO
+            </div>
+            <div style="font-size: 0.72rem; color: var(--text-muted);">
+              ${formatCOP(rec.rango_seguro_recomendado.min_cop)} - ${formatCOP(rec.rango_seguro_recomendado.max_cop)}
+            </div>
+          </div>
+
+          <div style="background: var(--lacquer-deep); padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
+            <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Umbral Precio Artificialmente Bajo</div>
+            <div style="font-size: 0.95rem; font-weight: 700; color: var(--danger); margin-top: 2px;">
+              &lt; 88.0% PO ($ ${Math.round(po * 0.88).toLocaleString('es-CO')})
+            </div>
+            <div style="font-size: 0.72rem; color: var(--text-muted);">
+              Protección automática bajo Decreto 1082/2015
+            </div>
+          </div>
+
+          <div style="background: var(--lacquer-deep); padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
+            <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Aleatoriedad Normativa CCE</div>
+            <div style="font-size: 0.95rem; font-weight: 700; color: var(--tech-cyan); margin-top: 2px;">
+              Concepto C-382 de 2020
+            </div>
+            <div style="font-size: 0.72rem; color: var(--text-muted);">
+              Mapeo de decimales de TRM oficial al cierre
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desempeño del Precio Óptimo en los 5 Métodos Oficiales -->
+      <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 16px; border-radius: var(--radius-md);">
+        <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--champagne); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+          <span>⚖️ Desempeño en cada Método de Pliegos Tipo (si saliera seleccionado por TRM)</span>
+        </h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; font-size: 0.78rem;">
+          <div style="background: var(--lacquer-deep); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
+            <div style="color: var(--text-faint);">1. Media Aritmética:</div>
+            <div style="font-size: 1.1rem; font-weight: 800; color: var(--champagne);">${desglose.media_aritmetica || '--'} pts</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted);">TRM .00 a .19</div>
+          </div>
+          <div style="background: var(--lacquer-deep); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
+            <div style="color: var(--text-faint);">2. Media con Presupuesto:</div>
+            <div style="font-size: 1.1rem; font-weight: 800; color: var(--champagne);">${desglose.media_modificada || '--'} pts</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted);">TRM .20 a .39</div>
+          </div>
+          <div style="background: var(--lacquer-deep); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
+            <div style="color: var(--text-faint);">3. Media Geométrica:</div>
+            <div style="font-size: 1.1rem; font-weight: 800; color: var(--champagne);">${desglose.media_geometrica || '--'} pts</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted);">TRM .40 a .59</div>
+          </div>
+          <div style="background: var(--lacquer-deep); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
+            <div style="color: var(--text-faint);">4. Mediana:</div>
+            <div style="font-size: 1.1rem; font-weight: 800; color: var(--champagne);">${desglose.mediana || '--'} pts</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted);">TRM .60 a .79</div>
+          </div>
+          <div style="background: var(--lacquer-deep); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
+            <div style="color: var(--text-faint);">5. Menor Valor Hábil:</div>
+            <div style="font-size: 1.1rem; font-weight: 800; color: var(--champagne);">${desglose.menor_valor || '--'} pts</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted);">TRM .80 a .99</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Curva de Sensibilidad Estocástica (Barrido de Precios) -->
+      <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 16px; border-radius: var(--radius-md);">
+        <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--champagne); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+          <span>📈 Curva de Sensibilidad del Puntaje Esperado</span>
+        </h4>
+        <div style="display: flex; flex-direction: column; gap: 6px; font-size: 0.76rem;">
+          ${data.curva_rendimiento.filter((_, idx) => idx % 2 === 0).map(c => {
+            const isOpt = c.porcentaje_po === rec.porcentaje_optimo;
+            const pctBar = Math.min(100, (c.esperanza_puntaje / data.puntaje_maximo) * 100);
+            const barColor = isOpt ? 'var(--gold)' : (c.alerta_riesgo_precio_bajo ? 'var(--danger)' : 'var(--tech-cyan)');
+
+            return `
+              <div style="display: flex; align-items: center; gap: 10px; padding: 4px 6px; border-radius: 4px; background: ${isOpt ? 'rgba(212, 175, 55, 0.15)' : 'transparent'};">
+                <span style="width: 50px; font-weight: ${isOpt ? '800' : '400'}; color: ${isOpt ? 'var(--champagne)' : 'var(--text-warm)'};">${c.porcentaje_po}%</span>
+                <span style="width: 130px; font-size: 0.72rem; color: var(--text-faint);">${formatCOP(c.precio_cop)}</span>
+                <div style="flex: 1; background: var(--lacquer-deep); height: 10px; border-radius: 5px; overflow: hidden; position: relative;">
+                  <div style="background: ${barColor}; width: ${pctBar}%; height: 100%;"></div>
+                </div>
+                <span style="width: 60px; text-align: right; font-weight: 700; color: ${isOpt ? 'var(--champagne)' : 'var(--text-primary)'};">${c.esperanza_puntaje} pts</span>
+                ${isOpt ? '<span style="color: var(--gold); font-size: 0.7rem; font-weight: 800;">⭐ ÓPTIMO</span>' : ''}
+                ${c.alerta_riesgo_precio_bajo ? '<span style="color: var(--danger); font-size: 0.65rem;">⚠️ RIESGO</span>' : ''}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+
+    // Conectar botón de guardado
+    document.getElementById('btnSaveEconStrategy')?.addEventListener('click', async () => {
+      try {
+        const lider = userCompanies.find(c => c.es_propia) || userCompanies[0];
+        const resSave = await fetch('/api/economico/guardar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            empresa_id: lider ? lider.id : null,
+            proceso_referencia: ref,
+            entidad: 'Proceso Licitatorio',
+            presupuesto_oficial: po,
+            puntaje_maximo: puntajeMax,
+            competidores_estimados: competidores,
+            precio_optimo_sugerido: rec.precio_optimo_cop,
+            porcentaje_optimo_po: rec.porcentaje_optimo,
+            esperanza_puntaje: rec.esperanza_puntaje_max,
+            desglose_metodos: desglose,
+            distribucion_simulada: rec.rango_seguro_recomendado
+          })
+        });
+        const jsonSave = await resSave.json();
+        if (jsonSave.success) {
+          showToast('Estrategia económica guardada en base de datos');
+        } else {
+          showToast(`Error al guardar: ${jsonSave.error}`);
+        }
+      } catch (e) {
+        showToast('Error de conexión al guardar');
+      }
+    });
+
+  } catch (err) {
+    container.innerHTML = `<div style="color: var(--danger); padding: 20px;">Error al ejecutar simulación: ${err.message}</div>`;
+  }
+}
+
+// Botón de ejecución en el panel
+document.getElementById('btnRunMontecarlo')?.addEventListener('click', runMonteCarloSimulation);
+
+// Botón de simulación desde el modal de detalle de oportunidad
+document.getElementById('modalBtnSimulateEconomic')?.addEventListener('click', () => {
+  const item = oportunidades.find(o => o.id === activeModalId);
+  if (!item) return;
+
+  const econPresupuesto = document.getElementById('econPresupuesto');
+  const econProcesoRef = document.getElementById('econProcesoRef');
+  if (econPresupuesto) econPresupuesto.value = item.precio_base || item.cuantia || 0;
+  if (econProcesoRef) econProcesoRef.value = item.referencia || item.id;
+
+  // Cerrar modal
+  document.getElementById('detailModal')?.classList.remove('open');
+
+  // Activar pestaña Pliegos Tipo
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+  document.querySelector('.nav-item[data-target="view-economic"]')?.classList.add('active');
+  document.getElementById('view-economic')?.classList.add('active');
+
+  // Ejecutar simulación estocástica automáticamente
+  runMonteCarloSimulation();
+});
+
 // ==================== INICIALIZACIÓN ====================
 window.addEventListener('DOMContentLoaded', () => {
   const savedProfileBtn = document.querySelector(`.company-btn[data-profile="${currentProfile}"]`);

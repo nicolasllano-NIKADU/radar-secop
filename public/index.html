@@ -501,6 +501,66 @@
       </div>
     </section>
 
+    <!-- ================= VISTA 8: PONDERACIÓN ECONÓMICA Y PLIEGOS TIPO (CCE) ================= -->
+    <section id="view-economic" class="view-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--champagne); margin-bottom: 4px;">Ponderación Económica & Pliegos Tipo (CCE)</h2>
+          <p style="font-size: 0.8rem; color: var(--text-muted);">Simulador Monte Carlo (Concepto C-382/2020 CCE) y optimizador estocástico de oferta en 5 métodos oficiales</p>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button id="btnRunMontecarlo" class="btn-action btn-action-primary" style="padding: 8px 16px; font-size: 0.82rem; gap: 6px;">
+            <span>🎲 Correr Simulación Monte Carlo</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Formulario de Configuración de la Licitación -->
+      <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 16px; border-radius: var(--radius-md); margin-bottom: 16px;">
+        <div style="font-size: 0.82rem; font-weight: 700; color: var(--champagne); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+          <span>⚙️ Parámetros de la Convocatoria</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+          <div>
+            <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Referencia / Proceso:</label>
+            <input type="text" id="econProcesoRef" placeholder="Ej: LP-001-2026" style="width: 100%; padding: 8px; font-size: 0.82rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Presupuesto Oficial (PO - COP):</label>
+            <input type="number" id="econPresupuesto" placeholder="Ej: 1500000000" style="width: 100%; padding: 8px; font-size: 0.82rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Puntaje Económico Máximo:</label>
+            <input type="number" id="econPuntajeMax" value="60" style="width: 100%; padding: 8px; font-size: 0.82rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Competidores Estimados:</label>
+            <select id="econCompetidores" style="width: 100%; padding: 8px; font-size: 0.82rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">
+              <option value="3">3 competidores (Baja concurrencia)</option>
+              <option value="6" selected>6 competidores (Media típica)</option>
+              <option value="10">10 competidores (Alta concurrencia)</option>
+              <option value="16">16+ competidores (Masiva)</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Perfil del Mercado:</label>
+            <select id="econPerfil" style="width: 100%; padding: 8px; font-size: 0.82rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">
+              <option value="MODERADO" selected>Moderado (90% - 99% PO)</option>
+              <option value="AGRESIVO">Agresivo / Guerra Precios (86% - 95% PO)</option>
+              <option value="CONSERVADOR">Conservador (94% - 100% PO)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel de Resultados del Simulador Monte Carlo -->
+      <div id="econResultsArea" style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="text-align: center; padding: 40px; color: var(--text-faint); background: var(--lacquer-surface); border: 1px dashed var(--hairline); border-radius: var(--radius-md);">
+          Ingresa el Presupuesto Oficial o haz clic en "Simular Oferta" desde cualquier licitación para encontrar la oferta óptima (P<sub>opt</sub>).
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <!-- Barra de Navegación Inferior (Mobile First Ergonomics) -->
@@ -566,6 +626,14 @@
         <path d="M9 12l2 2 4-4"/>
       </svg>
       <span>Compliance</span>
+    </button>
+    <button class="nav-item" data-target="view-economic">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="16" x2="12" y2="12"/>
+        <line x1="12" y1="8" x2="12.01" y2="8"/>
+      </svg>
+      <span>Pliegos Tipo</span>
     </button>
     <button class="nav-item" data-target="view-sources">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -665,6 +733,14 @@
           </svg>
           <span>Ficha Técnica PDF</span>
         </a>
+        <button id="modalBtnSimulateEconomic" class="btn-action" style="flex: 1; min-width: 140px; justify-content: center; background: rgba(0, 229, 255, 0.12); border: 1px solid var(--tech-cyan); color: var(--tech-cyan);">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+          <span>🎯 Simular Oferta</span>
+        </button>
         <button id="modalNotifyBtn" class="btn-action btn-action-tele" style="flex: 1; min-width: 140px; justify-content: center;">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <line x1="22" y1="2" x2="11" y2="13"/>
