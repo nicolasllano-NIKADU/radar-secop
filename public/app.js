@@ -3977,6 +3977,7 @@ function switchBidTab(tabName) {
   const btnF1 = document.getElementById('tabBtnForm1');
   const btnF2 = document.getElementById('tabBtnForm2');
   const btnMip = document.getElementById('tabBtnMipyme');
+  const btnF4 = document.getElementById('tabBtnForm4');
 
   const defaultStyle = 'font-size: 0.78rem; padding: 6px 12px; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-warm);';
   const activeStyle = 'font-size: 0.78rem; padding: 6px 12px; background: rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6; color: #93c5fd; font-weight: 700;';
@@ -3984,6 +3985,7 @@ function switchBidTab(tabName) {
   if (btnF1) btnF1.style.cssText = tabName === 'form1' ? activeStyle : defaultStyle;
   if (btnF2) btnF2.style.cssText = tabName === 'form2' ? activeStyle : defaultStyle;
   if (btnMip) btnMip.style.cssText = tabName === 'mipyme' ? activeStyle : defaultStyle;
+  if (btnF4) btnF4.style.cssText = tabName === 'form4' ? activeStyle : defaultStyle;
 
   renderActiveBidDoc();
 }
@@ -3998,6 +4000,8 @@ function renderActiveBidDoc() {
     container.innerHTML = currentBidDocsData.formulario2Html;
   } else if (currentActiveBidTab === 'mipyme') {
     container.innerHTML = currentBidDocsData.mipymeHtml;
+  } else if (currentActiveBidTab === 'form4') {
+    container.innerHTML = currentBidDocsData.formulario4Html;
   }
 }
 
@@ -4005,6 +4009,71 @@ function renderActiveBidDoc() {
 document.getElementById('tabBtnForm1')?.addEventListener('click', () => switchBidTab('form1'));
 document.getElementById('tabBtnForm2')?.addEventListener('click', () => switchBidTab('form2'));
 document.getElementById('tabBtnMipyme')?.addEventListener('click', () => switchBidTab('mipyme'));
+document.getElementById('tabBtnForm4')?.addEventListener('click', () => switchBidTab('form4'));
+
+// Descargar formulario individual activo en PDF Oficial
+document.getElementById('btnDownloadSingleDocPdf')?.addEventListener('click', async () => {
+  if (!currentBidDocsData) {
+    showToast('Cargue o genere los documentos previamente...');
+    return;
+  }
+
+  const btn = document.getElementById('btnDownloadSingleDocPdf');
+  const originalText = btn ? btn.innerHTML : '';
+  if (btn) btn.innerHTML = '⏳ Generando PDF...';
+
+  try {
+    let endpoint = '/api/biddocs/pdf/formulario1';
+    let filename = 'Formulario_1_Carta_Presentacion.pdf';
+
+    if (currentActiveBidTab === 'form2') {
+      endpoint = '/api/biddocs/pdf/formulario1'; // o compromiso
+      filename = 'Formulario_2_Compromiso_Anticorrupcion.pdf';
+    } else if (currentActiveBidTab === 'mipyme') {
+      endpoint = '/api/biddocs/pdf/formulario2-mipyme';
+      filename = 'Formulario_2_Acreditacion_Mipyme.pdf';
+    } else if (currentActiveBidTab === 'form4') {
+      endpoint = '/api/biddocs/pdf/formulario4-parafiscales';
+      filename = 'Formulario_4_Seguridad_Social_Parafiscales.pdf';
+    }
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        procesoId: currentBidDocsData.procesoId,
+        empresaId: currentBidDocsData.empresaId,
+        proceso: currentBidDocsData.proceso,
+        oferente: currentBidDocsData.oferente,
+        contador: {
+          nombre: document.getElementById('bidDocContadorNombre')?.value,
+          tarjeta_profesional: document.getElementById('bidDocContadorTp')?.value
+        },
+        firmantes: {
+          nombre_revisor_fiscal: document.getElementById('bidDocContadorNombre')?.value,
+          tarjeta_profesional: document.getElementById('bidDocContadorTp')?.value
+        }
+      })
+    });
+
+    if (!res.ok) throw new Error('Error generando PDF del formulario');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    showToast(`✅ ${filename} descargado exitosamente`);
+  } catch (err) {
+    showToast(`Error: ${err.message}`);
+  } finally {
+    if (btn) btn.innerHTML = originalText;
+  }
+});
 
 // Re-generar si el usuario edita datos bancarios o contador al presionar Enter o perder foco
 ['bidDocBancoNombre', 'bidDocBancoNumero', 'bidDocContadorNombre', 'bidDocContadorTp'].forEach(id => {

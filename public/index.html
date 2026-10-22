@@ -1946,7 +1946,7 @@
       </div>
 
       <!-- Pestañas de Formularios -->
-      <div style="margin-top: 14px; display: flex; gap: 8px; border-bottom: 1px solid var(--hairline); padding-bottom: 6px;">
+      <div style="margin-top: 14px; display: flex; gap: 8px; border-bottom: 1px solid var(--hairline); padding-bottom: 6px; overflow-x: auto;">
         <button id="tabBtnForm1" class="btn-action" style="font-size: 0.78rem; padding: 6px 12px; background: rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6; color: #93c5fd;">
           📄 Formulario 1: Carta de Presentación
         </button>
@@ -1954,7 +1954,10 @@
           🛡️ Formulario 2: Compromiso Anticorrupción
         </button>
         <button id="tabBtnMipyme" class="btn-action" style="font-size: 0.78rem; padding: 6px 12px; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-warm);">
-          🏢 Acreditación Mipyme (Ley 2069)
+          🏢 Formulario 2 (Anexo): Acreditación Mipyme
+        </button>
+        <button id="tabBtnForm4" class="btn-action" style="font-size: 0.78rem; padding: 6px 12px; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-warm);">
+          ⚖️ Formulario 4: Seguridad Social & Parafiscales (Art. 50 Ley 789)
         </button>
       </div>
 
@@ -1967,12 +1970,17 @@
 
       <!-- Footer Actions -->
       <div style="margin-top: 16px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; border-top: 1px solid var(--hairline); padding-top: 14px;">
-        <button id="btnCopyActiveDoc" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px; background: rgba(0, 229, 255, 0.12); border: 1px solid var(--tech-cyan); color: var(--tech-cyan);">
-          📋 Copiar Texto del Formulario
-        </button>
+        <div style="display: flex; gap: 8px;">
+          <button id="btnCopyActiveDoc" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px; background: rgba(0, 229, 255, 0.12); border: 1px solid var(--tech-cyan); color: var(--tech-cyan);">
+            📋 Copiar Texto del Formulario
+          </button>
+          <button id="btnDownloadSingleDocPdf" class="btn-action" style="font-size: 0.8rem; padding: 6px 12px; background: rgba(59, 130, 246, 0.15); border: 1px solid #3b82f6; color: #93c5fd;">
+            ⬇️ Descargar Este Formulario (PDF)
+          </button>
+        </div>
         <div style="display: flex; gap: 10px;">
           <button id="btnDownloadFullPdf" class="btn-action btn-action-primary" style="font-size: 0.82rem; padding: 7px 18px; background: #2563eb; color: #fff; font-weight: 700; border: none; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);">
-            ⬇️ Descargar Paquete Completo (PDF 3 Páginas)
+            ⬇️ Descargar Paquete Completo (PDF 5 Páginas)
           </button>
           <button id="btnCloseBidDocsModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
             Cerrar

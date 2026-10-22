@@ -916,7 +916,22 @@ app.post('/api/licitacion/generar-documentos', async (req, res) => {
       proceso,
       oferente,
       consorcio,
+      sector: req.body.sector || 'Servicios',
+      tamano: req.body.tamano || 'Pequeña Empresa',
       contador,
+      ciudad: ciudad || 'Bogotá D.C.'
+    });
+
+    const formulario4Html = bidDocumentGenerator.generarFormulario4ParafiscalesHtml({
+      proceso,
+      oferente,
+      firmantes: {
+        tiene_revisor_fiscal: req.body.tiene_revisor_fiscal !== false,
+        nombre_revisor_fiscal: contador?.nombre || req.body.revisor_fiscal_nombre || 'Dora Inés Morales Gómez',
+        nombre_contador: contador?.nombre || 'Dora Inés Morales Gómez',
+        tarjeta_profesional: contador?.tarjeta_profesional || req.body.contador_tp || 'TP-98765-T',
+        cedula_contador: contador?.cedula || '52.333.444'
+      },
       ciudad: ciudad || 'Bogotá D.C.'
     });
 
@@ -927,7 +942,8 @@ app.post('/api/licitacion/generar-documentos', async (req, res) => {
         oferente,
         formulario1Html,
         formulario2Html,
-        mipymeHtml
+        mipymeHtml,
+        formulario4Html
       }
     });
   } catch (err) {
@@ -936,10 +952,94 @@ app.post('/api/licitacion/generar-documentos', async (req, res) => {
   }
 });
 
+// Generación individual de PDFs de formularios licitatorios
+app.all('/api/biddocs/pdf/formulario1', async (req, res) => {
+  try {
+    const params = req.method === 'POST' ? req.body : req.query;
+    const { procesoId, empresaId, ciudad } = params;
+    let proceso = params.proceso;
+    if (!proceso && procesoId) {
+      const dbPostgres = require('./dbPostgres');
+      const r = await dbPostgres.query('SELECT * FROM oportunidades WHERE id = $1', [procesoId]);
+      proceso = r.rows[0] || { id: procesoId, referencia: procesoId, entidad: 'Entidad Estatal', objeto: 'Objeto de licitación' };
+    }
+    let oferente = params.oferente;
+    if (!oferente) {
+      oferente = empresaId ? await companyManager.getCompanyById(parseInt(empresaId, 10)) : (await companyManager.getAllCompanies())[0];
+    }
+    const pdfBuffer = await bidDocumentGenerator.generarFormulario1Pdf({
+      proceso,
+      oferente,
+      consorcio: params.consorcio,
+      banco: params.banco,
+      ciudad: ciudad || 'Bogotá D.C.'
+    });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Formulario_1_Carta_Presentacion.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF Formulario 1:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.all('/api/biddocs/pdf/formulario2-mipyme', async (req, res) => {
+  try {
+    const params = req.method === 'POST' ? req.body : req.query;
+    const { empresaId, sector, tamano, ciudad, contador } = params;
+    let oferente = params.oferente;
+    if (!oferente) {
+      oferente = empresaId ? await companyManager.getCompanyById(parseInt(empresaId, 10)) : (await companyManager.getAllCompanies())[0];
+    }
+    const pdfBuffer = await bidDocumentGenerator.generarFormulario2MipymePdf({
+      oferente,
+      sector: sector || 'Servicios',
+      tamano: tamano || 'Pequeña Empresa',
+      contador: contador || {},
+      ciudad: ciudad || 'Bogotá D.C.'
+    });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Formulario_2_Acreditacion_Mipyme.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF Formulario 2 Mipyme:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.all('/api/biddocs/pdf/formulario4-parafiscales', async (req, res) => {
+  try {
+    const params = req.method === 'POST' ? req.body : req.query;
+    const { procesoId, empresaId, ciudad, firmantes } = params;
+    let proceso = params.proceso;
+    if (!proceso && procesoId) {
+      const dbPostgres = require('./dbPostgres');
+      const r = await dbPostgres.query('SELECT * FROM oportunidades WHERE id = $1', [procesoId]);
+      proceso = r.rows[0] || { id: procesoId, referencia: procesoId, entidad: 'Entidad Estatal', objeto: 'Objeto de licitación' };
+    }
+    let oferente = params.oferente;
+    if (!oferente) {
+      oferente = empresaId ? await companyManager.getCompanyById(parseInt(empresaId, 10)) : (await companyManager.getAllCompanies())[0];
+    }
+    const pdfBuffer = await bidDocumentGenerator.generarFormulario4ParafiscalesPdf({
+      proceso,
+      oferente,
+      firmantes: firmantes || {},
+      ciudad: ciudad || 'Bogotá D.C.'
+    });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Formulario_4_Seguridad_Social_Parafiscales.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF Formulario 4 Parafiscales:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.all('/api/licitacion/descargar-pdf', async (req, res) => {
   try {
     const params = req.method === 'POST' ? req.body : req.query;
-    const { procesoId, empresaId } = params;
+    const { procesoId, empresaId, banco, contador } = params;
     let consorcio = params.consorcio;
     if (typeof consorcio === 'string') {
       try { consorcio = JSON.parse(consorcio); } catch(e){}
@@ -974,7 +1074,9 @@ app.all('/api/licitacion/descargar-pdf', async (req, res) => {
     const pdfBuffer = await bidDocumentGenerator.generarPaqueteOfertaPdf({
       proceso,
       oferente,
-      consorcio
+      consorcio,
+      banco,
+      contador
     });
 
     const safeRef = (proceso.referencia || 'Oferta').replace(/[^a-zA-Z0-9_-]/g, '_');
