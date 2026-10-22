@@ -368,6 +368,72 @@
           </div>
         </div>
       </div>
+
+      <!-- Calculadora Oficial de Capacidad Residual (K) para Obra Pública (ANCP-CCE) -->
+      <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 18px; border-radius: var(--radius-md); margin-top: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <h3 style="font-size: 1rem; font-weight: 800; color: var(--champagne); display: flex; align-items: center; gap: 8px;">
+              <span>🏗️ Calculadora Oficial de Capacidad Residual (K<sub>R</sub>) - Obra Pública</span>
+            </h3>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
+              Fórmula estandarizada ANCP-CCE: <code>K<sub>R</sub> = CO + E + CT + CF - SCE</code> (Capacidad Operativa + Experiencia + Cap. Técnica + Cap. Financiera - Saldos en Ejecución)
+            </p>
+          </div>
+          <span class="badge" style="background: rgba(0, 229, 255, 0.15); color: var(--tech-cyan); border: 1px solid var(--tech-cyan); font-size: 0.7rem; padding: 2px 8px;">
+            Pliegos Tipo Infraestructura
+          </span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 14px;">
+          <div>
+            <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Empresa Proponente:</label>
+            <select id="kEmpresaSelect" class="cfg-input" style="width: 100%; font-size: 0.8rem;"></select>
+          </div>
+          <div>
+            <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Puntaje Nómina Técnica (CT - 0 a 100):</label>
+            <input type="number" id="kPersonalTecnico" class="cfg-input" value="85" min="20" max="100" style="width: 100%; font-size: 0.8rem;" />
+          </div>
+          <div>
+            <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Saldos en Ejecución (SCE - COP):</label>
+            <input type="number" id="kSaldosEjecucion" class="cfg-input" placeholder="0 (o auto-leído)" style="width: 100%; font-size: 0.8rem;" />
+          </div>
+          <div>
+            <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">K Requerido por el Pliego (COP):</label>
+            <input type="number" id="kRequeridoInput" class="cfg-input" placeholder="Ej: 1500000000" style="width: 100%; font-size: 0.8rem;" />
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 14px;">
+          <button id="btnCalcularKResidual" class="btn-action btn-action-primary" style="padding: 8px 18px; font-size: 0.82rem; gap: 6px;">
+            <span>📐 Calcular Capacidad Residual K<sub>R</sub></span>
+          </button>
+        </div>
+
+        <!-- Resultados K Residual -->
+        <div id="kResultsContainer" style="display: none; background: var(--lacquer-deep); border: 1px solid var(--hairline); border-radius: var(--radius-sm); padding: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
+            <div>
+              <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Capacidad Residual Neta (K<sub>R</sub>)</div>
+              <div id="kResultadoCop" style="font-size: 1.4rem; font-weight: 800; color: var(--tech-cyan);" class="tabular-nums">$ 0 COP</div>
+              <div id="kResultadoSmmlv" style="font-size: 0.75rem; color: var(--text-muted);">0 SMMLV</div>
+            </div>
+            <div id="kEstadoBadgeContainer">
+              <span id="kEstadoBadge" class="badge" style="font-size: 0.85rem; padding: 4px 12px; font-weight: 800;">HABILITADO</span>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; font-size: 0.75rem; border-top: 1px solid var(--hairline); padding-top: 10px;">
+            <div><span style="color: var(--text-faint);">Cap. Operativa (CO):</span><br><b id="kDesgloseCo" style="color: var(--champagne);">$ 0</b></div>
+            <div><span style="color: var(--text-faint);">Experiencia (E):</span><br><b id="kDesgloseE" style="color: var(--champagne);">$ 0</b></div>
+            <div><span style="color: var(--text-faint);">Cap. Técnica (CT):</span><br><b id="kDesgloseCt" style="color: var(--champagne);">$ 0</b></div>
+            <div><span style="color: var(--text-faint);">Cap. Financiera (CF):</span><br><b id="kDesgloseCf" style="color: var(--champagne);">$ 0</b></div>
+            <div><span style="color: var(--danger);">Saldos Ejecución (SCE):</span><br><b id="kDesgloseSce" style="color: var(--danger);">- $ 0</b></div>
+          </div>
+
+          <div id="kRecomendacionTexto" style="font-size: 0.75rem; color: var(--text-warm); margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--hairline);"></div>
+        </div>
+      </div>
     </section>
 
     <!-- ================= VISTA 4: INTELIGENCIA COMERCIAL PAA ================= -->
@@ -1018,6 +1084,23 @@
           </svg>
           <span>👥 Ver Ganadores Previos</span>
         </button>
+        <button id="modalBtnAuditPliego" class="btn-action" style="flex: 1; min-width: 140px; justify-content: center; background: rgba(234, 179, 8, 0.15); border: 1px solid #eab308; color: #fde047;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M9 11l3 3L22 4"/>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+          </svg>
+          <span>📊 Auditar Pliego & Gap</span>
+        </button>
+        <button id="modalBtnGenerateBidDocs" class="btn-action" style="flex: 1; min-width: 140px; justify-content: center; background: rgba(59, 130, 246, 0.15); border: 1px solid #3b82f6; color: #93c5fd;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10 9 9 9 8 9"/>
+          </svg>
+          <span>📝 Generar Oferta (CCE)</span>
+        </button>
         <button id="modalNotifyBtn" class="btn-action btn-action-tele" style="flex: 1; min-width: 140px; justify-content: center;">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <line x1="22" y1="2" x2="11" y2="13"/>
@@ -1503,6 +1586,158 @@
       </div>
       <div id="predWatchlistModalBody" style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px; max-height: 500px; overflow-y: auto;">
         <div style="text-align: center; padding: 30px; color: var(--text-faint);">Cargando vencimientos guardados...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Auditoría de Pliego & Matriz de Brechas (Gap Analysis) -->
+  <div id="pliegoAuditModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 900px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="entity-badge" style="background: #eab308; color: #000; font-weight: 800;">AUDITORÍA CCE</div>
+          <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-warm);" id="auditModalTitle">Matriz de Brechas & Pliego de Condiciones</span>
+        </div>
+        <button id="btnCloseAuditModal" class="btn-close-modal" aria-label="Cerrar modal">✕</button>
+      </div>
+
+      <div style="margin-top: 8px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; border-bottom: 1px solid var(--hairline); padding-bottom: 12px;">
+        <div>
+          <h4 id="auditProcessRef" style="font-size: 1.1rem; color: var(--champagne); margin-bottom: 2px;">Proceso: --</h4>
+          <div id="auditProcessMeta" style="font-size: 0.78rem; color: var(--text-faint);">Entidad • Presupuesto Oficial</div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <label style="font-size: 0.75rem; color: var(--text-warm);">Proponente:</label>
+          <select id="auditCompanySelect" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--champagne); padding: 5px 10px; border-radius: var(--radius-sm); font-size: 0.8rem; max-width: 260px;"></select>
+          <button id="btnReauditProceso" class="btn-action" style="padding: 5px 10px; font-size: 0.75rem; background: rgba(234, 179, 8, 0.15); border: 1px solid #eab308; color: #fde047;">🔄 Re-auditar</button>
+        </div>
+      </div>
+
+      <!-- Card Dictamen GO / NO-GO -->
+      <div id="auditDecisionCard" style="margin-top: 14px; padding: 14px 18px; border-radius: var(--radius-md); border: 1px solid var(--hairline); background: var(--lacquer-surface); display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <span id="auditDecisionBadge" style="font-size: 0.85rem; font-weight: 800; padding: 4px 12px; border-radius: 6px; letter-spacing: 0.5px;">EVALUANDO...</span>
+          <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-warm);" id="auditScoreText">Score de Viabilidad: --%</div>
+        </div>
+        <div id="auditDictamenText" style="font-size: 0.82rem; color: var(--text-warm); line-height: 1.45;"></div>
+      </div>
+
+      <!-- Tabla Matriz Semáforo de Brechas -->
+      <div style="margin-top: 14px;">
+        <div style="font-size: 0.85rem; font-weight: 700; color: var(--champagne); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+          <span>📋 Matriz de Cumplimiento de Requisitos Habilitantes</span>
+          <span id="auditMatrizCount" style="font-size: 0.72rem; color: var(--text-faint);">0 requisitos auditados</span>
+        </div>
+        <div style="max-height: 320px; overflow-y: auto; border: 1px solid var(--hairline); border-radius: var(--radius-sm);">
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem; text-align: left;">
+            <thead>
+              <tr style="background: rgba(255, 255, 255, 0.04); border-bottom: 1px solid var(--hairline); color: var(--text-faint);">
+                <th style="padding: 8px 10px;">Criterio / Requisito</th>
+                <th style="padding: 8px 10px;">Exigido Pliego</th>
+                <th style="padding: 8px 10px;">Acreditado</th>
+                <th style="padding: 8px 10px; text-align: center;">Resultado</th>
+                <th style="padding: 8px 10px;">Fundamento Legal / Recomendación</th>
+              </tr>
+            </thead>
+            <tbody id="auditMatrizTbody">
+              <tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--text-faint);">Cargando análisis de pliego...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Sección Documentos Oficiales SECOP II -->
+      <div style="margin-top: 14px; border-top: 1px solid var(--hairline); padding-top: 10px;">
+        <div style="font-size: 0.8rem; font-weight: 700; color: var(--champagne); margin-bottom: 6px;">📂 Pliegos, Anexos y Adendas Oficiales (SECOP II)</div>
+        <div id="auditSecopDocsContainer" style="display: flex; flex-wrap: wrap; gap: 8px; max-height: 100px; overflow-y: auto;">
+          <span style="font-size: 0.75rem; color: var(--text-faint);">Consultando documentos oficiales...</span>
+        </div>
+      </div>
+
+      <!-- Footer Actions -->
+      <div style="margin-top: 18px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--hairline); padding-top: 14px;">
+        <button id="btnAuditToConsortium" class="btn-action" style="background: rgba(168, 85, 247, 0.15); border: 1px solid #a855f7; color: #d8b4fe; font-size: 0.8rem; padding: 6px 14px;">
+          🤝 Estructurar Consorcio
+        </button>
+        <button id="btnAuditToBidDocs" class="btn-action btn-action-primary" style="font-size: 0.8rem; padding: 6px 16px; background: rgba(59, 130, 246, 0.25); border: 1px solid #3b82f6; color: #fff;">
+          📝 Generar Oferta Oficial CCE
+        </button>
+        <button id="btnCloseAuditModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Generador de Documentación Licitatoria (Formularios Oficiales Pliegos Tipo) -->
+  <div id="bidDocsModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 900px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="entity-badge" style="background: #3b82f6; color: #fff; font-weight: 800;">PLIEGOS TIPO CCE</div>
+          <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-warm);">Generador de Documentos Oficiales de Licitación</span>
+        </div>
+        <button id="btnCloseBidDocsModal" class="btn-close-modal" aria-label="Cerrar modal">✕</button>
+      </div>
+
+      <div style="margin-top: 8px; border-bottom: 1px solid var(--hairline); padding-bottom: 10px;">
+        <h4 id="bidDocProcesoRef" style="font-size: 1.05rem; color: var(--champagne); margin-bottom: 2px;">Proceso: --</h4>
+        <div id="bidDocProcesoMeta" style="font-size: 0.78rem; color: var(--text-faint);">Entidad • Proponente</div>
+      </div>
+
+      <!-- Configuración Opcional: Cuenta Bancaria, Contador y Ciudad -->
+      <div style="margin-top: 10px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; background: rgba(255, 255, 255, 0.02); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
+        <div>
+          <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 3px;">Banco para Pagos:</label>
+          <input type="text" id="bidDocBancoNombre" value="Bancolombia S.A." style="width: 100%; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--champagne); padding: 4px 8px; font-size: 0.78rem; border-radius: 4px;">
+        </div>
+        <div>
+          <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 3px;">No. Cuenta Bancaria:</label>
+          <input type="text" id="bidDocBancoNumero" value="001-234567-89 (Cta Cte)" style="width: 100%; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--champagne); padding: 4px 8px; font-size: 0.78rem; border-radius: 4px;">
+        </div>
+        <div>
+          <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 3px;">Contador / Revisor Fiscal:</label>
+          <input type="text" id="bidDocContadorNombre" value="Dora Inés Morales Gómez" style="width: 100%; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--champagne); padding: 4px 8px; font-size: 0.78rem; border-radius: 4px;">
+        </div>
+        <div>
+          <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 3px;">Tarjeta Profesional Contador:</label>
+          <input type="text" id="bidDocContadorTp" value="TP-98765-T" style="width: 100%; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--champagne); padding: 4px 8px; font-size: 0.78rem; border-radius: 4px;">
+        </div>
+      </div>
+
+      <!-- Pestañas de Formularios -->
+      <div style="margin-top: 14px; display: flex; gap: 8px; border-bottom: 1px solid var(--hairline); padding-bottom: 6px;">
+        <button id="tabBtnForm1" class="btn-action" style="font-size: 0.78rem; padding: 6px 12px; background: rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6; color: #93c5fd;">
+          📄 Formulario 1: Carta de Presentación
+        </button>
+        <button id="tabBtnForm2" class="btn-action" style="font-size: 0.78rem; padding: 6px 12px; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-warm);">
+          🛡️ Formulario 2: Compromiso Anticorrupción
+        </button>
+        <button id="tabBtnMipyme" class="btn-action" style="font-size: 0.78rem; padding: 6px 12px; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-warm);">
+          🏢 Acreditación Mipyme (Ley 2069)
+        </button>
+      </div>
+
+      <!-- Contenedor Vista Previa Documento Formal -->
+      <div style="margin-top: 12px;">
+        <div id="bidDocPreviewContainer" style="background: #ffffff; color: #0f172a; border-radius: 6px; padding: 24px; max-height: 380px; overflow-y: auto; font-family: 'Times New Roman', Times, serif; font-size: 11pt; line-height: 1.5; box-shadow: inset 0 2px 6px rgba(0,0,0,0.2);">
+          <div style="text-align: center; color: #64748b; padding: 40px;">Generando vista previa del documento legal...</div>
+        </div>
+      </div>
+
+      <!-- Footer Actions -->
+      <div style="margin-top: 16px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; border-top: 1px solid var(--hairline); padding-top: 14px;">
+        <button id="btnCopyActiveDoc" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px; background: rgba(0, 229, 255, 0.12); border: 1px solid var(--tech-cyan); color: var(--tech-cyan);">
+          📋 Copiar Texto del Formulario
+        </button>
+        <div style="display: flex; gap: 10px;">
+          <button id="btnDownloadFullPdf" class="btn-action btn-action-primary" style="font-size: 0.82rem; padding: 7px 18px; background: #2563eb; color: #fff; font-weight: 700; border: none; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);">
+            ⬇️ Descargar Paquete Completo (PDF 3 Páginas)
+          </button>
+          <button id="btnCloseBidDocsModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
+            Cerrar
+          </button>
+        </div>
       </div>
     </div>
   </div>

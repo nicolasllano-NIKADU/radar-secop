@@ -20,6 +20,8 @@ const pipelineManager = require('./pipelineManager');
 const authManager = require('./authManager');
 const competitiveIntelligence = require('./competitiveIntelligence');
 const predictiveEngine = require('./predictiveEngine');
+const pliegoAuditor = require('./pliegoAuditor');
+const bidDocumentGenerator = require('./bidDocumentGenerator');
 const initDb = require('./initDb');
 
 const app = express();
@@ -805,6 +807,148 @@ app.delete('/api/predictivo/seguimiento/:id', async (req, res) => {
     res.json({ success: true, deleted });
   } catch (err) {
     console.error('Error eliminando seguimiento de vencimiento:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== MÓDULO: AUDITORÍA DE PLIEGOS (GAP ANALYSIS) Y GENERACIÓN DE OFERTAS ====================
+
+app.post('/api/pliego/auditar', async (req, res) => {
+  try {
+    const { procesoId, empresaId, miembrosConsorcio, smmlvValor } = req.body;
+    if (!procesoId) {
+      return res.status(400).json({ success: false, error: 'procesoId es requerido para auditar el pliego' });
+    }
+    const resultado = await pliegoAuditor.auditarProceso({
+      procesoId,
+      empresaId: empresaId || null,
+      miembrosConsorcio: miembrosConsorcio || null,
+      smmlvValor: smmlvValor || 1423500
+    });
+    res.json({ success: true, data: resultado });
+  } catch (err) {
+    console.error('Error auditando pliego de condiciones:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/licitacion/generar-documentos', async (req, res) => {
+  try {
+    const { procesoId, empresaId, consorcio, banco, contador, ciudad } = req.body;
+
+    let proceso = req.body.proceso;
+    if (!proceso && procesoId) {
+      const dbPostgres = require('./dbPostgres');
+      const r = await dbPostgres.query('SELECT * FROM oportunidades WHERE id = $1', [procesoId]);
+      proceso = r.rows[0] || {
+        id: procesoId,
+        referencia: procesoId,
+        entidad: 'Entidad Estatal',
+        objeto: 'Proceso de selección pública',
+        precio_base: 500000000
+      };
+    }
+
+    let oferente = req.body.oferente;
+    if (!oferente) {
+      if (empresaId) {
+        oferente = await companyManager.getCompanyById(parseInt(empresaId, 10));
+      } else {
+        const all = await companyManager.getAllCompanies();
+        oferente = all.find(c => c.es_propia) || all[0];
+      }
+    }
+
+    if (!oferente) {
+      return res.status(400).json({ success: false, error: 'Se requiere una empresa registrada como proponente' });
+    }
+
+    const formulario1Html = bidDocumentGenerator.generarFormulario1Html({
+      proceso,
+      oferente,
+      consorcio,
+      banco,
+      ciudad: ciudad || 'Bogotá D.C.'
+    });
+
+    const formulario2Html = bidDocumentGenerator.generarFormulario2AnticorrupcionHtml({
+      proceso,
+      oferente,
+      consorcio,
+      ciudad: ciudad || 'Bogotá D.C.'
+    });
+
+    const mipymeHtml = bidDocumentGenerator.generarAcreditacionMipymeHtml({
+      proceso,
+      oferente,
+      consorcio,
+      contador,
+      ciudad: ciudad || 'Bogotá D.C.'
+    });
+
+    res.json({
+      success: true,
+      data: {
+        proceso,
+        oferente,
+        formulario1Html,
+        formulario2Html,
+        mipymeHtml
+      }
+    });
+  } catch (err) {
+    console.error('Error generando documentos licitatorios:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.all('/api/licitacion/descargar-pdf', async (req, res) => {
+  try {
+    const params = req.method === 'POST' ? req.body : req.query;
+    const { procesoId, empresaId } = params;
+    let consorcio = params.consorcio;
+    if (typeof consorcio === 'string') {
+      try { consorcio = JSON.parse(consorcio); } catch(e){}
+    }
+
+    let proceso = params.proceso;
+    if (!proceso && procesoId) {
+      const dbPostgres = require('./dbPostgres');
+      const r = await dbPostgres.query('SELECT * FROM oportunidades WHERE id = $1', [procesoId]);
+      proceso = r.rows[0] || {
+        id: procesoId,
+        referencia: procesoId,
+        entidad: 'Entidad Estatal',
+        objeto: 'Proceso de selección pública'
+      };
+    }
+
+    let oferente = params.oferente;
+    if (!oferente) {
+      if (empresaId) {
+        oferente = await companyManager.getCompanyById(parseInt(empresaId, 10));
+      } else {
+        const all = await companyManager.getAllCompanies();
+        oferente = all.find(c => c.es_propia) || all[0];
+      }
+    }
+
+    if (!proceso || !oferente) {
+      return res.status(400).json({ success: false, error: 'Datos de proceso u oferente insuficientes para generar PDF' });
+    }
+
+    const pdfBuffer = await bidDocumentGenerator.generarPaqueteOfertaPdf({
+      proceso,
+      oferente,
+      consorcio
+    });
+
+    const safeRef = (proceso.referencia || 'Oferta').replace(/[^a-zA-Z0-9_-]/g, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Propuesta_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando paquete PDF:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

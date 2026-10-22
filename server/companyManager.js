@@ -121,6 +121,76 @@ class CompanyManager {
   }
 
   /**
+   * Obtiene una empresa específica por su ID con sus indicadores financieros
+   */
+  async getCompanyById(empresaId) {
+    const query = `
+      SELECT 
+        e.*,
+        ef.anio_fiscal,
+        ef.activo_corriente,
+        ef.pasivo_corriente,
+        ef.activo_total,
+        ef.pasivo_total,
+        ef.patrimonio,
+        ef.utilidad_operacional,
+        ef.gastos_intereses,
+        ef.capital_trabajo,
+        ef.indice_liquidez,
+        ef.indice_endeudamiento,
+        ef.cobertura_intereses,
+        ef.rentabilidad_patrimonio_roe,
+        ef.rentabilidad_activo_roa,
+        ef.capacidad_residual_k
+      FROM empresas e
+      LEFT JOIN LATERAL (
+        SELECT * FROM empresa_financiero ef2
+        WHERE ef2.empresa_id = e.id
+        ORDER BY ef2.anio_fiscal DESC
+        LIMIT 1
+      ) ef ON true
+      WHERE e.id = $1
+    `;
+    const res = await db.query(query, [empresaId]);
+    return res.rows[0] || null;
+  }
+
+  /**
+   * Obtiene todas las empresas registradas
+   */
+  async getAllCompanies() {
+    const query = `
+      SELECT 
+        e.*,
+        ef.anio_fiscal,
+        ef.activo_corriente,
+        ef.pasivo_corriente,
+        ef.activo_total,
+        ef.pasivo_total,
+        ef.patrimonio,
+        ef.utilidad_operacional,
+        ef.gastos_intereses,
+        ef.capital_trabajo,
+        ef.indice_liquidez,
+        ef.indice_endeudamiento,
+        ef.cobertura_intereses,
+        ef.rentabilidad_patrimonio_roe,
+        ef.rentabilidad_activo_roa,
+        ef.capacidad_residual_k
+      FROM empresas e
+      LEFT JOIN LATERAL (
+        SELECT * FROM empresa_financiero ef2
+        WHERE ef2.empresa_id = e.id
+        ORDER BY ef2.anio_fiscal DESC
+        LIMIT 1
+      ) ef ON true
+      ORDER BY e.es_propia DESC, e.razon_social ASC
+    `;
+    const res = await db.query(query);
+    return res.rows;
+  }
+
+  /**
    * Registra o actualiza la información contable y RUP de una empresa
    */
   async saveFinancialData(empresaId, rawFinancial) {

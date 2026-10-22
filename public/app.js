@@ -718,6 +718,7 @@ async function loadCompanies() {
       userCompanies = json.data;
       renderCompanies(userCompanies);
       renderPluralMembersSelector(userCompanies);
+      renderKEmpresaSelector(userCompanies);
     }
   } catch (err) {
     console.error('Error cargando empresas:', err);
@@ -928,6 +929,94 @@ function renderPluralResult(sim, ev) {
     `;
   }).join('');
 }
+
+function renderKEmpresaSelector(companies) {
+  const select = document.getElementById('kEmpresaSelect');
+  if (!select) return;
+  if (!companies || companies.length === 0) {
+    select.innerHTML = '<option value="">Sin empresas registradas</option>';
+    return;
+  }
+  select.innerHTML = companies.map(c => `
+    <option value="${c.id}">${c.razon_social} (NIT: ${c.nit || 'S/N'})</option>
+  `).join('');
+}
+
+async function calcularKResidual() {
+  const select = document.getElementById('kEmpresaSelect');
+  const empresaId = select?.value;
+  if (!empresaId) {
+    showToast('Selecciona una empresa para calcular K Residual');
+    return;
+  }
+
+  const personalTecnicoScore = parseFloat(document.getElementById('kPersonalTecnico')?.value) || 85;
+  const saldosEjecucion = document.getElementById('kSaldosEjecucion')?.value ? parseFloat(document.getElementById('kSaldosEjecucion')?.value) : undefined;
+  const kRequerido = parseFloat(document.getElementById('kRequeridoInput')?.value) || 0;
+
+  const btn = document.getElementById('btnCalcularKResidual');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span>⏳ Calculando K<sub>R</sub>...</span>';
+  }
+
+  try {
+    const res = await fetch(`/api/empresas/${empresaId}/k-residual`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        personal_tecnico_score: personalTecnicoScore,
+        saldos_en_ejecucion: saldosEjecucion,
+        k_requerido_cop: kRequerido
+      })
+    });
+    const json = await res.json();
+    if (!json.ok || !json.data) throw new Error(json.error || 'Error al calcular');
+
+    const d = json.data;
+    const container = document.getElementById('kResultsContainer');
+    if (container) container.style.display = 'block';
+
+    document.getElementById('kResultadoCop').textContent = `$ ${Math.round(d.capacidad_residual_cop).toLocaleString('es-CO')} COP`;
+    document.getElementById('kResultadoSmmlv').textContent = `${d.capacidad_residual_smmlv.toLocaleString('es-CO')} SMMLV`;
+
+    const badge = document.getElementById('kEstadoBadge');
+    if (badge) {
+      if (d.cumple) {
+        badge.textContent = '🟢 HABILITADO PARA OBRA';
+        badge.style.background = 'rgba(16, 185, 129, 0.2)';
+        badge.style.color = '#10b981';
+        badge.style.border = '1px solid #10b981';
+      } else {
+        badge.textContent = `🔴 DÉFICIT DE K ($ ${Math.round(d.deficit_cop).toLocaleString('es-CO')})`;
+        badge.style.background = 'rgba(239, 68, 68, 0.2)';
+        badge.style.color = '#ef4444';
+        badge.style.border = '1px solid #ef4444';
+      }
+    }
+
+    const desg = d.desglose || {};
+    document.getElementById('kDesgloseCo').textContent = `$ ${Math.round(desg.capacidad_operativa_co || 0).toLocaleString('es-CO')}`;
+    document.getElementById('kDesgloseE').textContent = `$ ${Math.round(desg.experiencia_e || 0).toLocaleString('es-CO')}`;
+    document.getElementById('kDesgloseCt').textContent = `$ ${Math.round(desg.capacidad_tecnica_ct || 0).toLocaleString('es-CO')}`;
+    document.getElementById('kDesgloseCf').textContent = `$ ${Math.round(desg.capacidad_financiera_cf || 0).toLocaleString('es-CO')}`;
+    document.getElementById('kDesgloseSce').textContent = `- $ ${Math.round(desg.saldos_en_ejecucion_sce || 0).toLocaleString('es-CO')}`;
+
+    const rec = document.getElementById('kRecomendacionTexto');
+    if (rec) rec.textContent = d.recomendacion || '';
+
+    showToast('Capacidad Residual calculada exitosamente');
+  } catch (err) {
+    showToast(`Error calculando K: ${err.message}`);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<span>📐 Calcular Capacidad Residual K<sub>R</sub></span>';
+    }
+  }
+}
+
+document.getElementById('btnCalcularKResidual')?.addEventListener('click', calcularKResidual);
 
 // Modal Nueva Empresa
 const btnOpenNewCompany = document.getElementById('btnOpenNewCompanyModal');
@@ -3542,6 +3631,382 @@ document.getElementById('btnEjecutarPredictivo')?.addEventListener('click', () =
 document.getElementById('btnVerSeguimientoVencimientos')?.addEventListener('click', abrirModalPredWatchlist);
 document.getElementById('btnClosePredWatchlistModal')?.addEventListener('click', () => {
   document.getElementById('predWatchlistModal')?.classList.remove('open');
+});
+
+// ==================== MÓDULO 2 & 3: AUDITORÍA DE PLIEGOS (GAP ANALYSIS) Y GENERADOR DE DOCUMENTOS LICITATORIOS ====================
+
+let currentAuditProcesoId = null;
+let currentBidDocsData = null;
+let currentActiveBidTab = 'form1';
+
+// Abrir modal de auditoría de pliego desde el modal de detalle
+document.getElementById('modalBtnAuditPliego')?.addEventListener('click', () => {
+  if (!activeModalId) return;
+  abrirModalAuditoriaPliego(activeModalId);
+});
+
+// Abrir modal de generación de oferta desde el modal de detalle
+document.getElementById('modalBtnGenerateBidDocs')?.addEventListener('click', () => {
+  if (!activeModalId) return;
+  abrirModalGeneracionOferta(activeModalId);
+});
+
+function abrirModalAuditoriaPliego(procesoId) {
+  const opp = oportunidades.find(o => o.id === procesoId);
+  if (!opp) return;
+
+  currentAuditProcesoId = procesoId;
+
+  // Actualizar textos del header
+  const refEl = document.getElementById('auditProcessRef');
+  const metaEl = document.getElementById('auditProcessMeta');
+  if (refEl) refEl.textContent = `Proceso: ${opp.referencia || opp.id} | ${opp.modalidad || 'Licitación'}`;
+  if (metaEl) metaEl.textContent = `${opp.entidad} • Presupuesto Oficial: ${formatCOP(opp.precio_base)}`;
+
+  // Poblar selector de proponentes
+  const compSelect = document.getElementById('auditCompanySelect');
+  if (compSelect) {
+    if (userCompanies.length > 0) {
+      compSelect.innerHTML = userCompanies.map(c => `
+        <option value="${c.id}" ${c.es_propia ? 'selected' : ''}>
+          ${c.razon_social} (NIT: ${c.nit})
+        </option>
+      `).join('');
+    } else {
+      compSelect.innerHTML = `<option value="">Empresa Evaluada por Defecto</option>`;
+    }
+  }
+
+  // Abrir modal
+  document.getElementById('pliegoAuditModal')?.classList.add('open');
+
+  // Ejecutar auditoría
+  const selectedEmpresaId = compSelect ? compSelect.value : null;
+  ejecutarAuditoriaPliego(procesoId, selectedEmpresaId);
+}
+
+async function ejecutarAuditoriaPliego(procesoId, empresaId) {
+  const badgeEl = document.getElementById('auditDecisionBadge');
+  const scoreEl = document.getElementById('auditScoreText');
+  const dictamenEl = document.getElementById('auditDictamenText');
+  const tbodyEl = document.getElementById('auditMatrizTbody');
+  const countEl = document.getElementById('auditMatrizCount');
+  const docsEl = document.getElementById('auditSecopDocsContainer');
+
+  if (badgeEl) {
+    badgeEl.textContent = 'AUDITANDO PLIEGO...';
+    badgeEl.style.background = '#eab308';
+    badgeEl.style.color = '#000';
+  }
+  if (scoreEl) scoreEl.textContent = 'Score de Viabilidad: Calculando...';
+  if (dictamenEl) dictamenEl.textContent = 'Extrayendo condiciones habilitantes del pliego, matrices financieras y experiencia RUP...';
+  if (tbodyEl) tbodyEl.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 25px; color: var(--champagne);">⏳ Realizando cotejo normativo con Pliegos Tipo ANCP-CCE...</td></tr>';
+  if (docsEl) docsEl.innerHTML = '<span style="font-size: 0.75rem; color: var(--text-faint);">Consultando documentos oficiales en SECOP II...</span>';
+
+  try {
+    const res = await fetch('/api/pliego/auditar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ procesoId, empresaId })
+    });
+    const json = await res.json();
+
+    if (!json.success || !json.data) {
+      throw new Error(json.error || 'No se pudo obtener el análisis de pliego');
+    }
+
+    const { proceso, diagnostico, matrizBrechas, documentosOficialesSecop } = json.data;
+
+    // 1. Dictamen Go / No-Go
+    if (badgeEl) {
+      badgeEl.textContent = diagnostico.decisionBadge;
+      badgeEl.style.background = diagnostico.decisionColor;
+      badgeEl.style.color = '#fff';
+    }
+    if (scoreEl) {
+      scoreEl.textContent = `Score de Viabilidad: ${diagnostico.scoreViabilidad}%`;
+    }
+    if (dictamenEl) {
+      dictamenEl.innerHTML = `<b>Dictamen Jurídico-Técnico:</b> ${diagnostico.dictamen}`;
+    }
+
+    // 2. Matriz Semáforo de Brechas
+    if (countEl) {
+      countEl.textContent = `${matrizBrechas.length} requisitos auditados (${diagnostico.cumpleCount} Cumple, ${diagnostico.subsanableCount} Subsanable, ${diagnostico.noCumpleCount} Brechas)`;
+    }
+
+    if (tbodyEl) {
+      tbodyEl.innerHTML = matrizBrechas.map((r, idx) => {
+        const bgRow = idx % 2 === 0 ? 'background: rgba(255, 255, 255, 0.02);' : '';
+        return `
+          <tr style="border-bottom: 1px solid var(--hairline); ${bgRow}">
+            <td style="padding: 10px; font-weight: 700; color: var(--champagne); vertical-align: top;">
+              ${r.requisito}
+            </td>
+            <td style="padding: 10px; color: var(--text-warm); vertical-align: top;">
+              ${r.criterioExigido}
+            </td>
+            <td style="padding: 10px; color: var(--text-warm); font-weight: 600; vertical-align: top;">
+              ${r.valorOferente}
+            </td>
+            <td style="padding: 10px; text-align: center; vertical-align: top;">
+              <span style="background: ${r.color}; color: #fff; padding: 4px 8px; border-radius: 4px; font-weight: 800; font-size: 0.72rem; display: inline-block; min-width: 85px;">
+                ${r.resultado}
+              </span>
+            </td>
+            <td style="padding: 10px; vertical-align: top;">
+              <div style="font-size: 0.73rem; color: var(--tech-cyan); font-weight: 600; margin-bottom: 2px;">
+                ⚖️ ${r.sustentoLegal}
+              </div>
+              <div style="font-size: 0.72rem; color: var(--text-faint); line-height: 1.35;">
+                💡 ${r.observacion}
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // 3. Documentos Oficiales de SECOP II
+    if (docsEl) {
+      if (documentosOficialesSecop && documentosOficialesSecop.length > 0) {
+        docsEl.innerHTML = documentosOficialesSecop.map(doc => `
+          <a href="${doc.url || '#'}" target="_blank" class="btn-action" style="font-size: 0.74rem; padding: 4px 10px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--hairline); color: var(--champagne); text-decoration: none;">
+            📄 ${doc.nombre || 'Documento Oficial'} ${doc.tamano ? `(${doc.tamano})` : ''}
+          </a>
+        `).join('');
+      } else {
+        docsEl.innerHTML = `
+          <div style="font-size: 0.75rem; color: var(--text-faint); display: flex; align-items: center; gap: 6px;">
+            <span>ℹ️ Pliegos y anexos disponibles para consulta directa en SECOP II.</span>
+            <a href="${proceso.url || '#'}" target="_blank" style="color: var(--gold); text-decoration: underline;">Abrir Expediente Electrónico</a>
+          </div>
+        `;
+      }
+    }
+  } catch (err) {
+    console.error('Error auditando pliego:', err);
+    if (tbodyEl) tbodyEl.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--danger);">Error: ${err.message}</td></tr>`;
+    showToast('Error al auditar pliego: ' + err.message);
+  }
+}
+
+// Re-auditar al cambiar de empresa en el selector
+document.getElementById('btnReauditProceso')?.addEventListener('click', () => {
+  if (!currentAuditProcesoId) return;
+  const compId = document.getElementById('auditCompanySelect')?.value;
+  ejecutarAuditoriaPliego(currentAuditProcesoId, compId);
+});
+
+// Botón de auditoría -> Ir al generador de oferta
+document.getElementById('btnAuditToBidDocs')?.addEventListener('click', () => {
+  if (!currentAuditProcesoId) return;
+  const compId = document.getElementById('auditCompanySelect')?.value;
+  document.getElementById('pliegoAuditModal')?.classList.remove('open');
+  abrirModalGeneracionOferta(currentAuditProcesoId, compId);
+});
+
+// Botón de auditoría -> Ir al simulador de consorcio
+document.getElementById('btnAuditToConsortium')?.addEventListener('click', () => {
+  document.getElementById('pliegoAuditModal')?.classList.remove('open');
+  document.getElementById('detailModal')?.classList.remove('open');
+  const navBtn = document.querySelector('.nav-item[data-target="view-consortium"]');
+  if (navBtn) navBtn.click();
+  showToast('🤝 Estructura tu Consorcio para subsanar los requisitos de pliego');
+});
+
+// Cerrar modal auditoría
+document.getElementById('btnCloseAuditModal')?.addEventListener('click', () => {
+  document.getElementById('pliegoAuditModal')?.classList.remove('open');
+});
+document.getElementById('btnCloseAuditModalBtn')?.addEventListener('click', () => {
+  document.getElementById('pliegoAuditModal')?.classList.remove('open');
+});
+document.getElementById('pliegoAuditModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'pliegoAuditModal') {
+    document.getElementById('pliegoAuditModal')?.classList.remove('open');
+  }
+});
+
+// ==================== GENERADOR DE DOCUMENTOS LICITATORIOS (PASO 3) ====================
+
+function abrirModalGeneracionOferta(procesoId, empresaId = null) {
+  const opp = oportunidades.find(o => o.id === procesoId);
+  if (!opp) return;
+
+  const targetEmpresaId = empresaId || document.getElementById('auditCompanySelect')?.value || (userCompanies.find(c => c.es_propia) || userCompanies[0])?.id;
+  const company = userCompanies.find(c => c.id == targetEmpresaId) || userCompanies[0];
+
+  const refEl = document.getElementById('bidDocProcesoRef');
+  const metaEl = document.getElementById('bidDocProcesoMeta');
+  if (refEl) refEl.textContent = `Proceso: ${opp.referencia || opp.id} — ${opp.nombre || opp.objeto}`;
+  if (metaEl) metaEl.textContent = `${opp.entidad} • Oferente: ${company ? company.razon_social : 'Proponente Registrado'}`;
+
+  // Reset tab activo a Formulario 1
+  switchBidTab('form1');
+
+  // Abrir modal
+  document.getElementById('bidDocsModal')?.classList.add('open');
+
+  // Cargar documentos
+  cargarDocumentosLicitatorios(procesoId, targetEmpresaId);
+}
+
+async function cargarDocumentosLicitatorios(procesoId, empresaId) {
+  const previewContainer = document.getElementById('bidDocPreviewContainer');
+  if (previewContainer) {
+    previewContainer.innerHTML = '<div style="text-align: center; color: #64748b; padding: 40px;">⏳ Redactando formularios oficiales bajo Pliegos Tipo ANCP-CCE y Ley 2069/2020...</div>';
+  }
+
+  const banco = {
+    nombre: document.getElementById('bidDocBancoNombre')?.value || 'Bancolombia S.A.',
+    numero: document.getElementById('bidDocBancoNumero')?.value || '001-234567-89',
+    tipo: 'Cuenta Corriente'
+  };
+
+  const contador = {
+    nombre: document.getElementById('bidDocContadorNombre')?.value || 'Dora Inés Morales Gómez',
+    tp: document.getElementById('bidDocContadorTp')?.value || 'TP-98765-T',
+    cedula: '52.987.654'
+  };
+
+  try {
+    const res = await fetch('/api/licitacion/generar-documentos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ procesoId, empresaId, banco, contador })
+    });
+    const json = await res.json();
+
+    if (!json.success || !json.data) {
+      throw new Error(json.error || 'No se pudieron generar los documentos licitatorios');
+    }
+
+    currentBidDocsData = {
+      ...json.data,
+      procesoId,
+      empresaId
+    };
+
+    renderActiveBidDoc();
+    showToast('✅ Formularios oficiales CCE listos para firma y radicación');
+  } catch (err) {
+    console.error('Error generando documentos licitatorios:', err);
+    if (previewContainer) {
+      previewContainer.innerHTML = `<div style="text-align: center; color: #ef4444; padding: 30px;">Error generando documentos: ${err.message}</div>`;
+    }
+    showToast('Error al generar documentos: ' + err.message);
+  }
+}
+
+function switchBidTab(tabName) {
+  currentActiveBidTab = tabName;
+  const btnF1 = document.getElementById('tabBtnForm1');
+  const btnF2 = document.getElementById('tabBtnForm2');
+  const btnMip = document.getElementById('tabBtnMipyme');
+
+  const defaultStyle = 'font-size: 0.78rem; padding: 6px 12px; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-warm);';
+  const activeStyle = 'font-size: 0.78rem; padding: 6px 12px; background: rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6; color: #93c5fd; font-weight: 700;';
+
+  if (btnF1) btnF1.style.cssText = tabName === 'form1' ? activeStyle : defaultStyle;
+  if (btnF2) btnF2.style.cssText = tabName === 'form2' ? activeStyle : defaultStyle;
+  if (btnMip) btnMip.style.cssText = tabName === 'mipyme' ? activeStyle : defaultStyle;
+
+  renderActiveBidDoc();
+}
+
+function renderActiveBidDoc() {
+  const container = document.getElementById('bidDocPreviewContainer');
+  if (!container || !currentBidDocsData) return;
+
+  if (currentActiveBidTab === 'form1') {
+    container.innerHTML = currentBidDocsData.formulario1Html;
+  } else if (currentActiveBidTab === 'form2') {
+    container.innerHTML = currentBidDocsData.formulario2Html;
+  } else if (currentActiveBidTab === 'mipyme') {
+    container.innerHTML = currentBidDocsData.mipymeHtml;
+  }
+}
+
+// Tab listeners
+document.getElementById('tabBtnForm1')?.addEventListener('click', () => switchBidTab('form1'));
+document.getElementById('tabBtnForm2')?.addEventListener('click', () => switchBidTab('form2'));
+document.getElementById('tabBtnMipyme')?.addEventListener('click', () => switchBidTab('mipyme'));
+
+// Re-generar si el usuario edita datos bancarios o contador al presionar Enter o perder foco
+['bidDocBancoNombre', 'bidDocBancoNumero', 'bidDocContadorNombre', 'bidDocContadorTp'].forEach(id => {
+  document.getElementById(id)?.addEventListener('change', () => {
+    if (currentBidDocsData && currentBidDocsData.procesoId) {
+      cargarDocumentosLicitatorios(currentBidDocsData.procesoId, currentBidDocsData.empresaId);
+    }
+  });
+});
+
+// Copiar documento activo al portapapeles
+document.getElementById('btnCopyActiveDoc')?.addEventListener('click', () => {
+  const container = document.getElementById('bidDocPreviewContainer');
+  if (!container) return;
+  const text = container.innerText || container.textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('📋 Texto del formulario copiado al portapapeles');
+  }).catch(() => {
+    showToast('No se pudo copiar automáticamente');
+  });
+});
+
+// Descargar Paquete Completo PDF
+document.getElementById('btnDownloadFullPdf')?.addEventListener('click', async () => {
+  if (!currentBidDocsData) {
+    showToast('Generando documentos previamente...');
+    return;
+  }
+
+  const btn = document.getElementById('btnDownloadFullPdf');
+  const originalText = btn ? btn.innerHTML : '';
+  if (btn) btn.innerHTML = '⏳ Compilando PDF...';
+
+  try {
+    const res = await fetch('/api/licitacion/descargar-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        procesoId: currentBidDocsData.procesoId,
+        empresaId: currentBidDocsData.empresaId
+      })
+    });
+
+    if (!res.ok) throw new Error('Error en el servidor compilando PDF');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const ref = (currentBidDocsData.proceso?.referencia || 'Oferta').replace(/[^a-zA-Z0-9_-]/g, '_');
+    a.download = `Propuesta_${ref}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+    showToast('🎉 Paquete PDF oficial descargado exitosamente');
+  } catch (err) {
+    console.error('Error descargando PDF:', err);
+    showToast('Error descargando PDF: ' + err.message);
+  } finally {
+    if (btn) btn.innerHTML = originalText;
+  }
+});
+
+// Cerrar modal de documentos
+document.getElementById('btnCloseBidDocsModal')?.addEventListener('click', () => {
+  document.getElementById('bidDocsModal')?.classList.remove('open');
+});
+document.getElementById('btnCloseBidDocsModalBtn')?.addEventListener('click', () => {
+  document.getElementById('bidDocsModal')?.classList.remove('open');
+});
+document.getElementById('bidDocsModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'bidDocsModal') {
+    document.getElementById('bidDocsModal')?.classList.remove('open');
+  }
 });
 
 // ==================== INICIALIZACIÓN ====================

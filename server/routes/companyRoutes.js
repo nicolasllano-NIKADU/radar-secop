@@ -219,17 +219,112 @@ router.post('/:id/k-residual', async (req, res) => {
     const contratos = await companyManager.getExperienceByCompany(empresaId);
     const expSmmlv = contratos.reduce((sum, c) => sum + (parseFloat(c.valor_contrato_smmlv) || 0), 0);
 
+    // Consultar saldos en ejecución (SCE) reales desde contratos_gestion si no se enviaron manuales
+    let sce = req.body.saldos_en_ejecucion !== undefined ? parseFloat(req.body.saldos_en_ejecucion) : null;
+    if (sce === null || isNaN(sce)) {
+      try {
+        const dbPostgres = require('../dbPostgres');
+        const sceRes = await dbPostgres.query(`
+          SELECT COALESCE(SUM(valor_adjudicado + valor_adicionado), 0) as total_sce
+          FROM contratos_gestion
+          WHERE empresa_id = $1 AND estado_ejecucion IN ('LEGALIZACION', 'EN_EJECUCION', 'SUSPENDIDO')
+        `, [empresaId]);
+        sce = parseFloat(sceRes.rows[0]?.total_sce) || 0;
+      } catch (e) {
+        sce = 0;
+      }
+    }
+
+    const smmlv = parseFloat(req.body.smmlv_valor) || 1423500;
     const kRes = financialEngine.calculateResidualCapacityK({
       activo_corriente: emp.activo_corriente,
+      pasivo_corriente: emp.pasivo_corriente,
       patrimonio: emp.patrimonio,
       experiencia_smmlv: expSmmlv,
       personal_tecnico_score: req.body.personal_tecnico_score || 80,
-      liquidez: emp.indice_liquidez,
-      endeudamiento: emp.indice_endeudamiento,
-      saldos_contratos_ejecucion_cop: req.body.saldos_en_ejecucion || 0
-    });
+      indice_liquidez: emp.indice_liquidez,
+      indice_endeudamiento: emp.indice_endeudamiento,
+      saldos_contratos_ejecucion_cop: sce
+    }, smmlv);
 
-    res.json({ ok: true, data: kRes });
+    const kRequerido = parseFloat(req.body.k_requerido_cop) || 0;
+    const cumple = kRequerido > 0 ? kRes.capacidad_residual_cop >= kRequerido : true;
+    const deficit = kRequerido > 0 ? Math.max(0, kRequerido - kRes.capacidad_residual_cop) : 0;
+    const holgura = kRequerido > 0 ? kRes.capacidad_residual_cop - kRequerido : kRes.capacidad_residual_cop;
+
+    res.json({
+      ok: true,
+      data: {
+        ...kRes,
+        empresa: { id: emp.id, razon_social: emp.razon_social, nit: emp.nit },
+        k_requerido_cop: kRequerido,
+        cumple,
+        deficit_cop: deficit,
+        holgura_cop: holgura,
+        recomendacion: cumple ?
+          '✅ Capacidad Residual suficiente para licitar individualmente según Pliegos Tipo ANCP-CCE.' :
+          '⚠️ Capacidad Residual insuficiente. Se requiere conformar estructura plural (Consorcio) o acreditar mayor nómina técnica para subsanar el déficit.'
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// POST /api/empresas/k-residual-plural - Calcula Capacidad Residual Agregada en Consorcio
+router.post('/k-residual-plural', async (req, res) => {
+  try {
+    const { miembros = [], k_requerido_cop = 0, smmlv_valor = 1423500 } = req.body;
+    const allCompanies = await companyManager.getCompaniesByUser(req.user.id);
+    const smmlv = parseFloat(smmlv_valor) || 1423500;
+    const kReq = parseFloat(k_requerido_cop) || 0;
+
+    let kTotalPlural = 0;
+    const desgloseMiembros = [];
+
+    for (const m of miembros) {
+      const emp = allCompanies.find(c => c.id === parseInt(m.empresa_id, 10));
+      if (!emp) continue;
+
+      const contratos = await companyManager.getExperienceByCompany(emp.id);
+      const expSmmlv = contratos.reduce((sum, c) => sum + (parseFloat(c.valor_contrato_smmlv) || 0), 0);
+
+      const kInd = financialEngine.calculateResidualCapacityK({
+        activo_corriente: emp.activo_corriente,
+        pasivo_corriente: emp.pasivo_corriente,
+        patrimonio: emp.patrimonio,
+        experiencia_smmlv: expSmmlv,
+        personal_tecnico_score: m.personal_tecnico_score || 80,
+        indice_liquidez: emp.indice_liquidez,
+        indice_endeudamiento: emp.indice_endeudamiento,
+        saldos_contratos_ejecucion_cop: m.saldos_en_ejecucion || 0
+      }, smmlv);
+
+      kTotalPlural += kInd.capacidad_residual_cop;
+      desgloseMiembros.push({
+        empresa_id: emp.id,
+        razon_social: emp.razon_social,
+        porcentaje_participacion: m.porcentaje || 0,
+        k_individual_cop: kInd.capacidad_residual_cop,
+        k_individual_smmlv: kInd.capacidad_residual_smmlv,
+        desglose: kInd.desglose
+      });
+    }
+
+    const cumple = kReq > 0 ? kTotalPlural >= kReq : true;
+
+    res.json({
+      ok: true,
+      data: {
+        capacidad_residual_plural_cop: kTotalPlural,
+        capacidad_residual_plural_smmlv: parseFloat((kTotalPlural / smmlv).toFixed(2)),
+        k_requerido_cop: kReq,
+        cumple,
+        deficit_cop: kReq > 0 ? Math.max(0, kReq - kTotalPlural) : 0,
+        holgura_cop: kReq > 0 ? kTotalPlural - kReq : kTotalPlural,
+        miembros: desgloseMiembros
+      }
+    });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
