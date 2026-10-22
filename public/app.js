@@ -5429,6 +5429,408 @@ document.getElementById('riskMatrixModal')?.addEventListener('click', (e) => {
   }
 });
 
+// ==================== MÓDULO: ACUERDOS DE CONSTITUCIÓN PLURAL (FORMULARIO 3 CCE) ====================
+
+let currentPluralProcesoId = null;
+let currentPluralMembers = [];
+let currentPluralAcuerdo = null;
+
+// Abrir modal desde detailModal
+document.getElementById('modalBtnPluralAgreement')?.addEventListener('click', () => {
+  if (!activeModalId) return;
+  abrirModalAcuerdoPlural(activeModalId);
+});
+
+async function abrirModalAcuerdoPlural(procesoId) {
+  const opp = oportunidades.find(o => o.id === procesoId);
+  if (!opp) return;
+
+  currentPluralProcesoId = procesoId;
+
+  const refEl = document.getElementById('pluralProcesoRef');
+  const metaEl = document.getElementById('pluralProcesoMeta');
+  if (refEl) refEl.textContent = `Proceso: ${opp.referencia || opp.id} — ${opp.nombre || opp.objeto}`;
+  if (metaEl) {
+    const valFmt = formatCOP(opp.valor_estimado || opp.cuantia || 0);
+    metaEl.textContent = `${opp.entidad} • Valor Oficial: ${valFmt} • Pliegos Tipo ANCP-CCE`;
+  }
+
+  // Prellenar miembros por defecto con empresas registradas
+  const lider = userCompanies.find(c => c.es_propia) || userCompanies[0] || {
+    id: 1,
+    razon_social: 'EMPRESA LÍDER DE INGENIERÍA S.A.S.',
+    nit: '901.458.912-3',
+    representante_legal: 'Carlos Andrés Mendoza',
+    cedula_representante: '79.845.120',
+    financiero: { indice_liquidez: 2.1, indice_endeudamiento: 48, cobertura_interes: 6.2, rentabilidad_patrimonio: 12.5, rentabilidad_activo: 9.1, patrimonio: 2500000000, activo_corriente: 1200000000, pasivo_corriente: 450000000 }
+  };
+
+  const aliado = userCompanies.find(c => c.id !== lider.id) || {
+    id: 2,
+    razon_social: 'SOCIEDAD ALIADA ESTRATÉGICA S.A.S.',
+    nit: '900.789.456-1',
+    representante_legal: 'Mariana Gómez Silva',
+    cedula_representante: '52.341.980',
+    financiero: { indice_liquidez: 1.8, indice_endeudamiento: 52, cobertura_interes: 4.8, rentabilidad_patrimonio: 10.2, rentabilidad_activo: 7.5, patrimonio: 1800000000, activo_corriente: 900000000, pasivo_corriente: 380000000 }
+  };
+
+  currentPluralMembers = [
+    {
+      empresa_id: lider.id,
+      razon_social: lider.razon_social,
+      nit: lider.nit,
+      representante_legal: lider.representante_legal || 'Representante Legal Líder',
+      cedula_representante: lider.cedula_representante || '79.845.120',
+      porcentaje: 60,
+      alcance_actividades: 'Dirección general, gestión contractual, aportes de experiencia habilitante principal y ejecución operativa mayoritaria.',
+      indicadores_financieros: lider.financiero || {}
+    },
+    {
+      empresa_id: aliado.id,
+      razon_social: aliado.razon_social,
+      nit: aliado.nit,
+      representante_legal: aliado.representante_legal || 'Representante Legal Aliado',
+      cedula_representante: aliado.cedula_representante || '52.341.980',
+      porcentaje: 40,
+      alcance_actividades: 'Aporte de capacidad financiera consolidada, suministro de insumos técnicos especializados y aseguramiento de calidad.',
+      indicadores_financieros: aliado.financiero || {}
+    }
+  ];
+
+  // Prellenar inputs de la estructura
+  const cleanEntidad = (opp.entidad || 'CONSORCIO').replace(/[^A-Za-z0-9]/g, '').slice(0, 12).toUpperCase();
+  const inputNombre = document.getElementById('pluralNombreEstructura');
+  if (inputNombre) inputNombre.value = `UNION TEMPORAL ${cleanEntidad} ${new Date().getFullYear()}`;
+
+  const inputRepNom = document.getElementById('pluralRepNombre');
+  const inputRepCed = document.getElementById('pluralRepCedula');
+  if (inputRepNom) inputRepNom.value = lider.representante_legal || 'Carlos Andrés Mendoza';
+  if (inputRepCed) inputRepCed.value = lider.cedula_representante || '79.845.120';
+
+  const inputSuplenteNom = document.getElementById('pluralRepSuplenteNombre');
+  const inputSuplenteCed = document.getElementById('pluralRepSuplenteCedula');
+  if (inputSuplenteNom) inputSuplenteNom.value = aliado.representante_legal || 'Mariana Gómez Silva';
+  if (inputSuplenteCed) inputSuplenteCed.value = aliado.cedula_representante || '52.341.980';
+
+  const inputMiembroFact = document.getElementById('pluralMiembroFact');
+  if (inputMiembroFact) inputMiembroFact.value = lider.razon_social;
+
+  // Abrir modal
+  document.getElementById('pluralAgreementModal')?.classList.add('open');
+
+  renderPluralMembers();
+  generarYPrevisualizarAcuerdo();
+}
+
+function renderPluralMembers() {
+  const container = document.getElementById('pluralMembersContainer');
+  if (!container) return;
+
+  const suma = currentPluralMembers.reduce((acc, it) => acc + (parseFloat(it.porcentaje) || 0), 0);
+  const badge = document.getElementById('pluralSumaBadge');
+  if (badge) {
+    if (Math.abs(suma - 100) < 0.01) {
+      badge.textContent = 'SUMA: 100% ✅';
+      badge.style.background = 'rgba(16, 185, 129, 0.2)';
+      badge.style.color = '#10b981';
+      badge.style.borderColor = '#10b981';
+    } else {
+      badge.textContent = `SUMA: ${suma.toFixed(1)}% ❌ (Debe ser 100%)`;
+      badge.style.background = 'rgba(239, 68, 68, 0.2)';
+      badge.style.color = '#ef4444';
+      badge.style.borderColor = '#ef4444';
+    }
+  }
+
+  container.innerHTML = currentPluralMembers.map((m, idx) => `
+    <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); border-radius: 4px; padding: 10px; display: flex; flex-direction: column; gap: 6px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-weight: 800; font-size: 0.75rem; color: #38bdf8;">#${idx + 1}</span>
+          <input type="text" class="plural-member-razon" data-index="${idx}" value="${m.razon_social}" placeholder="Razón Social" style="background: transparent; border: 1px solid var(--hairline); color: var(--champagne); font-weight: 700; font-size: 0.78rem; padding: 2px 6px; border-radius: 3px; min-width: 260px;">
+          <input type="text" class="plural-member-nit" data-index="${idx}" value="${m.nit}" placeholder="NIT" style="background: transparent; border: 1px solid var(--hairline); color: var(--text-warm); font-size: 0.74rem; padding: 2px 6px; border-radius: 3px; width: 110px;">
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <label style="font-size: 0.7rem; color: var(--text-faint);">Participación:</label>
+            <input type="number" class="plural-member-pct" data-index="${idx}" value="${m.porcentaje}" min="1" max="99" style="width: 55px; padding: 2px 4px; font-size: 0.78rem; font-weight: 800; text-align: center; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: #38bdf8; border-radius: 3px;">
+            <span style="font-size: 0.75rem; font-weight: 700; color: var(--champagne);">%</span>
+          </div>
+          ${currentPluralMembers.length > 2 ? `
+            <button class="btn-delete-plural-member" data-index="${idx}" style="background: transparent; border: none; color: var(--danger); cursor: pointer; font-size: 0.85rem;" title="Eliminar miembro">🗑️</button>
+          ` : ''}
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 8px;">
+        <div style="display: flex; gap: 4px;">
+          <input type="text" class="plural-member-rep" data-index="${idx}" value="${m.representante_legal}" placeholder="Rep. Legal" style="flex: 1; background: transparent; border: 1px solid var(--hairline); color: var(--text-primary); font-size: 0.72rem; padding: 2px 6px; border-radius: 3px;">
+          <input type="text" class="plural-member-cedula" data-index="${idx}" value="${m.cedula_representante}" placeholder="C.C." style="width: 85px; background: transparent; border: 1px solid var(--hairline); color: var(--text-primary); font-size: 0.72rem; padding: 2px 6px; border-radius: 3px;">
+        </div>
+        <input type="text" class="plural-member-alcance" data-index="${idx}" value="${m.alcance_actividades}" placeholder="Actividades y compromisos de ejecución (crítico para UT)..." style="background: transparent; border: 1px solid var(--hairline); color: var(--text-primary); font-size: 0.72rem; padding: 2px 6px; border-radius: 3px;">
+      </div>
+    </div>
+  `).join('');
+
+  // Event Listeners dinámicos
+  container.querySelectorAll('.plural-member-pct').forEach(input => {
+    input.addEventListener('change', (e) => {
+      const idx = parseInt(e.target.dataset.index, 10);
+      currentPluralMembers[idx].porcentaje = parseFloat(e.target.value) || 0;
+      renderPluralMembers();
+      generarYPrevisualizarAcuerdo();
+    });
+  });
+
+  container.querySelectorAll('.plural-member-razon').forEach(input => {
+    input.addEventListener('input', (e) => {
+      const idx = parseInt(e.target.dataset.index, 10);
+      currentPluralMembers[idx].razon_social = e.target.value;
+    });
+  });
+
+  container.querySelectorAll('.plural-member-nit').forEach(input => {
+    input.addEventListener('input', (e) => {
+      const idx = parseInt(e.target.dataset.index, 10);
+      currentPluralMembers[idx].nit = e.target.value;
+    });
+  });
+
+  container.querySelectorAll('.plural-member-rep').forEach(input => {
+    input.addEventListener('input', (e) => {
+      const idx = parseInt(e.target.dataset.index, 10);
+      currentPluralMembers[idx].representante_legal = e.target.value;
+    });
+  });
+
+  container.querySelectorAll('.plural-member-cedula').forEach(input => {
+    input.addEventListener('input', (e) => {
+      const idx = parseInt(e.target.dataset.index, 10);
+      currentPluralMembers[idx].cedula_representante = e.target.value;
+    });
+  });
+
+  container.querySelectorAll('.plural-member-alcance').forEach(input => {
+    input.addEventListener('input', (e) => {
+      const idx = parseInt(e.target.dataset.index, 10);
+      currentPluralMembers[idx].alcance_actividades = e.target.value;
+    });
+  });
+
+  container.querySelectorAll('.btn-delete-plural-member').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const idx = parseInt(e.currentTarget.dataset.index, 10);
+      currentPluralMembers.splice(idx, 1);
+      renderPluralMembers();
+      generarYPrevisualizarAcuerdo();
+    });
+  });
+
+  recalcularIndicadoresPluralesClient();
+}
+
+function recalcularIndicadoresPluralesClient() {
+  let liquidezPond = 0, endeudamientoPond = 0, rciPond = 0, roePond = 0, roaPond = 0, capitalConsolidado = 0;
+
+  currentPluralMembers.forEach(m => {
+    const p = (parseFloat(m.porcentaje) || 0) / 100;
+    const fin = m.indicadores_financieros || {};
+    liquidezPond += (parseFloat(fin.indice_liquidez || 1.8) * p);
+    endeudamientoPond += (parseFloat(fin.indice_endeudamiento || 50) * p);
+    rciPond += (parseFloat(fin.cobertura_interes || 5.0) * p);
+    roePond += (parseFloat(fin.rentabilidad_patrimonio || 11.0) * p);
+    roaPond += (parseFloat(fin.rentabilidad_activo || 8.0) * p);
+
+    const actC = parseFloat(fin.activo_corriente || 800000000);
+    const pasC = parseFloat(fin.pasivo_corriente || 300000000);
+    capitalConsolidado += ((actC - pasC) * p);
+  });
+
+  const liqEl = document.getElementById('pluralPondLiquidez');
+  const endEl = document.getElementById('pluralPondEndeuda');
+  const rciEl = document.getElementById('pluralPondRci');
+  const roeEl = document.getElementById('pluralPondRoe');
+  const roaEl = document.getElementById('pluralPondRoa');
+  const capEl = document.getElementById('pluralPondCapital');
+
+  if (liqEl) liqEl.textContent = liquidezPond.toFixed(2);
+  if (endEl) endEl.textContent = `${endeudamientoPond.toFixed(1)}%`;
+  if (rciEl) rciEl.textContent = rciPond.toFixed(2);
+  if (roeEl) roeEl.textContent = `${roePond.toFixed(1)}%`;
+  if (roaEl) roaEl.textContent = `${roaPond.toFixed(1)}%`;
+  if (capEl) capEl.textContent = formatCOP(capitalConsolidado);
+}
+
+async function generarYPrevisualizarAcuerdo() {
+  const opp = oportunidades.find(o => o.id === currentPluralProcesoId);
+  if (!opp) return;
+
+  const previewContainer = document.getElementById('pluralDocPreviewContainer');
+  if (previewContainer) {
+    previewContainer.innerHTML = '<div style="text-align: center; color: #64748b; padding: 25px;">Generando minuta legal de acuerdo plural CCE...</div>';
+  }
+
+  const datosEstructura = {
+    nombre_estructura: document.getElementById('pluralNombreEstructura')?.value || 'UNION TEMPORAL',
+    tipo_estructura: document.getElementById('pluralTipoEstructura')?.value || 'UNION_TEMPORAL',
+    duracion_meses: parseInt(document.getElementById('pluralDuracionMeses')?.value || '24', 10),
+    domicilio_contractual: document.getElementById('pluralDomicilio')?.value || 'Bogotá D.C.',
+    rep_legal_nombre: document.getElementById('pluralRepNombre')?.value || 'Representante Legal Principal',
+    rep_legal_cedula: document.getElementById('pluralRepCedula')?.value || '79.845.120',
+    rep_legal_ciudad_exp: document.getElementById('pluralRepCiudad')?.value || 'Bogotá D.C.',
+    rep_suplente_nombre: document.getElementById('pluralRepSuplenteNombre')?.value || '',
+    rep_suplente_cedula: document.getElementById('pluralRepSuplenteCedula')?.value || '',
+    modalidad_facturacion: document.getElementById('pluralModalidadFact')?.value || 'NIT_PROPIO',
+    miembro_facturador: document.getElementById('pluralMiembroFact')?.value || currentPluralMembers[0]?.razon_social,
+    integrantes: currentPluralMembers
+  };
+
+  try {
+    const res = await fetch('/api/plural/generar-formulario3', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        proceso: opp,
+        datosEstructura
+      })
+    });
+
+    const json = await res.json();
+    if (json.success && json.acuerdo) {
+      currentPluralAcuerdo = json.acuerdo;
+      if (previewContainer) {
+        previewContainer.innerHTML = json.acuerdo.documento_html;
+      }
+    } else {
+      if (previewContainer) {
+        previewContainer.innerHTML = `<div style="padding: 20px; color: #ef4444; font-family: sans-serif;"><b>Aviso:</b> ${json.error}</div>`;
+      }
+    }
+  } catch (err) {
+    console.error('Error generando acuerdo plural:', err);
+    if (previewContainer) {
+      previewContainer.innerHTML = `<div style="padding: 20px; color: #ef4444; font-family: sans-serif;">Error de comunicación: ${err.message}</div>`;
+    }
+  }
+}
+
+// Botón refrescar vista previa
+document.getElementById('btnRefreshPluralPreview')?.addEventListener('click', generarYPrevisualizarAcuerdo);
+
+// Botón añadir integrante
+document.getElementById('btnAddPluralMember')?.addEventListener('click', () => {
+  const newIdx = currentPluralMembers.length + 1;
+  currentPluralMembers.push({
+    empresa_id: 100 + newIdx,
+    razon_social: `CONSORCIADO ALIADO ${newIdx} S.A.S.`,
+    nit: `901.${Math.floor(100 + Math.random() * 899)}.${Math.floor(100 + Math.random() * 899)}-${Math.floor(1 + Math.random() * 9)}`,
+    representante_legal: `Representante Legal Aliado ${newIdx}`,
+    cedula_representante: `${Math.floor(10000000 + Math.random() * 89999999)}`,
+    porcentaje: 0,
+    alcance_actividades: 'Aportes operativos, técnicos y ejecución de actividades asignadas en el plan de trabajo.',
+    indicadores_financieros: { indice_liquidez: 1.6, indice_endeudamiento: 45, cobertura_interes: 5.5, rentabilidad_patrimonio: 11, rentabilidad_activo: 8 }
+  });
+
+  renderPluralMembers();
+});
+
+// Guardar acuerdo en DB
+document.getElementById('btnGuardarPluralDb')?.addEventListener('click', async () => {
+  if (!currentPluralAcuerdo) {
+    alert('Primero genera y cuadra la estructura plural.');
+    return;
+  }
+
+  const btn = document.getElementById('btnGuardarPluralDb');
+  const oldText = btn.innerHTML;
+  btn.innerHTML = '⏳ Guardando...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/plural/guardar-formulario3', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acuerdo: currentPluralAcuerdo })
+    });
+
+    const json = await res.json();
+    if (json.success) {
+      alert(`✅ Acuerdo de Constitución Plural guardado exitosamente en expediente PostgreSQL (ID: ${json.id}).`);
+    } else {
+      alert(`❌ Error al guardar: ${json.error}`);
+    }
+  } catch (err) {
+    console.error('Error guardando acuerdo plural:', err);
+    alert(`❌ Error de conexión: ${err.message}`);
+  } finally {
+    btn.innerHTML = oldText;
+    btn.disabled = false;
+  }
+});
+
+// Copiar texto minuta
+document.getElementById('btnCopyPluralDoc')?.addEventListener('click', () => {
+  const preview = document.getElementById('pluralDocPreviewContainer');
+  if (!preview) return;
+
+  const plainText = preview.innerText;
+  navigator.clipboard.writeText(plainText)
+    .then(() => alert('📋 Minuta del Formulario 3 copiada al portapapeles (lista para Word / Notaría).'))
+    .catch(() => alert('Error copiando texto al portapapeles.'));
+});
+
+// Descargar PDF oficial
+document.getElementById('btnDownloadPluralPdf')?.addEventListener('click', async () => {
+  if (!currentPluralAcuerdo) {
+    alert('No hay acuerdo disponible para descargar.');
+    return;
+  }
+
+  const btn = document.getElementById('btnDownloadPluralPdf');
+  const oldText = btn.innerHTML;
+  btn.innerHTML = '⏳ Generando PDF CCE...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/plural/descargar-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acuerdo: currentPluralAcuerdo })
+    });
+
+    if (!res.ok) throw new Error('Error en el servidor al generar PDF');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Formulario_3_Constitucion_${(currentPluralAcuerdo.nombre_estructura || 'ESTRUCTURA_PLURAL').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error('Error descargando PDF:', err);
+    alert(`❌ Error descargando PDF: ${err.message}`);
+  } finally {
+    btn.innerHTML = oldText;
+    btn.disabled = false;
+  }
+});
+
+// Cerrar modal
+document.getElementById('btnClosePluralAgreementModal')?.addEventListener('click', () => {
+  document.getElementById('pluralAgreementModal')?.classList.remove('open');
+});
+document.getElementById('btnClosePluralAgreementModalBtn')?.addEventListener('click', () => {
+  document.getElementById('pluralAgreementModal')?.classList.remove('open');
+});
+document.getElementById('pluralAgreementModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'pluralAgreementModal') {
+    document.getElementById('pluralAgreementModal')?.classList.remove('open');
+  }
+});
+
 // ==================== INICIALIZACIÓN ====================
 window.addEventListener('DOMContentLoaded', () => {
   checkUserSession();

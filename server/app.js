@@ -27,6 +27,7 @@ const pliegoObservationsEngine = require('./pliegoObservationsEngine');
 const evaluationChallengeEngine = require('./evaluationChallengeEngine');
 const winRateAnalyticsEngine = require('./winRateAnalyticsEngine');
 const riskMatrixEngine = require('./riskMatrixEngine');
+const pluralAgreementEngine = require('./pluralAgreementEngine');
 const initDb = require('./initDb');
 
 const app = express();
@@ -1421,6 +1422,86 @@ app.get('/api/riesgos/descargar-pdf/:procesoId', async (req, res) => {
     res.send(pdfBuffer);
   } catch (err) {
     console.error('Error generando PDF de matriz de riesgos:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== MÓDULO: ACUERDOS DE CONSTITUCIÓN PLURAL (FORMULARIO 3 CCE) ====================
+
+app.post('/api/plural/generar-formulario3', async (req, res) => {
+  try {
+    const { proceso, datosEstructura } = req.body;
+    if (!proceso || !datosEstructura) {
+      return res.status(400).json({ success: false, error: 'Faltan parámetros requeridos de proceso o estructura plural.' });
+    }
+
+    const acuerdo = pluralAgreementEngine.generarAcuerdoPlural({ proceso, datosEstructura });
+    res.json({ success: true, acuerdo });
+  } catch (err) {
+    console.error('Error generando acuerdo plural:', err.message);
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/plural/guardar-formulario3', async (req, res) => {
+  try {
+    const { acuerdo } = req.body;
+    if (!acuerdo || !acuerdo.nombre_estructura) {
+      return res.status(400).json({ success: false, error: 'Estructura inválida de acuerdo plural.' });
+    }
+
+    const guardado = await pluralAgreementEngine.guardarAcuerdo(acuerdo);
+    res.json({ success: true, ...guardado });
+  } catch (err) {
+    console.error('Error guardando acuerdo plural:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/plural/acuerdos/:procesoId', async (req, res) => {
+  try {
+    const acuerdos = await pluralAgreementEngine.getAcuerdosPorProceso(req.params.procesoId);
+    res.json({ success: true, count: acuerdos.length, data: acuerdos });
+  } catch (err) {
+    console.error('Error obteniendo acuerdos plurales:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/plural/descargar-pdf', async (req, res) => {
+  try {
+    const { acuerdo } = req.body;
+    if (!acuerdo) {
+      return res.status(400).json({ success: false, error: 'No se enviaron los datos del acuerdo para PDF.' });
+    }
+
+    const pdfBuffer = await pluralAgreementEngine.generarAcuerdoPdf(acuerdo);
+    const filename = `Formulario_3_Constitucion_${(acuerdo.nombre_estructura || 'ESTRUCTURA_PLURAL').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF de acuerdo plural:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/plural/descargar-pdf/:id', async (req, res) => {
+  try {
+    const acuerdo = await pluralAgreementEngine.getAcuerdoPorId(req.params.id);
+    if (!acuerdo) {
+      return res.status(404).json({ success: false, error: 'Acuerdo plural no encontrado.' });
+    }
+
+    const pdfBuffer = await pluralAgreementEngine.generarAcuerdoPdf(acuerdo);
+    const filename = `Formulario_3_Constitucion_${(acuerdo.nombre_estructura || 'ESTRUCTURA_PLURAL').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF de acuerdo plural:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

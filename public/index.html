@@ -1257,6 +1257,15 @@
           </svg>
           <span>⚠️ Matriz de Riesgos CCE</span>
         </button>
+        <button id="modalBtnPluralAgreement" class="btn-action" style="flex: 1; min-width: 140px; justify-content: center; background: rgba(14, 165, 233, 0.15); border: 1px solid #0ea5e9; color: #7dd3fc;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          <span>🤝 Formulario 3 Consorcio / UT</span>
+        </button>
         <button id="modalNotifyBtn" class="btn-action btn-action-tele" style="flex: 1; min-width: 140px; justify-content: center;">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <line x1="22" y1="2" x2="11" y2="13"/>
@@ -2425,6 +2434,170 @@
             ⬇️ Descargar Matriz PDF Oficial (CCE)
           </button>
           <button id="btnCloseRiskMatrixModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Acuerdos de Constitución Plural (Formulario 3 CCE) -->
+  <div id="pluralAgreementModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 1080px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="entity-badge" style="background: #0ea5e9; color: #ffffff; font-weight: 800;">FORMULARIO 3 CCE</div>
+          <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-warm);">Constitución de Estructura Plural (Consorcio / Unión Temporal - Ley 80/1993 Art. 7)</span>
+        </div>
+        <button id="btnClosePluralAgreementModal" class="btn-close-modal" aria-label="Cerrar modal">✕</button>
+      </div>
+
+      <div style="margin-top: 8px; border-bottom: 1px solid var(--hairline); padding-bottom: 10px;">
+        <h4 id="pluralProcesoRef" style="font-size: 1.05rem; color: var(--champagne); margin-bottom: 2px;">Proceso: --</h4>
+        <div id="pluralProcesoMeta" style="font-size: 0.78rem; color: var(--text-faint);">Entidad • Objeto Contractual • Ponderación Pliegos Tipo</div>
+      </div>
+
+      <!-- Configuración General de la Estructura -->
+      <div style="margin-top: 12px; background: rgba(14, 165, 233, 0.05); border: 1px solid rgba(14, 165, 233, 0.25); border-radius: 6px; padding: 12px;">
+        <div style="font-size: 0.8rem; font-weight: 700; color: #7dd3fc; margin-bottom: 8px;">1. Parámetros Constitutivos y Régimen Asociativo</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 8px;">
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Tipo de Estructura Plural</label>
+            <select id="pluralTipoEstructura" style="width: 100%; padding: 5px 8px; font-size: 0.76rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 4px;">
+              <option value="UNION_TEMPORAL" selected>🤝 Unión Temporal (Sanciones graduadas por participación)</option>
+              <option value="CONSORCIO">🏛️ Consorcio (Solidaria e ilimitada total)</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Denominación Oficial</label>
+            <input type="text" id="pluralNombreEstructura" placeholder="Ej. UNION TEMPORAL BOGOTA 2026" style="width: 100%; padding: 5px 8px; font-size: 0.76rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--champagne); border-radius: 4px; font-weight: 700;">
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Domicilio Contractual</label>
+            <input type="text" id="pluralDomicilio" value="Bogotá D.C." style="width: 100%; padding: 5px 8px; font-size: 0.76rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 4px;">
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Duración Prevista (Meses)</label>
+            <input type="number" id="pluralDuracionMeses" value="24" min="6" max="120" style="width: 100%; padding: 5px 8px; font-size: 0.76rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 4px;">
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 8px;">
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Representante Legal Principal</label>
+            <input type="text" id="pluralRepNombre" placeholder="Nombre completo del Representante" style="width: 100%; padding: 5px 8px; font-size: 0.76rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 4px;">
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Cédula y Expedición</label>
+            <div style="display: flex; gap: 4px;">
+              <input type="text" id="pluralRepCedula" placeholder="No. Cédula" style="flex: 1; padding: 5px 8px; font-size: 0.76rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 4px;">
+              <input type="text" id="pluralRepCiudad" placeholder="Ciudad" value="Bogotá D.C." style="width: 80px; padding: 5px 8px; font-size: 0.76rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 4px;">
+            </div>
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Representante Suplente</label>
+            <input type="text" id="pluralRepSuplenteNombre" placeholder="Nombre suplente (opcional)" style="width: 100%; padding: 5px 8px; font-size: 0.76rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 4px;">
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Cédula Suplente</label>
+            <input type="text" id="pluralRepSuplenteCedula" placeholder="No. Cédula suplente" style="width: 100%; padding: 5px 8px; font-size: 0.76rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 4px;">
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Régimen Tributario y Facturación (Art. 18 E.T.)</label>
+            <select id="pluralModalidadFact" style="width: 100%; padding: 5px 8px; font-size: 0.76rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 4px;">
+              <option value="NIT_PROPIO" selected>Facturación con NIT propio de la estructura plural ante la DIAN</option>
+              <option value="FACTURACION_INDIVIDUAL">Facturación individualizada de cada integrante según participación</option>
+              <option value="MIEMBRO_LIDER">Facturación centralizada en cabeza del integrante líder</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Administrador de Cuenta Conjunta</label>
+            <input type="text" id="pluralMiembroFact" placeholder="Empresa encargada de cuenta" style="width: 100%; padding: 5px 8px; font-size: 0.76rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 4px;">
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección de Integrantes y Cuadre de Porcentajes -->
+      <div style="margin-top: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 0.8rem; font-weight: 700; color: var(--champagne);">2. Integrantes del Acuerdo y Participación</span>
+            <span id="pluralSumaBadge" class="badge" style="font-size: 0.7rem; padding: 2px 8px; background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981;">
+              SUMA: 100% ✅
+            </span>
+          </div>
+          <button id="btnAddPluralMember" class="btn-action" style="font-size: 0.72rem; padding: 4px 10px; background: rgba(14, 165, 233, 0.15); border: 1px solid #0ea5e9; color: #7dd3fc;">
+            ➕ Añadir Integrante
+          </button>
+        </div>
+
+        <div id="pluralMembersContainer" style="display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto;">
+          <!-- Se inyectan dinámicamente las tarjetas de miembros -->
+        </div>
+      </div>
+
+      <!-- Resumen de Capacidad Financiera Consolidada (Ponderación CCE) -->
+      <div style="margin-top: 12px; background: rgba(0,0,0,0.25); border: 1px solid var(--hairline); border-radius: 6px; padding: 10px;">
+        <div style="font-size: 0.74rem; font-weight: 700; color: var(--champagne); margin-bottom: 6px;">
+          📊 Capacidad Financiera Consolidada Ponderada (Pliegos Tipo ANCP-CCE):
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; font-size: 0.72rem;">
+          <div class="card-glass" style="padding: 6px 8px; border-radius: 4px; text-align: center;">
+            <div style="color: var(--text-faint); font-size: 0.65rem;">Índice Liquidez</div>
+            <div id="pluralPondLiquidez" style="font-weight: 800; font-size: 0.95rem; color: #38bdf8;">--</div>
+          </div>
+          <div class="card-glass" style="padding: 6px 8px; border-radius: 4px; text-align: center;">
+            <div style="color: var(--text-faint); font-size: 0.65rem;">Endeudamiento</div>
+            <div id="pluralPondEndeuda" style="font-weight: 800; font-size: 0.95rem; color: #f59e0b;">--%</div>
+          </div>
+          <div class="card-glass" style="padding: 6px 8px; border-radius: 4px; text-align: center;">
+            <div style="color: var(--text-faint); font-size: 0.65rem;">Cobertura Int. (RCI)</div>
+            <div id="pluralPondRci" style="font-weight: 800; font-size: 0.95rem; color: #10b981;">--</div>
+          </div>
+          <div class="card-glass" style="padding: 6px 8px; border-radius: 4px; text-align: center;">
+            <div style="color: var(--text-faint); font-size: 0.65rem;">Rentab. Patrim. (ROE)</div>
+            <div id="pluralPondRoe" style="font-weight: 800; font-size: 0.95rem; color: #d8b4fe;">--%</div>
+          </div>
+          <div class="card-glass" style="padding: 6px 8px; border-radius: 4px; text-align: center;">
+            <div style="color: var(--text-faint); font-size: 0.65rem;">Rentab. Activo (ROA)</div>
+            <div id="pluralPondRoa" style="font-weight: 800; font-size: 0.95rem; color: #fda4af;">--%</div>
+          </div>
+          <div class="card-glass" style="padding: 6px 8px; border-radius: 4px; text-align: center;">
+            <div style="color: var(--text-faint); font-size: 0.65rem;">Capital de Trabajo</div>
+            <div id="pluralPondCapital" style="font-weight: 800; font-size: 0.95rem; color: var(--champagne);">$ --</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Previsualización del Documento Jurídico -->
+      <div style="margin-top: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+          <span style="font-size: 0.78rem; font-weight: 700; color: var(--champagne);">📄 Vista Previa del Formulario 3 para SECOP II / Notaría:</span>
+          <button id="btnRefreshPluralPreview" class="btn-action" style="padding: 2px 8px; font-size: 0.7rem;">🔄 Actualizar Texto</button>
+        </div>
+        <div id="pluralDocPreviewContainer" style="background: #ffffff; color: #0f172a; border-radius: 6px; padding: 20px; max-height: 220px; overflow-y: auto; font-family: 'Times New Roman', Times, serif; font-size: 10pt; line-height: 1.45; box-shadow: inset 0 2px 6px rgba(0,0,0,0.2);">
+          <div style="text-align: center; color: #64748b; padding: 30px;">Generando acuerdo de constitución plural...</div>
+        </div>
+      </div>
+
+      <!-- Footer Actions -->
+      <div style="margin-top: 14px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; border-top: 1px solid var(--hairline); padding-top: 12px;">
+        <div style="display: flex; gap: 8px;">
+          <button id="btnCopyPluralDoc" class="btn-action" style="font-size: 0.8rem; padding: 6px 12px; background: rgba(0, 229, 255, 0.12); border: 1px solid var(--tech-cyan); color: var(--tech-cyan);">
+            📋 Copiar Minuta
+          </button>
+          <button id="btnGuardarPluralDb" class="btn-action" style="font-size: 0.8rem; padding: 6px 12px; background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #6ee7b7;">
+            💾 Guardar en Expediente DB
+          </button>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button id="btnDownloadPluralPdf" class="btn-action btn-action-primary" style="font-size: 0.82rem; padding: 7px 18px; background: #0ea5e9; color: #ffffff; font-weight: 700; border: none; box-shadow: 0 4px 12px rgba(14, 165, 233, 0.35);">
+            ⬇️ Descargar Acuerdo Oficial PDF (CCE)
+          </button>
+          <button id="btnClosePluralAgreementModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
             Cerrar
           </button>
         </div>
