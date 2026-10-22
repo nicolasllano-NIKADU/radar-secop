@@ -16,7 +16,8 @@ const SCHEMAS = [
   'schema_evaluacion_impugnacion.sql',
   'schema_win_rate_analytics.sql',
   'schema_matriz_riesgos.sql',
-  'schema_acuerdos_plurales.sql'
+  'schema_acuerdos_plurales.sql',
+  'schema_preflight_audit.sql'
 ];
 
 async function runAllMigrations() {

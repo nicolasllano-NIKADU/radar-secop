@@ -1266,6 +1266,13 @@
           </svg>
           <span>🤝 Formulario 3 Consorcio / UT</span>
         </button>
+        <button id="modalBtnPreflightAudit" class="btn-action" style="flex: 1; min-width: 140px; justify-content: center; background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #6ee7b7;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+          <span>🚀 Pre-Flight SECOP II (Checklist)</span>
+        </button>
         <button id="modalNotifyBtn" class="btn-action btn-action-tele" style="flex: 1; min-width: 140px; justify-content: center;">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <line x1="22" y1="2" x2="11" y2="13"/>
@@ -2598,6 +2605,91 @@
             ⬇️ Descargar Acuerdo Oficial PDF (CCE)
           </button>
           <button id="btnClosePluralAgreementModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Auditoría Pre-Flight y Checklist de Cierre (SECOP II) -->
+  <div id="preflightAuditModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 1050px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="entity-badge" style="background: #10b981; color: #ffffff; font-weight: 800;">PRE-FLIGHT SECOP II</div>
+          <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-warm);">Checklist de Cierre y Auditoría de Subsanabilidad (20 Puntos de Control - Ley 1882/2018)</span>
+        </div>
+        <button id="btnClosePreflightModal" class="btn-close-modal" aria-label="Cerrar modal">✕</button>
+      </div>
+
+      <div style="margin-top: 8px; border-bottom: 1px solid var(--hairline); padding-bottom: 10px;">
+        <h4 id="preflightProcesoRef" style="font-size: 1.05rem; color: var(--champagne); margin-bottom: 2px;">Proceso: --</h4>
+        <div id="preflightProcesoMeta" style="font-size: 0.78rem; color: var(--text-faint);">Entidad • Control Previo al Cierre de Presentación de Ofertas</div>
+      </div>
+
+      <!-- Cockpit Semafórico de Lanzamiento -->
+      <div id="preflightCockpitBanner" style="margin-top: 12px; background: rgba(16, 185, 129, 0.1); border: 1px solid #10b981; border-radius: 6px; padding: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span id="preflightStatusBadge" class="badge" style="font-size: 0.82rem; padding: 4px 10px; font-weight: 800; background: #10b981; color: #fff;">
+                🟢 APTO PARA RADICAR (GO)
+              </span>
+              <span id="preflightScoreText" style="font-size: 1.1rem; font-weight: 800; color: var(--champagne);" class="tabular-nums">100% CUMPLIMIENTO</span>
+            </div>
+            <div id="preflightStatsCounts" style="font-size: 0.75rem; color: var(--text-warm); margin-top: 4px;">
+              20 Controles Totales • 20 Aprobados • 0 Advertencias • 0 Rechazos
+            </div>
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <button id="btnPreflightAllClear" class="btn-action" style="font-size: 0.72rem; padding: 5px 12px; background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; color: #6ee7b7; font-weight: 700;">
+              ✨ Marcar Todos Aprobados
+            </button>
+          </div>
+        </div>
+
+        <div style="margin-top: 10px; background: rgba(0,0,0,0.3); border-radius: 4px; padding: 8px 12px; font-size: 0.76rem; color: var(--text-primary); border-left: 3px solid #10b981;" id="preflightDiagnosticoText">
+          Diagnóstico: Todos los requisitos habilitantes, amparos y formularios cumplen rigurosamente con los Pliegos Tipo ANCP-CCE. Propuesta blindada y lista para radicación formal en SECOP II.
+        </div>
+      </div>
+
+      <!-- Filtros por Área -->
+      <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid var(--hairline); padding-bottom: 8px;">
+        <button class="btn-action preflight-tab-btn active" data-area="ALL" style="font-size: 0.74rem; padding: 4px 12px; background: rgba(255,255,255,0.06); color: var(--champagne); font-weight: 700;">
+          📋 Todos (20)
+        </button>
+        <button class="btn-action preflight-tab-btn" data-area="JURÍDICO" style="font-size: 0.74rem; padding: 4px 12px;">
+          ⚖️ Capacidad Jurídica (5)
+        </button>
+        <button class="btn-action preflight-tab-btn" data-area="PÓLIZAS" style="font-size: 0.74rem; padding: 4px 12px;">
+          🛡️ Póliza y Garantías (4)
+        </button>
+        <button class="btn-action preflight-tab-btn" data-area="FINANCIERO" style="font-size: 0.74rem; padding: 4px 12px;">
+          📊 Financiero, RUP & Parafiscales (6)
+        </button>
+        <button class="btn-action preflight-tab-btn" data-area="ECONÓMICO_TÉCNICO" style="font-size: 0.74rem; padding: 4px 12px;">
+          💰 Oferta Económica & Técnica (5)
+        </button>
+      </div>
+
+      <!-- Lista de los 20 Puntos de Control Pre-Flight -->
+      <div id="preflightControlsListContainer" style="margin-top: 10px; max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+        <!-- Se inyectan dinámicamente los controles evaluados -->
+      </div>
+
+      <!-- Footer Actions -->
+      <div style="margin-top: 14px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; border-top: 1px solid var(--hairline); padding-top: 12px;">
+        <div style="display: flex; gap: 8px;">
+          <button id="btnGuardarPreflightDb" class="btn-action" style="font-size: 0.8rem; padding: 6px 12px; background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #6ee7b7;">
+            💾 Guardar Auditoría en DB
+          </button>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button id="btnDownloadPreflightPdf" class="btn-action btn-action-primary" style="font-size: 0.82rem; padding: 7px 18px; background: #10b981; color: #ffffff; font-weight: 800; border: none; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);">
+            ⬇️ Descargar Certificado Pre-Flight PDF
+          </button>
+          <button id="btnClosePreflightModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
             Cerrar
           </button>
         </div>

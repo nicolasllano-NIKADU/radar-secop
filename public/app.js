@@ -5831,6 +5831,303 @@ document.getElementById('pluralAgreementModal')?.addEventListener('click', (e) =
   }
 });
 
+// ==================== MÓDULO: AUDITORÍA PRE-FLIGHT Y CHECKLIST DE CIERRE (SECOP II) ====================
+
+let currentPreflightProcesoId = null;
+let currentPreflightAuditoria = null;
+let currentPreflightUserAnswers = {};
+let currentPreflightAreaFilter = 'ALL';
+
+// Abrir modal desde detailModal
+document.getElementById('modalBtnPreflightAudit')?.addEventListener('click', () => {
+  if (!activeModalId) return;
+  abrirModalPreflight(activeModalId);
+});
+
+async function abrirModalPreflight(procesoId) {
+  const opp = oportunidades.find(o => o.id === procesoId);
+  if (!opp) return;
+
+  currentPreflightProcesoId = procesoId;
+  currentPreflightUserAnswers = {};
+  currentPreflightAreaFilter = 'ALL';
+
+  const refEl = document.getElementById('preflightProcesoRef');
+  const metaEl = document.getElementById('preflightProcesoMeta');
+  if (refEl) refEl.textContent = `Proceso: ${opp.referencia || opp.id} — ${opp.nombre || opp.objeto}`;
+  if (metaEl) {
+    const valFmt = formatCOP(opp.valor_estimado || opp.cuantia || 0);
+    metaEl.textContent = `${opp.entidad} • Valor Oficial: ${valFmt} • Auditoría Preventiva de Subsanabilidad`;
+  }
+
+  // Abrir modal
+  document.getElementById('preflightAuditModal')?.classList.add('open');
+
+  // Intentar cargar auditoría guardada previa
+  try {
+    const res = await fetch(`/api/preflight/${procesoId}`);
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && json.auditoria) {
+        currentPreflightAuditoria = json.auditoria;
+        actualizarCockpitUI(json.auditoria);
+        renderPreflightControls();
+        return;
+      }
+    }
+  } catch (err) {
+    console.warn('Sin auditoría previa guardada, ejecutando auditoría fresca:', err);
+  }
+
+  // Si no hay previa, ejecutar evaluación automática fresca
+  ejecutarAuditoriaPreflightClient();
+}
+
+async function ejecutarAuditoriaPreflightClient() {
+  const opp = oportunidades.find(o => o.id === currentPreflightProcesoId);
+  if (!opp) return;
+
+  const targetEmpresa = userCompanies.find(c => c.es_propia) || userCompanies[0] || {
+    nit: '901.458.912-3',
+    razon_social: 'EMPRESA PROPONENTE S.A.S.'
+  };
+
+  try {
+    const res = await fetch('/api/preflight/ejecutar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        proceso: opp,
+        oferente: targetEmpresa,
+        respuestasUsuario: currentPreflightUserAnswers
+      })
+    });
+
+    const json = await res.json();
+    if (json.success && json.auditoria) {
+      currentPreflightAuditoria = json.auditoria;
+      actualizarCockpitUI(json.auditoria);
+      renderPreflightControls();
+    }
+  } catch (err) {
+    console.error('Error ejecutando preflight client:', err);
+  }
+}
+
+function actualizarCockpitUI(auditoria) {
+  const badgeEl = document.getElementById('preflightStatusBadge');
+  const scoreEl = document.getElementById('preflightScoreText');
+  const statsEl = document.getElementById('preflightStatsCounts');
+  const diagEl = document.getElementById('preflightDiagnosticoText');
+  const cockpitEl = document.getElementById('preflightCockpitBanner');
+
+  if (scoreEl) scoreEl.textContent = `${auditoria.puntaje_cumplimiento}% CUMPLIMIENTO`;
+  if (statsEl) {
+    statsEl.textContent = `${auditoria.total_controles} Controles Totales • ${auditoria.controles_aprobados} Aprobados • ${auditoria.controles_advertencia} Advertencias • ${auditoria.controles_rechazo} Rechazos`;
+  }
+  if (diagEl) diagEl.textContent = auditoria.diagnostico_ejecutivo;
+
+  if (badgeEl && cockpitEl) {
+    if (auditoria.estado_global === 'APTO_PARA_RADICAR') {
+      badgeEl.textContent = '🟢 APTO PARA RADICAR (GO)';
+      badgeEl.style.background = '#10b981';
+      cockpitEl.style.background = 'rgba(16, 185, 129, 0.1)';
+      cockpitEl.style.borderColor = '#10b981';
+      diagEl.style.borderLeftColor = '#10b981';
+    } else if (auditoria.estado_global === 'RIESGO_RECHAZO') {
+      badgeEl.textContent = '🔴 RIESGO DE RECHAZO (NO-GO)';
+      badgeEl.style.background = '#ef4444';
+      cockpitEl.style.background = 'rgba(239, 68, 68, 0.12)';
+      cockpitEl.style.borderColor = '#ef4444';
+      diagEl.style.borderLeftColor = '#ef4444';
+    } else {
+      badgeEl.textContent = '🟡 SUBSANACIÓN PENDIENTE';
+      badgeEl.style.background = '#f59e0b';
+      cockpitEl.style.background = 'rgba(245, 158, 11, 0.1)';
+      cockpitEl.style.borderColor = '#f59e0b';
+      diagEl.style.borderLeftColor = '#f59e0b';
+    }
+  }
+}
+
+function renderPreflightControls() {
+  const container = document.getElementById('preflightControlsListContainer');
+  if (!container || !currentPreflightAuditoria) return;
+
+  const items = currentPreflightAuditoria.controles_items || [];
+  const filtrados = items.filter(it => currentPreflightAreaFilter === 'ALL' || it.area === currentPreflightAreaFilter);
+
+  if (filtrados.length === 0) {
+    container.innerHTML = '<div style="text-align: center; color: var(--text-faint); padding: 25px;">No hay controles en esta área.</div>';
+    return;
+  }
+
+  container.innerHTML = filtrados.map(it => {
+    const isAprobado = it.estado === 'APROBADO';
+    const isAdvertencia = it.estado === 'ADVERTENCIA';
+    const isRechazo = it.estado === 'RECHAZO';
+
+    const cardBg = isRechazo ? 'rgba(239, 68, 68, 0.08)' : isAdvertencia ? 'rgba(245, 158, 11, 0.08)' : 'rgba(255, 255, 255, 0.02)';
+    const cardBorder = isRechazo ? '#ef4444' : isAdvertencia ? '#f59e0b' : 'var(--hairline)';
+
+    return `
+      <div class="card-glass" style="background: ${cardBg}; border: 1px solid ${cardBorder}; border-radius: 4px; padding: 10px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+          <div style="flex: 1;">
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+              <span style="font-weight: 800; font-size: 0.72rem; color: var(--champagne);">${it.codigo}</span>
+              <span class="badge" style="font-size: 0.65rem; padding: 1px 6px;">${it.area}</span>
+              <span style="font-size: 0.76rem; font-weight: 700; color: var(--text-primary);">${it.nombre}</span>
+              <span style="font-size: 0.65rem; padding: 1px 6px; border-radius: 3px; font-weight: 700; ${it.tipoEfecto === 'CAUSAL_RECHAZO' ? 'background: rgba(239,68,68,0.2); color: #fca5a5; border: 1px solid #ef4444;' : 'background: rgba(16,185,129,0.2); color: #6ee7b7; border: 1px solid #10b981;'}">
+                ${it.tipoEfecto === 'CAUSAL_RECHAZO' ? '🔴 Causal de Rechazo de Plano' : '🟢 Subsanable Art. 5'}
+              </span>
+            </div>
+            <div style="font-size: 0.72rem; color: var(--text-warm); margin-top: 3px; line-height: 1.35;">
+              <b>Pregunta de Chequeo:</b> ${it.preguntaChequeo}
+            </div>
+            <div style="font-size: 0.66rem; color: var(--text-faint); margin-top: 2px;">
+              <b>Fundamento Legal:</b> ${it.fundamentoLegal}
+            </div>
+          </div>
+
+          <!-- Selector de Estado del Control -->
+          <div style="display: flex; gap: 4px; align-items: center;">
+            <button class="btn-ctrl-status ${isAprobado ? 'active' : ''}" data-codigo="${it.codigo}" data-status="APROBADO" style="padding: 3px 8px; font-size: 0.7rem; border-radius: 3px; border: 1px solid #10b981; background: ${isAprobado ? '#10b981' : 'transparent'}; color: ${isAprobado ? '#fff' : '#6ee7b7'}; cursor: pointer;">
+              ✓ Cumple
+            </button>
+            <button class="btn-ctrl-status ${isAdvertencia ? 'active' : ''}" data-codigo="${it.codigo}" data-status="ADVERTENCIA" style="padding: 3px 8px; font-size: 0.7rem; border-radius: 3px; border: 1px solid #f59e0b; background: ${isAdvertencia ? '#f59e0b' : 'transparent'}; color: ${isAdvertencia ? '#000' : '#fde68a'}; cursor: pointer;">
+              ⚠️ Subsanar
+            </button>
+            <button class="btn-ctrl-status ${isRechazo ? 'active' : ''}" data-codigo="${it.codigo}" data-status="RECHAZO" style="padding: 3px 8px; font-size: 0.7rem; border-radius: 3px; border: 1px solid #ef4444; background: ${isRechazo ? '#ef4444' : 'transparent'}; color: ${isRechazo ? '#fff' : '#fca5a5'}; cursor: pointer;">
+              ✕ No Cumple
+            </button>
+          </div>
+        </div>
+
+        <div style="font-size: 0.7rem; color: ${isRechazo ? '#fca5a5' : isAdvertencia ? '#fde68a' : 'var(--text-muted)'}; background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 3px;">
+          <b>Diagnóstico de Control:</b> ${it.observacion}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Event Listeners para botones de estado de controles
+  container.querySelectorAll('.btn-ctrl-status').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const codigo = e.currentTarget.dataset.codigo;
+      const status = e.currentTarget.dataset.status;
+      currentPreflightUserAnswers[codigo] = status;
+      ejecutarAuditoriaPreflightClient();
+    });
+  });
+}
+
+// Filtros por área
+document.querySelectorAll('.preflight-tab-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    document.querySelectorAll('.preflight-tab-btn').forEach(b => {
+      b.classList.remove('active');
+      b.style.background = 'transparent';
+      b.style.color = 'var(--text-warm)';
+    });
+    e.currentTarget.classList.add('active');
+    e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+    e.currentTarget.style.color = 'var(--champagne)';
+
+    currentPreflightAreaFilter = e.currentTarget.dataset.area;
+    renderPreflightControls();
+  });
+});
+
+// Botón marcar todos aprobados (All Clear)
+document.getElementById('btnPreflightAllClear')?.addEventListener('click', () => {
+  currentPreflightUserAnswers = {};
+  ejecutarAuditoriaPreflightClient();
+});
+
+// Guardar auditoría en DB
+document.getElementById('btnGuardarPreflightDb')?.addEventListener('click', async () => {
+  if (!currentPreflightAuditoria) return;
+
+  const btn = document.getElementById('btnGuardarPreflightDb');
+  const oldText = btn.innerHTML;
+  btn.innerHTML = '⏳ Guardando...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/preflight/guardar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auditoria: currentPreflightAuditoria })
+    });
+
+    const json = await res.json();
+    if (json.success) {
+      alert(`✅ Auditoría Pre-Flight guardada exitosamente en PostgreSQL (ID: ${json.id}).`);
+    } else {
+      alert(`❌ Error al guardar: ${json.error}`);
+    }
+  } catch (err) {
+    console.error('Error guardando auditoría pre-flight:', err);
+    alert(`❌ Error de conexión: ${err.message}`);
+  } finally {
+    btn.innerHTML = oldText;
+    btn.disabled = false;
+  }
+});
+
+// Descargar certificado PDF oficial
+document.getElementById('btnDownloadPreflightPdf')?.addEventListener('click', async () => {
+  if (!currentPreflightAuditoria) {
+    alert('No hay auditoría activa para exportar.');
+    return;
+  }
+
+  const btn = document.getElementById('btnDownloadPreflightPdf');
+  const oldText = btn.innerHTML;
+  btn.innerHTML = '⏳ Generando Certificado...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/preflight/descargar-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auditoria: currentPreflightAuditoria })
+    });
+
+    if (!res.ok) throw new Error('Error al generar PDF en el servidor');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Certificado_PreFlight_SECOP_${(currentPreflightAuditoria.numero_proceso || 'PROCESO').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error('Error descargando certificado pre-flight:', err);
+    alert(`❌ Error descargando PDF: ${err.message}`);
+  } finally {
+    btn.innerHTML = oldText;
+    btn.disabled = false;
+  }
+});
+
+// Cerrar modal
+document.getElementById('btnClosePreflightModal')?.addEventListener('click', () => {
+  document.getElementById('preflightAuditModal')?.classList.remove('open');
+});
+document.getElementById('btnClosePreflightModalBtn')?.addEventListener('click', () => {
+  document.getElementById('preflightAuditModal')?.classList.remove('open');
+});
+document.getElementById('preflightAuditModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'preflightAuditModal') {
+    document.getElementById('preflightAuditModal')?.classList.remove('open');
+  }
+});
+
 // ==================== INICIALIZACIÓN ====================
 window.addEventListener('DOMContentLoaded', () => {
   checkUserSession();

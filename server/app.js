@@ -28,6 +28,7 @@ const evaluationChallengeEngine = require('./evaluationChallengeEngine');
 const winRateAnalyticsEngine = require('./winRateAnalyticsEngine');
 const riskMatrixEngine = require('./riskMatrixEngine');
 const pluralAgreementEngine = require('./pluralAgreementEngine');
+const preflightAuditEngine = require('./preflightAuditEngine');
 const initDb = require('./initDb');
 
 const app = express();
@@ -1502,6 +1503,99 @@ app.get('/api/plural/descargar-pdf/:id', async (req, res) => {
     res.send(pdfBuffer);
   } catch (err) {
     console.error('Error generando PDF de acuerdo plural:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== MÓDULO: AUDITORÍA PRE-FLIGHT Y CHECKLIST DE CIERRE (SECOP II) ====================
+
+app.get('/api/preflight/catalogo', (req, res) => {
+  try {
+    const catalogo = preflightAuditEngine.getControlesMaestros();
+    res.json({ success: true, count: catalogo.length, data: catalogo });
+  } catch (err) {
+    console.error('Error obteniendo catálogo pre-flight:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/preflight/ejecutar', (req, res) => {
+  try {
+    const { proceso, oferente, respuestasUsuario } = req.body;
+    if (!proceso) {
+      return res.status(400).json({ success: false, error: 'Faltan datos del proceso para la auditoría.' });
+    }
+
+    const resultado = preflightAuditEngine.ejecutarAuditoriaPreflight({ proceso, oferente, respuestasUsuario });
+    res.json({ success: true, ...resultado });
+  } catch (err) {
+    console.error('Error ejecutando auditoría pre-flight:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/preflight/guardar', async (req, res) => {
+  try {
+    const { auditoria } = req.body;
+    if (!auditoria || !auditoria.proceso_id) {
+      return res.status(400).json({ success: false, error: 'Datos incompletos de la auditoría para guardar.' });
+    }
+
+    const guardado = await preflightAuditEngine.guardarAuditoria({ auditoria });
+    res.json({ success: true, ...guardado });
+  } catch (err) {
+    console.error('Error guardando auditoría pre-flight:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/preflight/:procesoId', async (req, res) => {
+  try {
+    const auditoria = await preflightAuditEngine.getAuditoria(req.params.procesoId);
+    if (!auditoria) {
+      return res.status(404).json({ success: false, error: 'No se encontró auditoría pre-flight previa.' });
+    }
+    res.json({ success: true, auditoria });
+  } catch (err) {
+    console.error('Error consultando auditoría pre-flight:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/preflight/descargar-pdf', async (req, res) => {
+  try {
+    const { auditoria } = req.body;
+    if (!auditoria) {
+      return res.status(400).json({ success: false, error: 'Faltan datos de la auditoría para generar el PDF.' });
+    }
+
+    const pdfBuffer = await preflightAuditEngine.generarCertificadoPdf(auditoria);
+    const filename = `Certificado_PreFlight_SECOP_${(auditoria.numero_proceso || 'PROCESO').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF de certificado pre-flight:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/preflight/descargar-pdf/:procesoId', async (req, res) => {
+  try {
+    const auditoria = await preflightAuditEngine.getAuditoria(req.params.procesoId);
+    if (!auditoria) {
+      return res.status(404).json({ success: false, error: 'Auditoría no encontrada.' });
+    }
+
+    const pdfBuffer = await preflightAuditEngine.generarCertificadoPdf(auditoria);
+    const filename = `Certificado_PreFlight_SECOP_${(auditoria.numero_proceso || 'PROCESO').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF de certificado pre-flight:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
