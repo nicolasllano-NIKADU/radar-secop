@@ -1259,6 +1259,167 @@ window.aplicarSugerenciaPlural = function(miembrosSugeridos) {
   calcularConsorcio();
 };
 
+// ==================== MÓDULO PAA (INTELIGENCIA PREDICTIVA) ====================
+let activePaaMonth = 'TODOS';
+
+async function loadPAAOpportunities() {
+  const grid = document.getElementById('paaGrid');
+  if (!grid) return;
+
+  const lider = userCompanies.find(c => c.es_propia) || userCompanies[0];
+  const empresaId = lider ? lider.id : 1;
+
+  grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-faint);">Consultando compras proyectadas en PAA...</div>';
+
+  try {
+    const res = await fetch(`/api/paa?empresa_id=${empresaId}&mes=${encodeURIComponent(activePaaMonth)}&minScore=30`);
+    const json = await res.json();
+
+    if (!json.success || !json.data || json.data.length === 0) {
+      grid.innerHTML = `
+        <div class="empty-state" style="padding: 40px 20px; text-align: center;">
+          <p style="color: var(--text-faint); margin-bottom: 12px;">No hay compras proyectadas en la base local para los filtros seleccionados.</p>
+          <button id="btnEmptySyncPaa" class="btn-action btn-action-primary" style="margin: 0 auto;">
+            ⚡ Sincronizar PAA Ahora con SECOP II
+          </button>
+        </div>
+      `;
+      document.getElementById('btnEmptySyncPaa')?.addEventListener('click', syncPAANow);
+      return;
+    }
+
+    grid.innerHTML = json.data.map(item => {
+      const valor = parseFloat(item.valor_total_esperado) || 0;
+      const score = item.score_predictivo || 0;
+      let scoreColor = 'var(--text-muted)';
+      if (score >= 80) scoreColor = 'var(--success)';
+      else if (score >= 60) scoreColor = 'var(--champagne)';
+      else if (score >= 40) scoreColor = 'var(--tech-cyan)';
+
+      const kwTags = (item.palabras_clave_match || [])
+        .map(kw => `<span class="kw-pill" style="font-size: 0.72rem; padding: 2px 6px;">${kw}</span>`)
+        .join('');
+
+      return `
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); border-radius: var(--radius-sm); padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+            <div>
+              <span class="entity-badge" style="font-size: 0.72rem;">${item.nombre_entidad}</span>
+              <span style="font-size: 0.72rem; color: var(--text-faint); margin-left: 6px;">ID: ${item.identificador_unico || item.id}</span>
+            </div>
+            <div style="text-align: right;">
+              <span style="font-weight: 800; font-size: 0.95rem; color: ${scoreColor}; background: rgba(255,255,255,0.05); padding: 3px 8px; border-radius: 4px;">
+                ${score}% Match
+              </span>
+            </div>
+          </div>
+
+          <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-warm); margin: 0; line-height: 1.4;">
+            ${item.descripcion}
+          </h3>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: var(--lacquer-deep); padding: 8px 12px; border-radius: var(--radius-sm); font-size: 0.78rem;">
+            <div>
+              <span style="color: var(--text-faint); display: block;">Presupuesto Estimado:</span>
+              <b style="color: var(--champagne); font-size: 0.95rem;">${formatCOP(valor)}</b>
+            </div>
+            <div>
+              <span style="color: var(--text-faint); display: block;">Mes Estimado de Publicación:</span>
+              <b style="color: var(--text-warm);">${item.fecha_esperada_inicio || 'Por definir'} (2026)</b>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-faint); margin-top: 4px;">
+            <div>Modalidad: <b style="color: var(--text-warm);">${item.modalidad || 'N/A'}</b></div>
+            <div>UNSPSC: <b style="color: var(--champagne);">${item.categorias_unspsc || 'N/A'}</b></div>
+          </div>
+
+          ${kwTags ? `<div style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px;">${kwTags}</div>` : ''}
+
+          <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px;">
+            ${item.url_proceso ? `
+              <a href="${item.url_proceso}" target="_blank" rel="noopener noreferrer" class="btn-action" style="font-size: 0.72rem; padding: 4px 10px; text-decoration: none;">
+                🔗 Abrir Ficha SECOP
+              </a>
+            ` : ''}
+            <button class="btn-action btn-action-primary" onclick="simularParaPAA(${valor})" style="font-size: 0.72rem; padding: 4px 10px;">
+              🤝 Simular Alianza para este PAA
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    grid.innerHTML = `<div style="color: var(--danger); padding: 20px; text-align: center;">Error cargando PAA: ${err.message}</div>`;
+  }
+}
+
+async function syncPAANow() {
+  const btn = document.getElementById('btnSyncPAA');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span>⏳ Sincronizando...</span>';
+  }
+
+  showToast('Conectando con Datos Abiertos de SECOP II (PAA 2026)...');
+
+  try {
+    const lider = userCompanies.find(c => c.es_propia) || userCompanies[0];
+    const res = await fetch('/api/paa/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        empresa_id: lider ? lider.id : 1,
+        limit: 80
+      })
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast(`PAA Sincronizado: ${json.data.nuevos} nuevas compras proyectadas detectadas`);
+      loadPAAOpportunities();
+    } else {
+      showToast(`Error: ${json.error}`);
+    }
+  } catch (e) {
+    showToast(`Error de conexión con Socrata PAA: ${e.message}`);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<span>⚡ Sincronizar PAA</span>';
+    }
+  }
+}
+
+// Conectar simulación con presupuesto estimado del PAA
+window.simularParaPAA = function(valorPresupuesto) {
+  // Cambiar a la vista de consorcios
+  const navBtn = document.querySelector('.nav-item[data-target="view-consortium"]');
+  if (navBtn) navBtn.click();
+
+  // Asignar capital de trabajo estimado exigido (típicamente 20% a 30% del valor del proceso)
+  const capTrabajoReq = Math.round(valorPresupuesto * 0.25);
+  const inpCap = document.getElementById('reqCapTrabajo');
+  if (inpCap) inpCap.value = capTrabajoReq;
+
+  showToast(`Presupuesto PAA cargado: Exigencia Cap. Trabajo ~$${(capTrabajoReq).toLocaleString('es-CO')}`);
+
+  // Disparar recomendador automático de alianzas
+  const btnSugerir = document.getElementById('btnSugerirAlianzas');
+  if (btnSugerir) btnSugerir.click();
+};
+
+document.getElementById('btnSyncPAA')?.addEventListener('click', syncPAANow);
+
+// Filtros de mes para PAA
+document.querySelectorAll('#paaMonthFilters .filter-pill').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#paaMonthFilters .filter-pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activePaaMonth = btn.dataset.month;
+    loadPAAOpportunities();
+  });
+});
+
 // ==================== INICIALIZACIÓN ====================
 window.addEventListener('DOMContentLoaded', () => {
   const savedProfileBtn = document.querySelector(`.company-btn[data-profile="${currentProfile}"]`);
@@ -1271,4 +1432,5 @@ window.addEventListener('DOMContentLoaded', () => {
   loadStats();
   loadOportunidades();
   loadCompanies();
+  loadPAAOpportunities();
 });

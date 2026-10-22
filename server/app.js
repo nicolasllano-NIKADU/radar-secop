@@ -9,6 +9,8 @@ const notifier = require('./notifier');
 const sourcesCatalog = require('./sources');
 const companyRoutes = require('./routes/companyRoutes');
 const documentManager = require('./documentManager');
+const paaManager = require('./paaManager');
+const companyManager = require('./companyManager');
 
 const app = express();
 
@@ -225,6 +227,44 @@ app.get('/api/documentos/:portafolioId', async (req, res) => {
     res.json({ success: true, count: docs.length, data: docs });
   } catch (err) {
     console.error(`⚠️ Error consultando documentos para ${req.params.portafolioId}:`, err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 10. Módulo de Inteligencia Comercial PAA (Dataset Socrata 9sue-ezhx)
+app.get('/api/paa', async (req, res) => {
+  try {
+    const user = await companyManager.getOrCreateDefaultUser();
+    const companies = await companyManager.getCompaniesByUser(user.id);
+    const empresaId = req.query.empresa_id ? parseInt(req.query.empresa_id, 10) : (companies[0]?.id || 1);
+    const mes = req.query.mes || null;
+    const minScore = req.query.minScore ? parseInt(req.query.minScore, 10) : 30;
+
+    const items = await paaManager.getPAAOpportunities(empresaId, { mes, minScore });
+    res.json({ success: true, count: items.length, data: items });
+  } catch (err) {
+    console.error('Error listando PAA:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/paa/sync', async (req, res) => {
+  try {
+    const user = await companyManager.getOrCreateDefaultUser();
+    const companies = await companyManager.getCompaniesByUser(user.id);
+    const empresaId = req.body.empresa_id ? parseInt(req.body.empresa_id, 10) : (companies[0]?.id || 1);
+    const empresa = companies.find(c => c.id === empresaId) || companies[0];
+
+    const perfil = {
+      palabras_clave: req.body.palabras_clave || ['software', 'inteligencia artificial', 'chatbot', 'automatizacion', 'aplicacion', 'desarrollo a la medida'],
+      codigos_unspsc: req.body.codigos_unspsc || ['81111500', '80101500', '43231500'],
+      departamentos: ['Bogota', 'Cundinamarca']
+    };
+
+    const resultado = await paaManager.syncPAAForCompany(empresa, perfil, req.body.limit || 80);
+    res.json({ success: true, data: resultado });
+  } catch (err) {
+    console.error('Error sincronizando PAA:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

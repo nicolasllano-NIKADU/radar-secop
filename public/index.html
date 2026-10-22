@@ -360,6 +360,41 @@
       </div>
     </section>
 
+    <!-- ================= VISTA 4: INTELIGENCIA COMERCIAL PAA ================= -->
+    <section id="view-paa" class="view-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div>
+          <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--champagne); margin-bottom: 4px;">Radar Anticipado PAA 2026</h2>
+          <p style="font-size: 0.8rem; color: var(--text-muted);">Compras proyectadas por entidades del Estado antes de la publicación de pliegos</p>
+        </div>
+        <button id="btnSyncPAA" class="btn-action btn-action-primary" style="padding: 8px 14px; font-size: 0.82rem; gap: 6px;">
+          <span>⚡ Sincronizar PAA</span>
+        </button>
+      </div>
+
+      <!-- Filtros por Mes y Entidad -->
+      <div style="display: flex; gap: 8px; margin-bottom: 14px; overflow-x: auto; padding-bottom: 4px;" id="paaMonthFilters">
+        <button class="filter-pill active" data-month="TODOS">Todos los Meses</button>
+        <button class="filter-pill" data-month="Enero">Enero</button>
+        <button class="filter-pill" data-month="Febrero">Febrero</button>
+        <button class="filter-pill" data-month="Marzo">Marzo</button>
+        <button class="filter-pill" data-month="Abril">Abril</button>
+        <button class="filter-pill" data-month="Mayo">Mayo</button>
+        <button class="filter-pill" data-month="Junio">Junio</button>
+        <button class="filter-pill" data-month="Julio">Julio</button>
+        <button class="filter-pill" data-month="Agosto">Agosto</button>
+        <button class="filter-pill" data-month="Septiembre">Septiembre</button>
+        <button class="filter-pill" data-month="Octubre">Octubre</button>
+        <button class="filter-pill" data-month="Noviembre">Noviembre</button>
+        <button class="filter-pill" data-month="Diciembre">Diciembre</button>
+      </div>
+
+      <!-- Grid de Oportunidades PAA -->
+      <div id="paaGrid" style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="text-align: center; padding: 40px; color: var(--text-faint);">Cargando oportunidades del Plan Anual de Adquisiciones...</div>
+      </div>
+    </section>
+
   </main>
 
   <!-- Barra de Navegación Inferior (Mobile First Ergonomics) -->
@@ -394,6 +429,15 @@
         <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
       </svg>
       <span>Consorcios</span>
+    </button>
+    <button class="nav-item" data-target="view-paa">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+        <line x1="16" y1="2" x2="16" y2="6"/>
+        <line x1="8" y1="2" x2="8" y2="6"/>
+        <line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      <span>PAA 2026</span>
     </button>
     <button class="nav-item" data-target="view-sources">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
