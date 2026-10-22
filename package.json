@@ -22,10 +22,12 @@
     "cheerio": "^1.2.0",
     "cors": "^2.8.6",
     "dotenv": "^18.0.4",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "multer": "^2.4.0",
     "node-cron": "^4.6.0",
     "pdf-parse": "^2.4.5",
+    "pdfkit": "^0.20.2",
     "pg": "^8.23.1"
   },
   "engines": {

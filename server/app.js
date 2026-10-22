@@ -14,6 +14,7 @@ const companyManager = require('./companyManager');
 const subsanabilidadEngine = require('./subsanabilidadEngine');
 const contractManager = require('./contractManager');
 const complianceEngine = require('./complianceEngine');
+const reportGenerator = require('./reportGenerator');
 
 const app = express();
 
@@ -371,6 +372,51 @@ app.get('/api/compliance/:empresaId/historial', async (req, res) => {
     const historial = await complianceEngine.getComplianceHistory(parseInt(req.params.empresaId, 10));
     res.json({ success: true, data: historial });
   } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 14. Módulo de Generación y Exportación de Reportes (PDF / Excel)
+app.get('/api/reportes/oportunidad/:id/pdf', async (req, res) => {
+  try {
+    const opp = db.getOportunidadById(req.params.id);
+    if (!opp) return res.status(404).json({ success: false, error: 'Oportunidad no encontrada' });
+
+    const pdfBuffer = await reportGenerator.generateOpportunityPdf(opp);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Ficha_${opp.referencia || opp.id}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF de oportunidad:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/reportes/compliance/:id/pdf', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const queryRes = await dbPostgres.query('SELECT * FROM compliance_evaluaciones WHERE id = $1', [parseInt(req.params.id, 10)]);
+    if (queryRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Certificado no encontrado' });
+
+    const pdfBuffer = await reportGenerator.generateComplianceCertificatePdf(queryRes.rows[0]);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Certificado_Compliance_${queryRes.rows[0].nit_consultado}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando certificado compliance PDF:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/reportes/oportunidades/excel', async (req, res) => {
+  try {
+    const items = db.getOportunidades({ limit: 500 });
+    const xlsxBuffer = await reportGenerator.generateOpportunitiesExcel(items);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="Radar_SECOP_Oportunidades.xlsx"');
+    res.send(xlsxBuffer);
+  } catch (err) {
+    console.error('Error exportando Excel:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

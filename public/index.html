@@ -110,6 +110,9 @@
           </svg>
           <span>Escanear</span>
         </button>
+        <a href="/api/reportes/oportunidades/excel" target="_blank" class="btn-scan" style="background: rgba(212, 175, 55, 0.15); border: 1px solid var(--gold); color: var(--champagne); text-decoration: none; padding: 0 12px; display: flex; align-items: center; gap: 6px;" title="Exportar todas las oportunidades a Excel">
+          <span>📊 Excel</span>
+        </a>
       </div>
 
       <!-- Filtros Rápidos Deslizables (Adaptables por Empresa) -->
@@ -645,8 +648,8 @@
         </div>
       </div>
 
-      <div style="display: flex; gap: 8px;">
-        <a id="modalSecopLink" href="#" target="_blank" class="btn-action btn-action-primary" style="flex: 1;">
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <a id="modalSecopLink" href="#" target="_blank" class="btn-action btn-action-primary" style="flex: 1; min-width: 140px; justify-content: center;">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14 2 14 8 20 8"/>
@@ -655,12 +658,19 @@
           </svg>
           <span id="modalSecopLinkText">Abrir en SECOP II</span>
         </a>
-        <button id="modalNotifyBtn" class="btn-action btn-action-tele" style="flex: 1;">
+        <a id="modalPdfBtn" href="#" target="_blank" class="btn-action" style="flex: 1; min-width: 140px; justify-content: center; background: rgba(212, 175, 55, 0.15); border: 1px solid var(--gold); color: var(--champagne); text-decoration: none;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+          <span>Ficha Técnica PDF</span>
+        </a>
+        <button id="modalNotifyBtn" class="btn-action btn-action-tele" style="flex: 1; min-width: 140px; justify-content: center;">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <line x1="22" y1="2" x2="11" y2="13"/>
             <polygon points="22 2 15 22 11 13 2 9 22 2"/>
           </svg>
-          <span>Enviar a Telegram</span>
+          <span>Telegram</span>
         </button>
       </div>
     </div>

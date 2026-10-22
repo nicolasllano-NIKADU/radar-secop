@@ -480,6 +480,11 @@ function openDetailModal(id) {
   document.getElementById('modalSecopLink').href = item.url || '#';
   document.getElementById('modalSecopLinkText').textContent = isConvocatoria ? 'Ver Convocatoria Oficial' : 'Abrir en SECOP II';
 
+  const modalPdfBtn = document.getElementById('modalPdfBtn');
+  if (modalPdfBtn) {
+    modalPdfBtn.href = `/api/reportes/oportunidad/${encodeURIComponent(id)}/pdf`;
+  }
+
   const kwContainer = document.getElementById('modalKeywords');
   kwContainer.innerHTML = (item.palabras_clave_match || [])
     .map(kw => `<span class="kw-pill" style="font-size: 0.78rem; padding: 4px 10px;">${kw}</span>`)
@@ -1937,6 +1942,12 @@ async function loadComplianceDashboard() {
             ✓ Acreditación Conforme: Proponente plenamente facultado jurídicamente para contratar con el Estado colombiano bajo Ley 80 de 1993 y Ley 2195 de 2022.
           </div>
         `}
+
+        <div style="display: flex; justify-content: flex-end; margin-top: 8px; border-top: 1px solid var(--hairline); padding-top: 10px;">
+          <a href="/api/reportes/compliance/${latest.id}/pdf" target="_blank" class="btn-action" style="background: rgba(212, 175, 55, 0.15); border: 1px solid var(--gold); color: var(--champagne); text-decoration: none; padding: 6px 14px; font-size: 0.8rem; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 6px;">
+            📄 Descargar Certificado Oficial PDF
+          </a>
+        </div>
       </div>
     `;
   } catch (err) {
