@@ -4,6 +4,7 @@ const multer = require('multer');
 const companyManager = require('../companyManager');
 const financialEngine = require('../financialEngine');
 const rupParser = require('../rupParser');
+const allianceRecommender = require('../allianceRecommender');
 
 // Configuración de multer en memoria para subida de PDFs (límite 15MB)
 const upload = multer({
@@ -132,6 +133,25 @@ router.post('/upload-rup', upload.single('rup_pdf'), async (req, res) => {
     });
   } catch (err) {
     console.error('Error procesando PDF de RUP:', err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// POST /api/empresas/sugerir-alianza - Recomienda la mejor combinación de consorcio para un pliego
+router.post('/sugerir-alianza', async (req, res) => {
+  try {
+    const { empresa_lider_id, requisitos_pliego = {}, opciones = {} } = req.body;
+    const allCompanies = await companyManager.getCompaniesByUser(req.user.id);
+
+    const lider = allCompanies.find(c => c.id === parseInt(empresa_lider_id, 10)) || allCompanies[0];
+    if (!lider) {
+      return res.status(404).json({ ok: false, error: 'No se encontró la empresa líder' });
+    }
+
+    const resultado = allianceRecommender.recommendAlliances(lider, allCompanies, requisitos_pliego, opciones);
+    res.json({ ok: true, data: resultado });
+  } catch (err) {
+    console.error('Error en recomendación de alianzas:', err);
     res.status(500).json({ ok: false, error: err.message });
   }
 });

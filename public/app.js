@@ -1108,8 +1108,156 @@ function openEditFinancialModal(empresaId) {
 
 const btnCalcularPlural = document.getElementById('btnCalcularPlural');
 if (btnCalcularPlural) {
-  btnCalcularPlural.addEventListener('click', calcularConsorcio);
+  btnCalcularPlural.addEventListener('click', () => {
+    const badge = document.getElementById('badgePluralMode');
+    if (badge) {
+      badge.textContent = 'Manual';
+      badge.style.color = 'var(--tech-cyan)';
+    }
+    calcularConsorcio();
+  });
 }
+
+// Botón "Sugerir Aliados" con IA y Optimización de Estructura Plural
+const btnSugerirAlianzas = document.getElementById('btnSugerirAlianzas');
+if (btnSugerirAlianzas) {
+  btnSugerirAlianzas.addEventListener('click', async () => {
+    if (!userCompanies || userCompanies.length === 0) {
+      showToast('No hay empresas registradas para evaluar');
+      return;
+    }
+
+    const lider = userCompanies.find(c => c.es_propia) || userCompanies[0];
+    const reqLiquidez = parseFloat(document.getElementById('reqLiquidez').value) || 0;
+    const reqEndeudamiento = parseFloat(document.getElementById('reqEndeudamiento').value) || 1;
+    const reqCobertura = parseFloat(document.getElementById('reqCobertura').value) || 0;
+    const reqCapTrabajo = parseFloat(document.getElementById('reqCapTrabajo').value) || 0;
+
+    const badge = document.getElementById('badgePluralMode');
+    if (badge) {
+      badge.textContent = 'Optimización IA';
+      badge.style.color = 'var(--champagne)';
+    }
+
+    showToast('Analizando sinergias financieras y buscando mejor alianza...');
+
+    try {
+      const res = await fetch('/api/empresas/sugerir-alianza', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          empresa_lider_id: lider.id,
+          requisitos_pliego: {
+            min_liquidez: reqLiquidez,
+            max_endeudamiento: reqEndeudamiento,
+            min_cobertura_intereses: reqCobertura,
+            min_capital_trabajo: reqCapTrabajo
+          }
+        })
+      });
+
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || 'Error al obtener recomendaciones');
+
+      const data = json.data;
+      const container = document.getElementById('aiSuggestionsContainer');
+      const list = document.getElementById('aiSuggestionsList');
+
+      if (!container || !list) return;
+
+      container.style.display = 'block';
+
+      if (!data.recomendaciones || data.recomendaciones.length === 0) {
+        list.innerHTML = `
+          <div style="background: rgba(255, 23, 68, 0.1); border: 1px solid var(--danger); padding: 10px; border-radius: var(--radius-sm); color: var(--danger);">
+            ⚠️ Ninguna combinación entre las empresas actuales logra habilitar el 100% de los requisitos del pliego. Considera registrar un aliado con mayor capital de trabajo o menor pasivo.
+          </div>
+        `;
+        return;
+      }
+
+      list.innerHTML = data.recomendaciones.map((rec, idx) => {
+        const isIndividual = rec.tipo === 'INDIVIDUAL';
+        const membersDesc = rec.miembros.map(m => `<b>${m.razon_social}</b> (${m.porcentaje}%)`).join(' + ');
+
+        return `
+          <div style="background: var(--lacquer-deep); border: 1px solid var(--gold); border-radius: var(--radius-sm); padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-weight: 800; color: var(--champagne); font-size: 0.85rem;">
+                ${isIndividual ? '🏆 Presentación Individual' : `🤝 Opción #${idx + 1}: ${rec.tipo === 'ESTRUCTURA_PLURAL_2' ? 'Alianza Bipartita' : 'Consorcio Tripartito'}`}
+              </span>
+              <span style="background: rgba(0, 230, 118, 0.15); color: var(--success); font-weight: 700; font-size: 0.72rem; padding: 2px 8px; border-radius: 4px;">
+                Viabilidad: ${rec.score_viabilidad}/100
+              </span>
+            </div>
+
+            <p style="font-size: 0.76rem; color: var(--text-warm); margin: 0; line-height: 1.4;">
+              ${rec.motivo}
+            </p>
+
+            <div style="font-size: 0.75rem; color: var(--text-faint); background: rgba(0,0,0,0.25); padding: 6px 10px; border-radius: 4px;">
+              Configuración: ${membersDesc}
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;">
+              <button class="btn-action" onclick='aplicarSugerenciaPlural(${JSON.stringify(rec.miembros)})' style="padding: 4px 10px; font-size: 0.72rem; background: var(--gold); color: #000; font-weight: 700;">
+                ⚡ Aplicar a la Simulación
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Auto-aplicar la primera y mejor recomendación
+      if (data.recomendaciones[0]) {
+        aplicarSugerenciaPlural(data.recomendaciones[0].miembros);
+      }
+
+      showToast(`Se encontraron ${data.recomendaciones.length} configuraciones viables`);
+    } catch (err) {
+      showToast(`Error: ${err.message}`);
+    }
+  });
+}
+
+// Aplicar sugerencia a los sliders y recalcular el semáforo
+window.aplicarSugerenciaPlural = function(miembrosSugeridos) {
+  // Desmarcar todos primero
+  document.querySelectorAll('.plural-check').forEach(chk => {
+    chk.checked = false;
+  });
+
+  // Marcar y asignar porcentajes sugeridos
+  for (const m of miembrosSugeridos) {
+    const chk = document.querySelector(`.plural-check[data-id="${m.empresa_id}"]`);
+    const slider = document.querySelector(`.plural-slider[data-id="${m.empresa_id}"]`);
+    const lbl = document.getElementById(`lblPerc_${m.empresa_id}`);
+
+    if (chk) chk.checked = true;
+    if (slider) {
+      slider.disabled = false;
+      slider.value = m.porcentaje;
+    }
+    if (lbl) lbl.textContent = `${m.porcentaje}%`;
+  }
+
+  // Deshabilitar sliders no seleccionados y poner en 0
+  document.querySelectorAll('.plural-check').forEach(chk => {
+    if (!chk.checked) {
+      const id = chk.dataset.id;
+      const slider = document.querySelector(`.plural-slider[data-id="${id}"]`);
+      const lbl = document.getElementById(`lblPerc_${id}`);
+      if (slider) {
+        slider.disabled = true;
+        slider.value = 0;
+      }
+      if (lbl) lbl.textContent = '0%';
+    }
+  });
+
+  actualizarTotalPorcentaje();
+  calcularConsorcio();
+};
 
 // ==================== INICIALIZACIÓN ====================
 window.addEventListener('DOMContentLoaded', () => {
