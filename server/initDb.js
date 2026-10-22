@@ -19,7 +19,8 @@ const SCHEMAS = [
   'schema_acuerdos_plurales.sql',
   'schema_preflight_audit.sql',
   'schema_adendas.sql',
-  'schema_post_adjudicacion_avanzado.sql'
+  'schema_post_adjudicacion_avanzado.sql',
+  'schema_capacidad_residual.sql'
 ];
 
 async function runAllMigrations() {

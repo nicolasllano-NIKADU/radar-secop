@@ -6954,6 +6954,499 @@ document.getElementById('postAwardModal')?.addEventListener('click', (e) => {
   }
 });
 
+// ==================== MÓDULO: CAPACIDAD RESIDUAL K_R Y FORMULARIO 5 CCE ====================
+let currentKrPerfilId = null;
+let currentKrConsolidado = null;
+let currentKrProcesoId = null;
+let currentKrConcurrentProcesos = [];
+
+document.getElementById('modalBtnResidualCapacity')?.addEventListener('click', () => {
+  if (!activeModalId) return;
+  abrirModalResidualCapacity(activeModalId);
+});
+
+async function abrirModalResidualCapacity(procesoId) {
+  currentKrProcesoId = procesoId;
+  const opp = oportunidades.find(o => o.id === procesoId) || {
+    id: procesoId,
+    referencia: 'LP-OBRA-2026-001',
+    nombre: 'CONSTRUCCIÓN Y MEJORAMIENTO VIAL',
+    entidad: 'INSTITUTO NACIONAL DE VÍAS (INVIAS)',
+    cuantia: 3500000000
+  };
+
+  const refEl = document.getElementById('krProcesoRef');
+  const metaEl = document.getElementById('krProcesoMeta');
+  if (refEl) refEl.textContent = `Proceso: ${opp.referencia || opp.id} — ${opp.nombre || opp.objeto}`;
+  if (metaEl) {
+    const valFmt = formatCOP(opp.cuantia || opp.valor_estimado || 3500000000);
+    metaEl.textContent = `${opp.entidad} • K_R Exigido en Pliego: ${valFmt} • Pliegos Tipo ANCP-CCE`;
+  }
+
+  // Identificar empresa activa o primera empresa
+  let empId = 1;
+  try {
+    const empRes = await fetch('/api/empresas');
+    if (empRes.ok) {
+      const empJson = await empRes.json();
+      const emps = empJson.empresas || empJson;
+      if (Array.isArray(emps) && emps.length > 0) empId = emps[0].id;
+    }
+  } catch (e) {}
+
+  // Buscar perfiles de KR existentes o crear uno por defecto
+  try {
+    const resPerfiles = await fetch(`/api/capacidad-residual/perfiles/${empId}`);
+    if (resPerfiles.ok) {
+      const json = await resPerfiles.json();
+      if (json.perfiles && json.perfiles.length > 0) {
+        currentKrPerfilId = json.perfiles[0].id;
+      } else {
+        // Crear perfil inicial
+        const postRes = await fetch('/api/capacidad-residual/perfiles', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            empresa_id: empId,
+            nombre_perfil: 'Perfil Principal Infraestructura Vial',
+            año_fiscal: 2025,
+            smmlv_vigente: 1423500,
+            activo_corriente: 4500000000,
+            pasivo_corriente: 1200000000,
+            patrimonio: 6500000000,
+            utilidad_operacional: 980000000,
+            ingresos_operacionales: 8200000000,
+            experiencia_obras_smmlv: 8500,
+            numero_ingenieros_arquitectos: 6,
+            numero_tecnicos_tecnologos: 4
+          })
+        });
+        const postJson = await postRes.json();
+        if (postJson.success) currentKrPerfilId = postJson.perfil.id;
+      }
+    }
+  } catch (err) {
+    console.error('Error cargando perfil KR:', err);
+  }
+
+  if (currentKrPerfilId) {
+    await cargarCalculoConsolidadoKR(currentKrPerfilId);
+  }
+
+  document.getElementById('residualCapacityModal')?.classList.add('open');
+}
+
+async function cargarCalculoConsolidadoKR(perfilId) {
+  try {
+    const res = await fetch(`/api/capacidad-residual/perfiles/${perfilId}/calculo`);
+    if (!res.ok) throw new Error('Error al consultar cálculo consolidado');
+    const json = await res.json();
+    currentKrConsolidado = json.consolidado;
+
+    const c = currentKrConsolidado;
+    const p = c.perfil;
+    const smmlv = c.smmlv;
+
+    // Factores CO, E, CT, CF
+    document.getElementById('krCoCop').textContent = formatCOP(p.capacidad_operativa_co);
+    document.getElementById('krCoSmmlv').textContent = `${(p.capacidad_operativa_co / smmlv).toFixed(1)} SMMLV`;
+
+    document.getElementById('krECop').textContent = formatCOP(p.experiencia_e);
+    document.getElementById('krESmmlv').textContent = `${(p.experiencia_e / smmlv).toFixed(1)} SMMLV`;
+
+    document.getElementById('krCtCop').textContent = formatCOP(p.capacidad_tecnica_ct);
+    document.getElementById('krCtSmmlv').textContent = `${(p.capacidad_tecnica_ct / smmlv).toFixed(1)} SMMLV`;
+
+    document.getElementById('krCfCop').textContent = formatCOP(p.capacidad_financiera_cf);
+    document.getElementById('krCfSmmlv').textContent = `${(p.capacidad_financiera_cf / smmlv).toFixed(1)} SMMLV`;
+
+    // Totales
+    document.getElementById('krKBrutoDisplay').textContent = formatCOP(c.k_bruto_cop);
+    document.getElementById('krSceDisplay').textContent = `-${formatCOP(c.total_sce_cop)}`;
+    document.getElementById('krSceTotalDisplay').textContent = `-${formatCOP(c.total_sce_cop)}`;
+
+    // Barra proporcional
+    const kTotalGrafica = Math.max(1, c.k_bruto_cop);
+    const pctResidual = Math.max(0, Math.min(100, (c.k_residual_disponible_cop / kTotalGrafica) * 100));
+    const pctSce = Math.max(0, Math.min(100, (c.total_sce_cop / kTotalGrafica) * 100));
+    document.getElementById('krBarResidual').style.width = `${pctResidual}%`;
+    document.getElementById('krBarSce').style.width = `${pctSce}%`;
+
+    // Comparación vs Exigencia del Proceso actual
+    const opp = oportunidades.find(o => o.id === currentKrProcesoId) || {};
+    const kExigido = parseFloat(opp.cuantia || opp.valor_estimado) || 2500000000;
+    const cumple = c.k_residual_disponible_cop >= kExigido;
+    const holgura = c.k_residual_disponible_cop - kExigido;
+
+    const banner = document.getElementById('krBannerResultado');
+    const badge = document.getElementById('krStatusBadge');
+    const holguraText = document.getElementById('krHolguraText');
+    const subDetalle = document.getElementById('krSubDetalle');
+
+    if (cumple) {
+      if (banner) {
+        banner.style.background = 'rgba(16, 185, 129, 0.12)';
+        banner.style.borderColor = '#10b981';
+      }
+      if (badge) {
+        badge.style.background = '#10b981';
+        badge.textContent = '🟢 HABILITADO (CUMPLE K_R)';
+      }
+      if (holguraText) holguraText.textContent = `Holgura: +${formatCOP(holgura)}`;
+    } else {
+      if (banner) {
+        banner.style.background = 'rgba(239, 68, 68, 0.12)';
+        banner.style.borderColor = '#ef4444';
+      }
+      if (badge) {
+        badge.style.background = '#ef4444';
+        badge.textContent = '🔴 NO HABILITADO (DEFICIT K_R)';
+      }
+      if (holguraText) holguraText.textContent = `Déficit: ${formatCOP(holgura)}`;
+    }
+
+    if (subDetalle) {
+      subDetalle.textContent = `K_R Disponible: ${formatCOP(c.k_residual_disponible_cop)} (${c.k_residual_disponible_smmlv} SMMLV) • K_R Exigido por Pliego: ${formatCOP(kExigido)}`;
+    }
+
+    // Renderizar contratos SCE
+    renderContratosSce(c.contratos_sce || []);
+
+    // Preparar lista para simulador concurrente
+    prepararSimuladorPipeline(c);
+
+  } catch (err) {
+    console.error('Error renderizando cálculo KR:', err);
+  }
+}
+
+function renderContratosSce(contratos) {
+  const container = document.getElementById('krSceListContainer');
+  if (!container) return;
+
+  if (contratos.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; color: var(--text-faint); padding: 20px; font-size: 0.76rem;">
+        No hay contratos de obra en ejecución registrados. Se aplica $0 en factor deductor SCE.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = contratos.map(c => `
+    <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--hairline); border-radius: 4px; padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; font-size: 0.74rem;">
+      <div style="flex: 1;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-weight: 800; color: var(--champagne);">${c.entidad_contratante}</span>
+          <span style="font-size: 0.68rem; color: var(--text-faint);">• Contrato: ${c.numero_contrato}</span>
+          ${c.porcentaje_participacion < 100 ? `<span class="badge" style="background: rgba(14, 165, 233, 0.2); color: #38bdf8; font-size: 0.65rem;">Plural (${c.porcentaje_participacion}%)</span>` : ''}
+        </div>
+        <div style="font-size: 0.68rem; color: var(--text-warm); margin-top: 2px;">${c.objeto_contrato || 'Obra civil'}</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 14px;">
+        <div style="text-align: right;">
+          <div style="font-size: 0.65rem; color: var(--text-faint);">Saldo Imputable (Deducción):</div>
+          <div style="font-weight: 800; color: #ef4444;">-${formatCOP(c.saldo_imputable_proponente)}</div>
+        </div>
+        <button class="btn-action" onclick="eliminarContratoSce(${c.id})" style="padding: 2px 6px; font-size: 0.68rem; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #fca5a5;" title="Eliminar contrato SCE">
+          ✕
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+window.eliminarContratoSce = async function(id) {
+  if (!confirm('¿Desea retirar este contrato del inventario de saldos en ejecución (SCE)?')) return;
+  try {
+    const res = await fetch(`/api/capacidad-residual/contratos-sce/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      if (currentKrPerfilId) await cargarCalculoConsolidadoKR(currentKrPerfilId);
+    }
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  }
+};
+
+function prepararSimuladorPipeline(c) {
+  // Tomar hasta 3 procesos de las oportunidades abiertas
+  const procs = (oportunidades || []).slice(0, 3).map((opp, idx) => ({
+    id: opp.id,
+    referencia: opp.referencia || `LIC-CCE-2026-0${idx + 1}`,
+    entidad: opp.entidad || 'Entidad Estatal',
+    objeto: opp.nombre || opp.objeto || 'Obra Pública Vial',
+    presupuesto_oficial: parseFloat(opp.cuantia || opp.valor_estimado) || (2000000000 + (idx * 1000000000)),
+    k_requerido: parseFloat(opp.cuantia || opp.valor_estimado) || (2000000000 + (idx * 1000000000)),
+    prioridad: 3 - idx
+  }));
+
+  currentKrConcurrentProcesos = procs;
+
+  const resContainer = document.getElementById('krSimulacionResultados');
+  if (resContainer) {
+    resContainer.innerHTML = `
+      <div style="font-size: 0.74rem; color: var(--text-faint); margin-bottom: 6px;">
+        Se han detectado ${procs.length} procesos licitatorios concurrentes en tu radar. Haz clic en "Ejecutar Simulación" para modelar el impacto de adjudicaciones cruzadas.
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        ${procs.map(p => `
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--hairline); border-radius: 4px; padding: 6px 10px; display: flex; justify-content: space-between; font-size: 0.72rem;">
+            <span><strong>${p.referencia}</strong> — ${p.entidad}</span>
+            <span style="color: var(--champagne); font-weight: 700;">Presupuesto: ${formatCOP(p.presupuesto_oficial)}</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+}
+
+// Ejecutar Simulación Pipeline Concurrente
+document.getElementById('btnEjecutarSimulacionKR')?.addEventListener('click', async () => {
+  if (!currentKrPerfilId || currentKrConcurrentProcesos.length === 0) return;
+
+  const btn = document.getElementById('btnEjecutarSimulacionKR');
+  const oldText = btn.innerHTML;
+  btn.innerHTML = '⏳ Modelando Cascada...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/capacidad-residual/simulacion-pipeline', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        perfil_id: currentKrPerfilId,
+        procesos: currentKrConcurrentProcesos
+      })
+    });
+
+    const json = await res.json();
+    if (json.success) {
+      renderResultadosSimuladorKR(json.simulacion);
+    } else {
+      alert(`Error: ${json.error}`);
+    }
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  } finally {
+    btn.innerHTML = oldText;
+    btn.disabled = false;
+  }
+});
+
+function renderResultadosSimuladorKR(sim) {
+  const container = document.getElementById('krSimulacionResultados');
+  if (!container) return;
+
+  container.innerHTML = `
+    <!-- Recomendación Estratégica -->
+    <div style="background: ${sim.riesgo_inhabilitacion ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)'}; border: 1px solid ${sim.riesgo_inhabilitacion ? '#ef4444' : '#10b981'}; border-radius: 6px; padding: 10px; margin-bottom: 10px;">
+      <div style="font-weight: 800; font-size: 0.78rem; color: ${sim.riesgo_inhabilitacion ? '#fca5a5' : '#6ee7b7'}; margin-bottom: 2px;">
+        ${sim.riesgo_inhabilitacion ? '⚠️ RIESGO DETECTADO: INHABILITACIÓN POR FALTA DE K_R' : '✅ ESCENARIO VIABLE: HOLGURA SUFICIENTE'}
+      </div>
+      <div style="font-size: 0.72rem; color: var(--text-warm); line-height: 1.4;">${sim.recomendacion}</div>
+    </div>
+
+    <!-- Trazabilidad Paso a Paso -->
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+      ${sim.trazabilidad_cascada.map(p => `
+        <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--hairline); border-radius: 4px; padding: 8px 10px; font-size: 0.74rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <div>
+              <span class="badge" style="background: rgba(212, 175, 55, 0.2); color: var(--champagne); font-size: 0.65rem;">Paso ${p.paso}</span>
+              <strong style="margin-left: 6px;">${p.referencia}</strong> — ${p.entidad}
+            </div>
+            <span class="badge" style="background: ${p.cumple ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}; color: ${p.cumple ? '#6ee7b7' : '#fca5a5'}; font-size: 0.65rem; font-weight: 800;">
+              ${p.alerta}
+            </span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; font-size: 0.68rem; color: var(--text-faint);">
+            <div>K_R al Momento: <strong style="color: var(--text-primary);">${formatCOP(p.k_disponible_al_momento)}</strong></div>
+            <div>K_R Exigido: <strong style="color: var(--champagne);">${formatCOP(p.k_requerido_empresa)}</strong></div>
+            <div>Holgura: <strong style="color: ${p.cumple ? '#10b981' : '#ef4444'};">${formatCOP(p.holgura_cop)}</strong></div>
+            <div>Remanente Post-Giro: <strong style="color: #38bdf8;">${formatCOP(p.k_remanente_post_adjudicacion)}</strong></div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+// Navegación de pestañas en modal KR
+document.getElementById('tabKrBtnBalance')?.addEventListener('click', () => {
+  document.getElementById('tabKrContentBalance').style.display = 'block';
+  document.getElementById('tabKrContentSce').style.display = 'none';
+  document.getElementById('tabKrContentPipeline').style.display = 'none';
+
+  document.getElementById('tabKrBtnBalance').style.background = 'rgba(234, 179, 8, 0.2)';
+  document.getElementById('tabKrBtnBalance').style.borderColor = '#eab308';
+  document.getElementById('tabKrBtnBalance').style.color = '#fde047';
+
+  document.getElementById('tabKrBtnSce').style.background = 'var(--lacquer-surface)';
+  document.getElementById('tabKrBtnSce').style.borderColor = 'var(--hairline)';
+  document.getElementById('tabKrBtnSce').style.color = 'var(--text-warm)';
+
+  document.getElementById('tabKrBtnPipeline').style.background = 'var(--lacquer-surface)';
+  document.getElementById('tabKrBtnPipeline').style.borderColor = 'var(--hairline)';
+  document.getElementById('tabKrBtnPipeline').style.color = 'var(--text-warm)';
+});
+
+document.getElementById('tabKrBtnSce')?.addEventListener('click', () => {
+  document.getElementById('tabKrContentBalance').style.display = 'none';
+  document.getElementById('tabKrContentSce').style.display = 'block';
+  document.getElementById('tabKrContentPipeline').style.display = 'none';
+
+  document.getElementById('tabKrBtnSce').style.background = 'rgba(234, 179, 8, 0.2)';
+  document.getElementById('tabKrBtnSce').style.borderColor = '#eab308';
+  document.getElementById('tabKrBtnSce').style.color = '#fde047';
+
+  document.getElementById('tabKrBtnBalance').style.background = 'var(--lacquer-surface)';
+  document.getElementById('tabKrBtnBalance').style.borderColor = 'var(--hairline)';
+  document.getElementById('tabKrBtnBalance').style.color = 'var(--text-warm)';
+
+  document.getElementById('tabKrBtnPipeline').style.background = 'var(--lacquer-surface)';
+  document.getElementById('tabKrBtnPipeline').style.borderColor = 'var(--hairline)';
+  document.getElementById('tabKrBtnPipeline').style.color = 'var(--text-warm)';
+});
+
+document.getElementById('tabKrBtnPipeline')?.addEventListener('click', () => {
+  document.getElementById('tabKrContentBalance').style.display = 'none';
+  document.getElementById('tabKrContentSce').style.display = 'none';
+  document.getElementById('tabKrContentPipeline').style.display = 'block';
+
+  document.getElementById('tabKrBtnPipeline').style.background = 'rgba(234, 179, 8, 0.2)';
+  document.getElementById('tabKrBtnPipeline').style.borderColor = '#eab308';
+  document.getElementById('tabKrBtnPipeline').style.color = '#fde047';
+
+  document.getElementById('tabKrBtnBalance').style.background = 'var(--lacquer-surface)';
+  document.getElementById('tabKrBtnBalance').style.borderColor = 'var(--hairline)';
+  document.getElementById('tabKrBtnBalance').style.color = 'var(--text-warm)';
+
+  document.getElementById('tabKrBtnSce').style.background = 'var(--lacquer-surface)';
+  document.getElementById('tabKrBtnSce').style.borderColor = 'var(--hairline)';
+  document.getElementById('tabKrBtnSce').style.color = 'var(--text-warm)';
+});
+
+// Toggle y Guardar Contrato SCE
+document.getElementById('btnToggleAddContratoSce')?.addEventListener('click', () => {
+  const form = document.getElementById('formAddContratoSce');
+  if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+});
+
+document.getElementById('btnCancelAddSce')?.addEventListener('click', () => {
+  document.getElementById('formAddContratoSce').style.display = 'none';
+});
+
+document.getElementById('btnSaveNewSce')?.addEventListener('click', async () => {
+  if (!currentKrPerfilId) return;
+
+  const entidad = document.getElementById('newSceEntidad').value.trim();
+  const no = document.getElementById('newSceNo').value.trim();
+  const vTotal = parseFloat(document.getElementById('newSceValorTotal').value);
+  const vFact = parseFloat(document.getElementById('newSceValorFacturado').value) || 0;
+  const pct = parseFloat(document.getElementById('newScePctPart').value) || 100;
+  const objeto = document.getElementById('newSceObjeto').value.trim();
+
+  if (!entidad || !no || !vTotal) {
+    alert('Por favor ingrese Entidad, No. Contrato y Valor Total.');
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/capacidad-residual/perfiles/${currentKrPerfilId}/contratos-sce`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        empresa_id: currentKrConsolidado?.perfil?.empresa_id || 1,
+        entidad_contratante: entidad,
+        numero_contrato: no,
+        objeto_contrato: objeto || 'Obra civil',
+        valor_total_contrato: vTotal,
+        valor_facturado_actas: vFact,
+        porcentaje_participacion: pct,
+        es_estructura_plural: pct < 100
+      })
+    });
+
+    const json = await res.json();
+    if (json.success) {
+      document.getElementById('formAddContratoSce').style.display = 'none';
+      document.getElementById('newSceEntidad').value = '';
+      document.getElementById('newSceNo').value = '';
+      document.getElementById('newSceValorTotal').value = '';
+      document.getElementById('newSceValorFacturado').value = '';
+      document.getElementById('newSceObjeto').value = '';
+      await cargarCalculoConsolidadoKR(currentKrPerfilId);
+    } else {
+      alert(`Error: ${json.error}`);
+    }
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  }
+});
+
+// Descargar Formulario 5 CCE PDF
+document.getElementById('btnDownloadFormulario5Pdf')?.addEventListener('click', async () => {
+  if (!currentKrPerfilId) return;
+
+  const btn = document.getElementById('btnDownloadFormulario5Pdf');
+  const oldText = btn.innerHTML;
+  btn.innerHTML = '⏳ Confeccionando Formulario 5...';
+  btn.disabled = true;
+
+  try {
+    const opp = oportunidades.find(o => o.id === currentKrProcesoId) || {};
+    const res = await fetch('/api/capacidad-residual/generar-formulario5-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        perfil_id: currentKrPerfilId,
+        proceso_info: {
+          entidad: opp.entidad || 'INSTITUTO NACIONAL DE VÍAS (INVIAS)',
+          referencia: opp.referencia || opp.id || 'LP-DO-001-2026',
+          k_requerido: opp.cuantia || opp.valor_estimado || 2500000000
+        },
+        firmantes: {
+          nombre_representante: currentKrConsolidado?.perfil?.empresa_razon_social,
+          cedula_representante: '80.123.456 de Bogotá D.C.',
+          nombre_contador: 'Dr. Fernando Restrepo Cuervo',
+          tarjeta_profesional: '194821-T',
+          cedula_contador: '79.654.321 de Bogotá D.C.'
+        }
+      })
+    });
+
+    if (!res.ok) throw new Error('Error al generar Formulario 5 PDF');
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Formulario_5_Capacidad_Residual_${currentKrPerfilId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error('Error generando Formulario 5 PDF:', err);
+    alert(`Error: ${err.message}`);
+  } finally {
+    btn.innerHTML = oldText;
+    btn.disabled = false;
+  }
+});
+
+// Cerrar modal KR
+document.getElementById('btnCloseResidualCapacityModal')?.addEventListener('click', () => {
+  document.getElementById('residualCapacityModal')?.classList.remove('open');
+});
+document.getElementById('btnCloseResidualCapacityModalBtn')?.addEventListener('click', () => {
+  document.getElementById('residualCapacityModal')?.classList.remove('open');
+});
+document.getElementById('residualCapacityModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'residualCapacityModal') {
+    document.getElementById('residualCapacityModal')?.classList.remove('open');
+  }
+});
+
 // ==================== INICIALIZACIÓN ====================
 window.addEventListener('DOMContentLoaded', () => {
   checkUserSession();

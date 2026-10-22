@@ -1280,6 +1280,17 @@
           </svg>
           <span>🔔 Adendas & Cronograma</span>
         </button>
+        <button id="modalBtnResidualCapacity" class="btn-action" style="flex: 1; min-width: 140px; justify-content: center; background: rgba(234, 179, 8, 0.15); border: 1px solid #eab308; color: #fde047;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M3 21h18"/>
+            <path d="M5 21V7l8-4v18"/>
+            <path d="M19 21V11l-6-4"/>
+            <path d="M9 9h1"/>
+            <path d="M9 13h1"/>
+            <path d="M9 17h1"/>
+          </svg>
+          <span>🏗️ Capacidad Residual K_R (Formulario 5)</span>
+        </button>
         <button id="modalNotifyBtn" class="btn-action btn-action-tele" style="flex: 1; min-width: 140px; justify-content: center;">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <line x1="22" y1="2" x2="11" y2="13"/>
@@ -3051,6 +3062,207 @@
         </div>
         <div>
           <button id="btnClosePostAwardModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Calculadora de Capacidad Residual K_R, SCE y Formulario 5 CCE -->
+  <div id="residualCapacityModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 1050px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="entity-badge" style="background: #eab308; color: #000; font-weight: 800;">OBRA PÚBLICA CCE</div>
+          <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-warm);">Capacidad Residual de Contratación (K_R) y Formulario 5 (Decreto 1082/2015)</span>
+        </div>
+        <button id="btnCloseResidualCapacityModal" class="btn-close-modal" aria-label="Cerrar modal">✕</button>
+      </div>
+
+      <div style="margin-top: 8px; border-bottom: 1px solid var(--hairline); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 8px;">
+        <div>
+          <h4 id="krProcesoRef" style="font-size: 1.05rem; color: var(--champagne); margin-bottom: 2px;">Proceso: --</h4>
+          <div id="krProcesoMeta" style="font-size: 0.76rem; color: var(--text-faint);">Fórmula Reglamentaria: K_R = (CO + E + CT + CF) - SCE</div>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span style="font-size: 0.72rem; color: var(--text-faint);">SMMLV Oficial:</span>
+          <span id="krSmmlvDisplay" style="font-weight: 800; font-size: 0.85rem; color: var(--champagne);">$ 1.423.500</span>
+        </div>
+      </div>
+
+      <!-- Resumen Semafórico de K_R vs Exigencia del Pliego -->
+      <div id="krBannerResultado" style="margin-top: 12px; background: rgba(16, 185, 129, 0.12); border: 1px solid #10b981; border-radius: 6px; padding: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span id="krStatusBadge" class="badge" style="font-size: 0.82rem; padding: 4px 10px; font-weight: 800; background: #10b981; color: #fff;">
+                🟢 HABILITADO (CUMPLE K_R)
+              </span>
+              <span id="krHolguraText" style="font-size: 0.95rem; font-weight: 800; color: var(--champagne);">Holgura: +$ 0</span>
+            </div>
+            <div id="krSubDetalle" style="font-size: 0.74rem; color: var(--text-warm); margin-top: 4px;">
+              K_R Disponible: $ -- (0 SMMLV) • K_R Exigido por Pliego: $ --
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Deducción Total por Obras en Ejecución (SCE):</div>
+            <div id="krSceTotalDisplay" style="font-size: 1.1rem; font-weight: 800; color: #ef4444;" class="tabular-nums">-$ 0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pestañas de Navegación del Módulo -->
+      <div style="display: flex; gap: 6px; margin-top: 14px; border-bottom: 1px solid var(--hairline); padding-bottom: 8px;">
+        <button id="tabKrBtnBalance" class="btn-action" style="font-size: 0.78rem; padding: 6px 14px; background: rgba(234, 179, 8, 0.2); border: 1px solid #eab308; color: #fde047; font-weight: 700;">
+          📊 1. Balance K_R & Factores RUP
+        </button>
+        <button id="tabKrBtnSce" class="btn-action" style="font-size: 0.78rem; padding: 6px 14px; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-warm);">
+          📋 2. Matriz de Contratos en Ejecución (SCE)
+        </button>
+        <button id="tabKrBtnPipeline" class="btn-action" style="font-size: 0.78rem; padding: 6px 14px; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-warm);">
+          ⚡ 3. Simulador Pipeline Concurrente
+        </button>
+      </div>
+
+      <!-- Pestaña 1: Balance y Desglose de Factores CCE -->
+      <div id="tabKrContentBalance" style="margin-top: 12px; display: block;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px;">
+          <!-- CO -->
+          <div class="card-glass" style="padding: 10px; border-radius: 6px; border-left: 3px solid #38bdf8;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <span style="font-size: 0.72rem; font-weight: 700; color: #38bdf8;">Capacidad de Organización (CO)</span>
+              <span id="krCoSmmlv" style="font-size: 0.68rem; color: var(--text-faint);">0 SMMLV</span>
+            </div>
+            <div id="krCoCop" style="font-size: 1.05rem; font-weight: 800; color: var(--text-primary);">$ 0</div>
+            <div style="font-size: 0.65rem; color: var(--text-faint); margin-top: 4px;">Ingresos y Utilidad Operacional RUP</div>
+          </div>
+
+          <!-- E -->
+          <div class="card-glass" style="padding: 10px; border-radius: 6px; border-left: 3px solid #10b981;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <span style="font-size: 0.72rem; font-weight: 700; color: #10b981;">Experiencia en Obras (E)</span>
+              <span id="krESmmlv" style="font-size: 0.68rem; color: var(--text-faint);">0 SMMLV</span>
+            </div>
+            <div id="krECop" style="font-size: 1.05rem; font-weight: 800; color: var(--text-primary);">$ 0</div>
+            <div style="font-size: 0.65rem; color: var(--text-faint); margin-top: 4px;">Contratos ejecutados en RUP (SMMLV)</div>
+          </div>
+
+          <!-- CT -->
+          <div class="card-glass" style="padding: 10px; border-radius: 6px; border-left: 3px solid #a855f7;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <span style="font-size: 0.72rem; font-weight: 700; color: #a855f7;">Capacidad Técnica (CT)</span>
+              <span id="krCtSmmlv" style="font-size: 0.68rem; color: var(--text-faint);">0 SMMLV</span>
+            </div>
+            <div id="krCtCop" style="font-size: 1.05rem; font-weight: 800; color: var(--text-primary);">$ 0</div>
+            <div style="font-size: 0.65rem; color: var(--text-faint); margin-top: 4px;">Nómina Ingenieros y Técnicos</div>
+          </div>
+
+          <!-- CF -->
+          <div class="card-glass" style="padding: 10px; border-radius: 6px; border-left: 3px solid #f59e0b;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <span style="font-size: 0.72rem; font-weight: 700; color: #f59e0b;">Capacidad Financiera (CF)</span>
+              <span id="krCfSmmlv" style="font-size: 0.68rem; color: var(--text-faint);">0 SMMLV</span>
+            </div>
+            <div id="krCfCop" style="font-size: 1.05rem; font-weight: 800; color: var(--text-primary);">$ 0</div>
+            <div style="font-size: 0.65rem; color: var(--text-faint); margin-top: 4px;">Capital de Trabajo & Multiplicador</div>
+          </div>
+        </div>
+
+        <!-- Barra consolidada K Bruto vs SCE -->
+        <div style="margin-top: 14px; background: rgba(0,0,0,0.3); border: 1px solid var(--hairline); border-radius: 6px; padding: 12px;">
+          <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 6px;">
+            <span>Capacidad Bruta Sumada: <strong id="krKBrutoDisplay">$ 0</strong></span>
+            <span>Deductor Saldos en Ejecución (SCE): <strong id="krSceDisplay" style="color: #ef4444;">-$ 0</strong></span>
+          </div>
+          <div style="height: 10px; width: 100%; background: #1e293b; border-radius: 5px; overflow: hidden; display: flex;">
+            <div id="krBarResidual" style="width: 70%; background: #10b981;" title="Capacidad Residual Neta"></div>
+            <div id="krBarSce" style="width: 30%; background: #ef4444;" title="Saldos en Ejecución"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pestaña 2: Matriz de Saldos de Contratos en Ejecución (SCE) -->
+      <div id="tabKrContentSce" style="margin-top: 12px; display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span style="font-size: 0.75rem; color: var(--text-warm);">Contratos de obra pública o privada vigentes que impactan negativamente la capacidad (Decreto 1082/2015 Art. 2.2.1.1.1.6.4):</span>
+          <button id="btnToggleAddContratoSce" class="btn-action" style="font-size: 0.72rem; padding: 4px 10px; background: rgba(234, 179, 8, 0.15); border: 1px solid #eab308; color: #fde047;">
+            ➕ Agregar Contrato en Ejecución
+          </button>
+        </div>
+
+        <!-- Formulario nuevo contrato SCE -->
+        <div id="formAddContratoSce" style="display: none; background: rgba(0,0,0,0.4); border: 1px solid var(--hairline); border-radius: 6px; padding: 10px; margin-bottom: 10px;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; margin-bottom: 6px;">
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block;">Entidad Contratante</label>
+              <input type="text" id="newSceEntidad" placeholder="INVIAS / IDU / Alcaldía..." style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block;">No. Contrato</label>
+              <input type="text" id="newSceNo" placeholder="CTR-2025-09" style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block;">Valor Total COP</label>
+              <input type="number" id="newSceValorTotal" placeholder="Incluye adiciones" style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block;">Valor Facturado COP</label>
+              <input type="number" id="newSceValorFacturado" placeholder="Actas pagadas" style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block;">% Participación</label>
+              <input type="number" id="newScePctPart" placeholder="100 para individual" value="100" style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            </div>
+          </div>
+          <div style="margin-bottom: 6px;">
+            <input type="text" id="newSceObjeto" placeholder="Objeto del contrato en ejecución..." style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 6px;">
+            <button id="btnCancelAddSce" class="btn-action" style="font-size: 0.7rem; padding: 3px 8px;">Cancelar</button>
+            <button id="btnSaveNewSce" class="btn-action btn-action-primary" style="font-size: 0.7rem; padding: 3px 10px;">Guardar e Imputar a SCE</button>
+          </div>
+        </div>
+
+        <div id="krSceListContainer" style="display: flex; flex-direction: column; gap: 6px; max-height: 230px; overflow-y: auto;">
+          <!-- Listado dinámico de contratos SCE -->
+        </div>
+      </div>
+
+      <!-- Pestaña 3: Simulador Predictivo de Pipeline Concurrente -->
+      <div id="tabKrContentPipeline" style="margin-top: 12px; display: none;">
+        <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--hairline); border-radius: 6px; padding: 10px; margin-bottom: 10px;">
+          <div style="font-size: 0.76rem; font-weight: 700; color: var(--champagne); margin-bottom: 4px;">
+            ⚡ Modelado de Licitaciones Concurrentes (Riesgo de Rechazo Sobreviniente por Adjudicación Cascada):
+          </div>
+          <div style="font-size: 0.72rem; color: var(--text-warm); line-height: 1.45;">
+            Si la entidad A adjudica a tu favor, el valor del contrato pasa a ser un nuevo saldo en ejecución (SCE), reduciendo tu K_R disponible para las audiencias de adjudicación de las entidades B y C. Simula la viabilidad de ganar múltiples contratos concurrentes.
+          </div>
+        </div>
+
+        <div id="krSimuladorContainer">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-warm);">Licitaciones en Trámite Concurrente:</span>
+            <button id="btnEjecutarSimulacionKR" class="btn-action btn-action-primary" style="font-size: 0.75rem; padding: 5px 12px; background: #eab308; color: #000; font-weight: 700;">
+              ▶️ Ejecutar Simulación de Cascada
+            </button>
+          </div>
+
+          <div id="krSimulacionResultados" style="margin-top: 10px;">
+            <!-- Resultados de la simulación -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer y Descarga del Formulario 5 CCE -->
+      <div style="margin-top: 14px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; border-top: 1px solid var(--hairline); padding-top: 12px;">
+        <div style="display: flex; gap: 8px;">
+          <button id="btnDownloadFormulario5Pdf" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px; background: rgba(234, 179, 8, 0.2); border: 1px solid #eab308; color: #fde047; font-weight: 700;">
+            ⬇️ Generar Formulario 5 Oficial ANCP-CCE (PDF)
+          </button>
+        </div>
+        <div>
+          <button id="btnCloseResidualCapacityModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
             Cerrar
           </button>
         </div>

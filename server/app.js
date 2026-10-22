@@ -31,6 +31,7 @@ const pluralAgreementEngine = require('./pluralAgreementEngine');
 const preflightAuditEngine = require('./preflightAuditEngine');
 const adendasEngine = require('./adendasEngine');
 const postAdjudicacionEngine = require('./postAdjudicacionEngine');
+const residualCapacityEngine = require('./residualCapacityEngine');
 const initDb = require('./initDb');
 
 const app = express();
@@ -1813,6 +1814,111 @@ app.get('/api/post-adjudicacion/contrato/:id/liquidacion-pdf', async (req, res) 
     res.send(pdfBuffer);
   } catch (err) {
     console.error('Error generando PDF de liquidación:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== MÓDULO: CAPACIDAD RESIDUAL (K RESIDUAL) Y FORMULARIO 5 CCE ====================
+
+app.get('/api/capacidad-residual/perfiles/:empresaId', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const result = await dbPostgres.query(`
+      SELECT p.*, 
+        (SELECT COUNT(*) FROM capacidad_residual_contratos_sce sce WHERE sce.perfil_id = p.id) as total_contratos_sce,
+        (SELECT COALESCE(SUM(saldo_imputable_proponente), 0) FROM capacidad_residual_contratos_sce sce WHERE sce.perfil_id = p.id) as total_sce_cop
+      FROM capacidad_residual_perfiles p
+      WHERE p.empresa_id = $1
+      ORDER BY p.id DESC
+    `, [req.params.empresaId]);
+    res.json({ success: true, perfiles: result.rows });
+  } catch (err) {
+    console.error('Error obteniendo perfiles de KR:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/capacidad-residual/perfiles', async (req, res) => {
+  try {
+    const { empresa_id, ...datosPerfil } = req.body;
+    if (!empresa_id) {
+      return res.status(400).json({ success: false, error: 'empresa_id es requerido' });
+    }
+    const perfilGuardado = await residualCapacityEngine.guardarPerfil(empresa_id, datosPerfil);
+    res.json({ success: true, perfil: perfilGuardado });
+  } catch (err) {
+    console.error('Error guardando perfil de KR:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/capacidad-residual/perfiles/:id/calculo', async (req, res) => {
+  try {
+    const consolidado = await residualCapacityEngine.getCalculoConsolidado(req.params.id);
+    if (!consolidado) {
+      return res.status(404).json({ success: false, error: 'Perfil de KR no encontrado' });
+    }
+    res.json({ success: true, consolidado });
+  } catch (err) {
+    console.error('Error obteniendo cálculo consolidado de KR:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/capacidad-residual/perfiles/:id/contratos-sce', async (req, res) => {
+  try {
+    const perfilId = req.params.id;
+    const contratoData = req.body;
+    if (!contratoData.entidad_contratante || !contratoData.numero_contrato || !contratoData.valor_total_contrato) {
+      return res.status(400).json({ success: false, error: 'Campos obligatorios incompletos del contrato SCE' });
+    }
+    const contratoGuardado = await residualCapacityEngine.agregarContratoSCE(perfilId, contratoData);
+    res.json({ success: true, contrato: contratoGuardado });
+  } catch (err) {
+    console.error('Error agregando contrato SCE:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/capacidad-residual/contratos-sce/:id', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    await dbPostgres.query('DELETE FROM capacidad_residual_contratos_sce WHERE id = $1', [req.params.id]);
+    res.json({ success: true, message: 'Contrato SCE eliminado correctamente' });
+  } catch (err) {
+    console.error('Error eliminando contrato SCE:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/capacidad-residual/simulacion-pipeline', async (req, res) => {
+  try {
+    const { perfil_id, procesos } = req.body;
+    if (!perfil_id || !Array.isArray(procesos) || procesos.length === 0) {
+      return res.status(400).json({ success: false, error: 'Se requiere perfil_id y un arreglo no vacío de procesos' });
+    }
+    const resultado = await residualCapacityEngine.simularPipelineConcurrente(perfil_id, procesos);
+    res.json({ success: true, simulacion: resultado });
+  } catch (err) {
+    console.error('Error en simulación de pipeline concurrente:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/capacidad-residual/generar-formulario5-pdf', async (req, res) => {
+  try {
+    const { perfil_id, proceso_info, firmantes } = req.body;
+    if (!perfil_id) {
+      return res.status(400).json({ success: false, error: 'perfil_id es requerido' });
+    }
+    const pdfBuffer = await residualCapacityEngine.generarFormulario5Pdf(perfil_id, proceso_info || {}, firmantes || {});
+    const filename = `Formulario_5_Capacidad_Residual_${perfil_id}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando Formulario 5 CCE PDF:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
