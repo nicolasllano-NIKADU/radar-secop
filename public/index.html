@@ -480,6 +480,24 @@
       </div>
     </section>
 
+    <!-- ================= VISTA 7: COMPLIANCE, INHABILIDADES Y LAFT ================= -->
+    <section id="view-laft" class="view-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div>
+          <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--champagne); margin-bottom: 4px;">Compliance & Prevención de Inhabilidades</h2>
+          <p style="font-size: 0.8rem; color: var(--text-muted);">Tamizaje contra antecedentes CGR, PGN, Policía Nacional, listas OFAC y beneficiarios finales</p>
+        </div>
+        <button id="btnRunComplianceAudit" class="btn-action btn-action-primary" style="padding: 8px 14px; font-size: 0.82rem; gap: 6px;">
+          <span>🔍 Ejecutar Auditoría Oficial</span>
+        </button>
+      </div>
+
+      <!-- Tablero de Estado de Cumplimiento -->
+      <div id="complianceDashboard" style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="text-align: center; padding: 40px; color: var(--text-faint);">Cargando estado de auditoría...</div>
+      </div>
+    </section>
+
   </main>
 
   <!-- Barra de Navegación Inferior (Mobile First Ergonomics) -->
@@ -538,6 +556,13 @@
         <line x1="16" y1="17" x2="8" y2="17"/>
       </svg>
       <span>Contratos</span>
+    </button>
+    <button class="nav-item" data-target="view-laft">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        <path d="M9 12l2 2 4-4"/>
+      </svg>
+      <span>Compliance</span>
     </button>
     <button class="nav-item" data-target="view-sources">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">

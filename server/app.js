@@ -13,6 +13,7 @@ const paaManager = require('./paaManager');
 const companyManager = require('./companyManager');
 const subsanabilidadEngine = require('./subsanabilidadEngine');
 const contractManager = require('./contractManager');
+const complianceEngine = require('./complianceEngine');
 
 const app = express();
 
@@ -337,6 +338,40 @@ app.post('/api/contratos/:id/modificaciones', async (req, res) => {
     res.json({ success: true, data: mod });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// 13. Módulo de Compliance, Inhabilidades y Riesgos LAFT
+app.post('/api/compliance/auditar', async (req, res) => {
+  try {
+    const user = await companyManager.getOrCreateDefaultUser();
+    const companies = await companyManager.getCompaniesByUser(user.id);
+    const empresaId = req.body.empresa_id ? parseInt(req.body.empresa_id, 10) : (companies[0]?.id || 1);
+    const empresa = companies.find(c => c.id === empresaId) || companies[0];
+
+    const auditData = {
+      empresa_id: empresaId,
+      nit: req.body.nit || empresa.nit,
+      razon_social: req.body.razon_social || empresa.razon_social,
+      representante_legal: req.body.representante_legal || 'Representante Legal Registrado',
+      documento_representante: req.body.documento_representante || '1010202030',
+      miembros_consorcio: req.body.miembros_consorcio || []
+    };
+
+    const resultado = await complianceEngine.runComplianceAudit(auditData);
+    res.json({ success: true, data: resultado });
+  } catch (err) {
+    console.error('Error en auditoría compliance:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/compliance/:empresaId/historial', async (req, res) => {
+  try {
+    const historial = await complianceEngine.getComplianceHistory(parseInt(req.params.empresaId, 10));
+    res.json({ success: true, data: historial });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

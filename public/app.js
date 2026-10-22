@@ -1856,6 +1856,125 @@ window.gestionarPolizasModal = async function(contratoId) {
   }
 };
 
+// ==================== MÓDULO COMPLIANCE, INHABILIDADES Y LAFT ====================
+async function loadComplianceDashboard() {
+  const container = document.getElementById('complianceDashboard');
+  if (!container) return;
+
+  const lider = userCompanies.find(c => c.es_propia) || userCompanies[0];
+  if (!lider) return;
+
+  container.innerHTML = '<div style="text-align: center; padding: 30px; color: var(--text-faint);">Consultando historial de debida diligencia y compliance...</div>';
+
+  try {
+    const res = await fetch(`/api/compliance/${lider.id}/historial`);
+    const json = await res.json();
+
+    if (!json.success || !json.data || json.data.length === 0) {
+      container.innerHTML = `
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 24px; border-radius: var(--radius-md); text-align: center;">
+          <div style="font-size: 2rem; margin-bottom: 8px;">🛡️</div>
+          <h3 style="color: var(--champagne); margin-bottom: 6px;">Empresa: ${lider.razon_social}</h3>
+          <p style="color: var(--text-faint); font-size: 0.8rem; margin-bottom: 16px;">
+            Aún no se ha corrido una auditoría oficial de inhabilidades (Ley 80/1993 Art. 8), cruce CGR, PGN y listas restrictivas LAFT.
+          </p>
+          <button onclick="runComplianceCheckNow()" class="btn-action btn-action-primary" style="margin: 0 auto;">
+            ⚡ Ejecutar Tamizaje Oficial Ahora
+          </button>
+        </div>
+      `;
+      return;
+    }
+
+    const latest = json.data[0];
+    const esHabilitado = latest.estado_compliance === 'HABILITADO';
+    const statusColor = esHabilitado ? 'var(--success)' : (latest.estado_compliance === 'ALERTA_PREVENTIVA' ? 'var(--champagne)' : 'var(--danger)');
+    const statusIcon = esHabilitado ? '✅' : (latest.estado_compliance === 'ALERTA_PREVENTIVA' ? '⚠️' : '❌');
+
+    container.innerHTML = `
+      <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 18px; border-radius: var(--radius-md); display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--hairline); padding-bottom: 12px;">
+          <div>
+            <span class="entity-badge" style="font-size: 0.72rem;">INSPECCIÓN DE COMPLIANCE</span>
+            <h3 style="font-size: 1.1rem; font-weight: 800; color: var(--champagne); margin: 4px 0 0 0;">${latest.nombre_consultado}</h3>
+            <span style="font-size: 0.72rem; color: var(--text-faint);">NIT: ${latest.nit_consultado} | Hash Auditoría: <code>${latest.certificado_hash?.slice(0, 16)}...</code></span>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 1.1rem; font-weight: 800; color: ${statusColor};">${statusIcon} ${latest.estado_compliance.replace(/_/g, ' ')}</div>
+            <div style="font-size: 0.72rem; color: var(--text-faint);">Índice de Riesgo: <b>${latest.score_riesgo}/100</b></div>
+          </div>
+        </div>
+
+        <!-- Matriz de Chequeo de Fuentes Oficiales -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; font-size: 0.78rem;">
+          <div style="background: var(--lacquer-deep); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--hairline); display: flex; justify-content: space-between;">
+            <span>Contraloría (CGR - Fiscal):</span>
+            <b style="color: ${latest.boletin_fiscal_cgr ? 'var(--danger)' : 'var(--success)'};">${latest.boletin_fiscal_cgr ? 'REPORTE ACTIVO' : 'SIN REPORTES'}</b>
+          </div>
+          <div style="background: var(--lacquer-deep); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--hairline); display: flex; justify-content: space-between;">
+            <span>Procuraduría (PGN - SIRI):</span>
+            <b style="color: ${latest.disciplinarios_pgn ? 'var(--danger)' : 'var(--success)'};">${latest.disciplinarios_pgn ? 'SANCIÓN VIGENTE' : 'SIN REPORTES'}</b>
+          </div>
+          <div style="background: var(--lacquer-deep); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--hairline); display: flex; justify-content: space-between;">
+            <span>Policía Nacional (RNMC):</span>
+            <b style="color: ${latest.medidas_correctivas_ponal ? 'var(--danger)' : 'var(--success)'};">${latest.medidas_correctivas_ponal ? 'MULTAS ACTIVAS' : 'PAZ Y SALVO'}</b>
+          </div>
+          <div style="background: var(--lacquer-deep); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--hairline); display: flex; justify-content: space-between;">
+            <span>Listas OFAC / ONU (LAFT):</span>
+            <b style="color: ${latest.lista_ofac_clinton ? 'var(--danger)' : 'var(--success)'};">${latest.lista_ofac_clinton ? 'COINCIDENCIA' : 'NO REPORTADO'}</b>
+          </div>
+        </div>
+
+        ${(latest.hallazgos && latest.hallazgos.length > 0) ? `
+          <div style="background: rgba(255, 23, 68, 0.08); border-left: 3px solid var(--danger); padding: 10px 12px; border-radius: var(--radius-sm); font-size: 0.78rem;">
+            <b style="color: var(--danger); display: block; margin-bottom: 4px;">Hallazgos u Observaciones Relevantes:</b>
+            <ul style="margin: 0; padding-left: 18px; color: var(--text-warm);">
+              ${latest.hallazgos.map(h => `<li>${h}</li>`).join('')}
+            </ul>
+          </div>
+        ` : `
+          <div style="background: rgba(0, 230, 118, 0.08); border-left: 3px solid var(--success); padding: 8px 12px; border-radius: var(--radius-sm); font-size: 0.78rem; color: var(--success);">
+            ✓ Acreditación Conforme: Proponente plenamente facultado jurídicamente para contratar con el Estado colombiano bajo Ley 80 de 1993 y Ley 2195 de 2022.
+          </div>
+        `}
+      </div>
+    `;
+  } catch (err) {
+    container.innerHTML = `<div style="color: var(--danger); padding: 20px;">Error: ${err.message}</div>`;
+  }
+}
+
+async function runComplianceCheckNow() {
+  const lider = userCompanies.find(c => c.es_propia) || userCompanies[0];
+  if (!lider) return;
+
+  showToast('Iniciando tamizaje contra antecedentes CGR, PGN, PONAL y listas restrictivas...');
+
+  try {
+    const res = await fetch('/api/compliance/auditar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        empresa_id: lider.id,
+        nit: lider.nit,
+        razon_social: lider.razon_social,
+        representante_legal: 'Representante Legal Registrado'
+      })
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast(`Auditoría finalizada: ${json.data.estado_compliance}`);
+      loadComplianceDashboard();
+    } else {
+      showToast(`Error: ${json.error}`);
+    }
+  } catch (e) {
+    showToast(`Error de auditoría: ${e.message}`);
+  }
+}
+
+document.getElementById('btnRunComplianceAudit')?.addEventListener('click', runComplianceCheckNow);
+
 // ==================== INICIALIZACIÓN ====================
 window.addEventListener('DOMContentLoaded', () => {
   const savedProfileBtn = document.querySelector(`.company-btn[data-profile="${currentProfile}"]`);
@@ -1870,4 +1989,5 @@ window.addEventListener('DOMContentLoaded', () => {
   loadCompanies();
   loadPAAOpportunities();
   loadContracts();
+  loadComplianceDashboard();
 });
