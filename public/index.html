@@ -134,6 +134,92 @@
       </div>
     </section>
 
+    <!-- ================= VISTA 2: GESTIÓN DE EMPRESAS & RUP ================= -->
+    <section id="view-companies" class="view-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div>
+          <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--champagne); margin-bottom: 4px;">Mis Empresas & Aliados</h2>
+          <p style="font-size: 0.8rem; color: var(--text-muted);">Gestión de perfiles jurídicos, RUP y capacidad financiera para licitaciones</p>
+        </div>
+        <button id="btnOpenNewCompanyModal" class="btn-action btn-action-primary" style="padding: 8px 14px; font-size: 0.82rem;">
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>Nueva Empresa</span>
+        </button>
+      </div>
+
+      <!-- Grid de Empresas Registradas -->
+      <div id="companiesGrid" class="companies-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px;">
+        <!-- Se llena dinámicamente -->
+        <div style="text-align: center; padding: 40px; color: var(--text-faint);">Cargando empresas...</div>
+      </div>
+    </section>
+
+    <!-- ================= VISTA 3: SIMULADOR DE CONSORCIOS / UT ================= -->
+    <section id="view-consortium" class="view-section">
+      <div style="margin-bottom: 16px;">
+        <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--champagne); margin-bottom: 4px;">Simulador de Estructuras Plurales</h2>
+        <p style="font-size: 0.8rem; color: var(--text-muted);">Modelación de Consorcios y Uniones Temporales bajo el Decreto 1082 de 2015 y Ley 80 de 1993</p>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;" class="consortium-layout">
+        <!-- Columna Izquierda: Configuración de Participantes -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 16px; border-radius: var(--radius-md);">
+          <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-warm); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+            <span>🤝 Seleccionar Empresas Participantes</span>
+          </h3>
+          <div id="pluralMembersList" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px;">
+            <!-- Checkboxes y sliders de participación -->
+          </div>
+          <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); display: flex; justify-content: space-between; border-top: 1px solid var(--hairline); padding-top: 8px;">
+            <span>Total Participación:</span>
+            <span id="lblTotalPorcentaje" style="color: var(--success);">100%</span>
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid var(--hairline); margin: 16px 0;">
+
+          <!-- Requisitos del Pliego a Testear -->
+          <h4 style="font-size: 0.85rem; font-weight: 700; color: var(--champagne); margin-bottom: 10px;">📋 Requisitos Mínimos del Pliego</h4>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.8rem;">
+            <div>
+              <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Liquidez Mínima (≥)</label>
+              <input type="number" step="0.1" id="reqLiquidez" class="cfg-input" value="1.5" style="width: 100%;">
+            </div>
+            <div>
+              <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Endeudamiento Máx (≤)</label>
+              <input type="number" step="0.05" id="reqEndeudamiento" class="cfg-input" value="0.70" style="width: 100%;">
+            </div>
+            <div>
+              <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Cobertura Intereses (≥)</label>
+              <input type="number" step="0.5" id="reqCobertura" class="cfg-input" value="2.5" style="width: 100%;">
+            </div>
+            <div>
+              <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Cap. Trabajo Mín ($ COP)</label>
+              <input type="number" id="reqCapTrabajo" class="cfg-input" value="500000000" style="width: 100%;">
+            </div>
+          </div>
+          <button id="btnCalcularPlural" class="btn-action btn-action-primary" style="width: 100%; margin-top: 16px;">
+            Calcular Viabilidad Consorcial
+          </button>
+        </div>
+
+        <!-- Columna Derecha: Resultado Semáforo Consolidado -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 16px; border-radius: var(--radius-md);">
+          <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-warm); margin-bottom: 12px;">
+            <span>📊 Diagnóstico Habilitante Plural</span>
+          </h3>
+          <div id="pluralStatusBanner" style="padding: 12px; border-radius: var(--radius-sm); text-align: center; font-weight: 800; font-size: 1.1rem; margin-bottom: 14px; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-faint);">
+            Configura los participantes y presiona Calcular
+          </div>
+          <div id="pluralDetailsTable" style="font-size: 0.8rem; display: flex; flex-direction: column; gap: 8px;">
+            <!-- Filas del semáforo -->
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ================= VISTA 2: FONDOS NO REEMBOLSABLES & OTRAS FUENTES ================= -->
     <section id="view-sources" class="view-section">
       <div style="margin-bottom: 18px;">
@@ -145,6 +231,92 @@
 
       <div id="sourcesList">
         <!-- Renderizado dinámico desde server/sources.js -->
+      </div>
+    </section>
+
+    <!-- ================= VISTA 2: GESTIÓN DE EMPRESAS & RUP ================= -->
+    <section id="view-companies" class="view-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div>
+          <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--champagne); margin-bottom: 4px;">Mis Empresas & Aliados</h2>
+          <p style="font-size: 0.8rem; color: var(--text-muted);">Gestión de perfiles jurídicos, RUP y capacidad financiera para licitaciones</p>
+        </div>
+        <button id="btnOpenNewCompanyModal" class="btn-action btn-action-primary" style="padding: 8px 14px; font-size: 0.82rem;">
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>Nueva Empresa</span>
+        </button>
+      </div>
+
+      <!-- Grid de Empresas Registradas -->
+      <div id="companiesGrid" class="companies-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px;">
+        <!-- Se llena dinámicamente -->
+        <div style="text-align: center; padding: 40px; color: var(--text-faint);">Cargando empresas...</div>
+      </div>
+    </section>
+
+    <!-- ================= VISTA 3: SIMULADOR DE CONSORCIOS / UT ================= -->
+    <section id="view-consortium" class="view-section">
+      <div style="margin-bottom: 16px;">
+        <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--champagne); margin-bottom: 4px;">Simulador de Estructuras Plurales</h2>
+        <p style="font-size: 0.8rem; color: var(--text-muted);">Modelación de Consorcios y Uniones Temporales bajo el Decreto 1082 de 2015 y Ley 80 de 1993</p>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;" class="consortium-layout">
+        <!-- Columna Izquierda: Configuración de Participantes -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 16px; border-radius: var(--radius-md);">
+          <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-warm); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+            <span>🤝 Seleccionar Empresas Participantes</span>
+          </h3>
+          <div id="pluralMembersList" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px;">
+            <!-- Checkboxes y sliders de participación -->
+          </div>
+          <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); display: flex; justify-content: space-between; border-top: 1px solid var(--hairline); padding-top: 8px;">
+            <span>Total Participación:</span>
+            <span id="lblTotalPorcentaje" style="color: var(--success);">100%</span>
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid var(--hairline); margin: 16px 0;">
+
+          <!-- Requisitos del Pliego a Testear -->
+          <h4 style="font-size: 0.85rem; font-weight: 700; color: var(--champagne); margin-bottom: 10px;">📋 Requisitos Mínimos del Pliego</h4>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.8rem;">
+            <div>
+              <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Liquidez Mínima (≥)</label>
+              <input type="number" step="0.1" id="reqLiquidez" class="cfg-input" value="1.5" style="width: 100%;">
+            </div>
+            <div>
+              <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Endeudamiento Máx (≤)</label>
+              <input type="number" step="0.05" id="reqEndeudamiento" class="cfg-input" value="0.70" style="width: 100%;">
+            </div>
+            <div>
+              <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Cobertura Intereses (≥)</label>
+              <input type="number" step="0.5" id="reqCobertura" class="cfg-input" value="2.5" style="width: 100%;">
+            </div>
+            <div>
+              <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Cap. Trabajo Mín ($ COP)</label>
+              <input type="number" id="reqCapTrabajo" class="cfg-input" value="500000000" style="width: 100%;">
+            </div>
+          </div>
+          <button id="btnCalcularPlural" class="btn-action btn-action-primary" style="width: 100%; margin-top: 16px;">
+            Calcular Viabilidad Consorcial
+          </button>
+        </div>
+
+        <!-- Columna Derecha: Resultado Semáforo Consolidado -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 16px; border-radius: var(--radius-md);">
+          <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-warm); margin-bottom: 12px;">
+            <span>📊 Diagnóstico Habilitante Plural</span>
+          </h3>
+          <div id="pluralStatusBanner" style="padding: 12px; border-radius: var(--radius-sm); text-align: center; font-weight: 800; font-size: 1.1rem; margin-bottom: 14px; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-faint);">
+            Configura los participantes y presiona Calcular
+          </div>
+          <div id="pluralDetailsTable" style="font-size: 0.8rem; display: flex; flex-direction: column; gap: 8px;">
+            <!-- Filas del semáforo -->
+          </div>
+        </div>
       </div>
     </section>
 
@@ -260,6 +432,92 @@
       </div>
     </section>
 
+    <!-- ================= VISTA 2: GESTIÓN DE EMPRESAS & RUP ================= -->
+    <section id="view-companies" class="view-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div>
+          <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--champagne); margin-bottom: 4px;">Mis Empresas & Aliados</h2>
+          <p style="font-size: 0.8rem; color: var(--text-muted);">Gestión de perfiles jurídicos, RUP y capacidad financiera para licitaciones</p>
+        </div>
+        <button id="btnOpenNewCompanyModal" class="btn-action btn-action-primary" style="padding: 8px 14px; font-size: 0.82rem;">
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>Nueva Empresa</span>
+        </button>
+      </div>
+
+      <!-- Grid de Empresas Registradas -->
+      <div id="companiesGrid" class="companies-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px;">
+        <!-- Se llena dinámicamente -->
+        <div style="text-align: center; padding: 40px; color: var(--text-faint);">Cargando empresas...</div>
+      </div>
+    </section>
+
+    <!-- ================= VISTA 3: SIMULADOR DE CONSORCIOS / UT ================= -->
+    <section id="view-consortium" class="view-section">
+      <div style="margin-bottom: 16px;">
+        <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--champagne); margin-bottom: 4px;">Simulador de Estructuras Plurales</h2>
+        <p style="font-size: 0.8rem; color: var(--text-muted);">Modelación de Consorcios y Uniones Temporales bajo el Decreto 1082 de 2015 y Ley 80 de 1993</p>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;" class="consortium-layout">
+        <!-- Columna Izquierda: Configuración de Participantes -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 16px; border-radius: var(--radius-md);">
+          <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-warm); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+            <span>🤝 Seleccionar Empresas Participantes</span>
+          </h3>
+          <div id="pluralMembersList" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px;">
+            <!-- Checkboxes y sliders de participación -->
+          </div>
+          <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); display: flex; justify-content: space-between; border-top: 1px solid var(--hairline); padding-top: 8px;">
+            <span>Total Participación:</span>
+            <span id="lblTotalPorcentaje" style="color: var(--success);">100%</span>
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid var(--hairline); margin: 16px 0;">
+
+          <!-- Requisitos del Pliego a Testear -->
+          <h4 style="font-size: 0.85rem; font-weight: 700; color: var(--champagne); margin-bottom: 10px;">📋 Requisitos Mínimos del Pliego</h4>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.8rem;">
+            <div>
+              <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Liquidez Mínima (≥)</label>
+              <input type="number" step="0.1" id="reqLiquidez" class="cfg-input" value="1.5" style="width: 100%;">
+            </div>
+            <div>
+              <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Endeudamiento Máx (≤)</label>
+              <input type="number" step="0.05" id="reqEndeudamiento" class="cfg-input" value="0.70" style="width: 100%;">
+            </div>
+            <div>
+              <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Cobertura Intereses (≥)</label>
+              <input type="number" step="0.5" id="reqCobertura" class="cfg-input" value="2.5" style="width: 100%;">
+            </div>
+            <div>
+              <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Cap. Trabajo Mín ($ COP)</label>
+              <input type="number" id="reqCapTrabajo" class="cfg-input" value="500000000" style="width: 100%;">
+            </div>
+          </div>
+          <button id="btnCalcularPlural" class="btn-action btn-action-primary" style="width: 100%; margin-top: 16px;">
+            Calcular Viabilidad Consorcial
+          </button>
+        </div>
+
+        <!-- Columna Derecha: Resultado Semáforo Consolidado -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 16px; border-radius: var(--radius-md);">
+          <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-warm); margin-bottom: 12px;">
+            <span>📊 Diagnóstico Habilitante Plural</span>
+          </h3>
+          <div id="pluralStatusBanner" style="padding: 12px; border-radius: var(--radius-sm); text-align: center; font-weight: 800; font-size: 1.1rem; margin-bottom: 14px; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-faint);">
+            Configura los participantes y presiona Calcular
+          </div>
+          <div id="pluralDetailsTable" style="font-size: 0.8rem; display: flex; flex-direction: column; gap: 8px;">
+            <!-- Filas del semáforo -->
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <!-- Barra de Navegación Inferior (Mobile First Ergonomics) -->
@@ -274,6 +532,27 @@
       </svg>
       <span>Radar</span>
     </button>
+    <button class="nav-item" data-target="view-companies">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M3 21h18"/>
+        <path d="M5 21V7l8-4v18"/>
+        <path d="M19 21V11l-6-4"/>
+        <path d="M9 9v.01"/>
+        <path d="M9 12v.01"/>
+        <path d="M9 15v.01"/>
+        <path d="M9 18v.01"/>
+      </svg>
+      <span>Empresas & RUP</span>
+    </button>
+    <button class="nav-item" data-target="view-consortium">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+      <span>Consorcios</span>
+    </button>
     <button class="nav-item" data-target="view-sources">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
         <line x1="2" y1="22" x2="22" y2="22"/>
@@ -284,7 +563,7 @@
         <path d="M18 18V9"/>
         <polygon points="12 2 2 7 22 7 12 2"/>
       </svg>
-      <span>Fondos & Portales</span>
+      <span>Fuentes</span>
     </button>
     <button class="nav-item" data-target="view-config">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -357,6 +636,104 @@
           <span>Enviar a Telegram</span>
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- Modal Registrar / Editar Empresa y RUP -->
+  <div id="companyModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="entity-badge" style="background: var(--tech-cyan); color: #000;">EMPRESA</div>
+          <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-warm);" id="companyModalSubtitle">Identidad Jurídica & RUP</span>
+        </div>
+        <button id="btnCloseCompanyModal" class="btn-close-modal" aria-label="Cerrar modal">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--champagne); margin-bottom: 12px;">Registrar Empresa o Aliado</h3>
+
+      <form id="formCompany" style="display: flex; flex-direction: column; gap: 12px;">
+        <input type="hidden" id="companyFormId" value="">
+
+        <!-- Datos Básicos -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.8rem;">
+          <div>
+            <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">NIT (sin dígito)</label>
+            <input type="text" id="compNit" required class="cfg-input" placeholder="Ej: 901500123" style="width: 100%;">
+          </div>
+          <div>
+            <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Dígito Verificación</label>
+            <input type="text" id="compDv" class="cfg-input" placeholder="Ej: 4" style="width: 100%;" maxlength="1">
+          </div>
+        </div>
+
+        <div>
+          <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Razón Social Completa</label>
+          <input type="text" id="compRazon" required class="cfg-input" placeholder="Ej: INNOVACIÓN & SOFTWARE SAS" style="width: 100%;">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.8rem;">
+          <div>
+            <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Tipo de Empresa</label>
+            <select id="compEsPropia" class="cfg-input" style="width: 100%;">
+              <option value="true">Empresa Propia</option>
+              <option value="false">Empresa Aliada (Consorcio)</option>
+            </select>
+          </div>
+          <div>
+            <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Tamaño Empresarial</label>
+            <select id="compTamano" class="cfg-input" style="width: 100%;">
+              <option value="MIPYME">MiPyme (Beneficio Ley 2069)</option>
+              <option value="GRANDE">Gran Empresa</option>
+            </select>
+          </div>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--hairline); margin: 6px 0;">
+
+        <!-- Cifras Contables Último Año Fiscal (Decreto 1082/2015) -->
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.85rem; font-weight: 700; color: var(--champagne);">📈 Estados Financieros (Último Año RUP)</span>
+          <span style="font-size: 0.72rem; color: var(--text-faint);">Corte a 31 de Diciembre</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.8rem;">
+          <div>
+            <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Activo Corriente ($ COP)</label>
+            <input type="number" id="compActivoCorriente" class="cfg-input" placeholder="0" style="width: 100%;">
+          </div>
+          <div>
+            <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Pasivo Corriente ($ COP)</label>
+            <input type="number" id="compPasivoCorriente" class="cfg-input" placeholder="0" style="width: 100%;">
+          </div>
+          <div>
+            <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Activo Total ($ COP)</label>
+            <input type="number" id="compActivoTotal" class="cfg-input" placeholder="0" style="width: 100%;">
+          </div>
+          <div>
+            <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Pasivo Total ($ COP)</label>
+            <input type="number" id="compPasivoTotal" class="cfg-input" placeholder="0" style="width: 100%;">
+          </div>
+          <div>
+            <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Utilidad Operacional ($ COP)</label>
+            <input type="number" id="compUtilidadOp" class="cfg-input" placeholder="0" style="width: 100%;">
+          </div>
+          <div>
+            <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Gastos de Intereses ($ COP)</label>
+            <input type="number" id="compGastosInt" class="cfg-input" placeholder="0" style="width: 100%;">
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-top: 8px;">
+          <button type="button" id="btnCancelCompany" class="btn-action" style="flex: 1; background: var(--lacquer-surface);">Cancelar</button>
+          <button type="submit" class="btn-action btn-action-primary" style="flex: 1;">Guardar Empresa & RUP</button>
+        </div>
+      </form>
     </div>
   </div>
 

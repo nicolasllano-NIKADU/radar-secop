@@ -1,0 +1,646 @@
+const fs = require('fs');
+const path = require('path');
+const { execFile } = require('child_process');
+
+async function generatePDF() {
+  const outputDir = path.join(__dirname, '..', 'downloads', 'paa');
+  const htmlPath = path.join(outputDir, 'reporte_nikadu_paa.html');
+  const pdfPath = path.join(outputDir, 'Reporte_Oportunidades_PAA_NIKADU_Supersociedades.pdf');
+
+  const htmlContent = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Reporte Estratégico PAA - NIKADU IA</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 16mm 14mm 16mm 14mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #1e293b;
+      background-color: #ffffff;
+      line-height: 1.45;
+      font-size: 11pt;
+      margin: 0;
+      padding: 0;
+    }
+    
+    /* Cover / Header Area */
+    .header-card {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #ffffff;
+      padding: 24px 28px;
+      border-radius: 10px;
+      margin-bottom: 22px;
+      border-left: 6px solid #10b981;
+    }
+    .header-pre {
+      font-size: 8.5pt;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #34d399;
+      margin-bottom: 6px;
+    }
+    .header-title {
+      font-size: 20pt;
+      font-weight: 800;
+      margin: 0 0 6px 0;
+      color: #ffffff;
+      letter-spacing: -0.5px;
+    }
+    .header-sub {
+      font-size: 11pt;
+      color: #94a3b8;
+      margin: 0;
+      font-weight: 400;
+    }
+    .meta-bar {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255,255,255,0.12);
+      font-size: 9pt;
+      color: #cbd5e1;
+    }
+    .meta-item strong {
+      color: #ffffff;
+    }
+
+    /* KPI Highlights */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+    .kpi-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px 14px;
+      text-align: center;
+    }
+    .kpi-card.highlight {
+      background: #ecfdf5;
+      border-color: #a7f3d0;
+    }
+    .kpi-value {
+      font-size: 16pt;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 2px;
+    }
+    .kpi-card.highlight .kpi-value {
+      color: #059669;
+    }
+    .kpi-label {
+      font-size: 7.5pt;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: #64748b;
+      letter-spacing: 0.5px;
+    }
+
+    /* Section Styling */
+    h2 {
+      font-size: 13.5pt;
+      font-weight: 700;
+      color: #0f172a;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 6px;
+      margin-top: 22px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    h2 .section-tag {
+      background: #10b981;
+      color: white;
+      font-size: 8pt;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-weight: 700;
+    }
+
+    p {
+      margin: 0 0 10px 0;
+      color: #334155;
+      font-size: 9.8pt;
+    }
+
+    /* Opportunity Cards */
+    .opp-card {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      page-break-inside: avoid;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+    .opp-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+    .opp-title {
+      font-size: 10.5pt;
+      font-weight: 700;
+      color: #0f172a;
+      flex: 1;
+      padding-right: 12px;
+    }
+    .opp-budget {
+      font-size: 11pt;
+      font-weight: 800;
+      color: #047857;
+      background: #d1fae5;
+      padding: 4px 10px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+    .opp-tags {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+    .tag {
+      font-size: 7.5pt;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #f1f5f9;
+      color: #475569;
+    }
+    .tag.primary {
+      background: #e0f2fe;
+      color: #0369a1;
+    }
+    .tag.accent {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .tag.ai {
+      background: #ede9fe;
+      color: #6d28d9;
+      font-weight: 700;
+    }
+    .opp-desc {
+      font-size: 9pt;
+      color: #475569;
+      line-height: 1.4;
+      margin-bottom: 8px;
+    }
+    .opp-fit {
+      background: #f8fafc;
+      border-left: 3px solid #10b981;
+      padding: 6px 10px;
+      font-size: 8.5pt;
+      color: #1e293b;
+      border-radius: 0 4px 4px 0;
+      margin-bottom: 8px;
+    }
+    .opp-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 8pt;
+      color: #64748b;
+      border-top: 1px solid #f1f5f9;
+      padding-top: 6px;
+    }
+
+    /* Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      margin-bottom: 16px;
+      font-size: 8.5pt;
+      page-break-inside: auto;
+    }
+    tr {
+      page-break-inside: avoid;
+    }
+    th {
+      background-color: #0f172a;
+      color: #ffffff;
+      font-weight: 700;
+      text-align: left;
+      padding: 8px 10px;
+      font-size: 8pt;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    td {
+      padding: 7px 10px;
+      border-bottom: 1px solid #e2e8f0;
+      color: #334155;
+    }
+    tr:nth-child(even) td {
+      background-color: #f8fafc;
+    }
+
+    /* Alert / Strategy Boxes */
+    .callout {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      font-size: 9pt;
+      page-break-inside: avoid;
+    }
+    .callout-title {
+      font-weight: 700;
+      color: #15803d;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .callout-warning {
+      background: #fffbeb;
+      border: 1px solid #fef3c7;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      font-size: 9pt;
+      page-break-inside: avoid;
+    }
+    .callout-warning .callout-title {
+      color: #b45309;
+    }
+
+    .page-break {
+      page-break-before: always;
+    }
+
+    .footer {
+      text-align: center;
+      font-size: 7.5pt;
+      color: #94a3b8;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 8px;
+      margin-top: 24px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- COVER / HEADER -->
+  <div class="header-card">
+    <div class="header-pre">Radar SECOP & Inteligencia Contractual</div>
+    <h1 class="header-title">Informe de Oportunidades PAA: NIKADU IA</h1>
+    <p class="header-sub">Diagnóstico Estratégico del Plan Anual de Adquisiciones | Superintendencia de Sociedades</p>
+    <div class="meta-bar">
+      <div class="meta-item">Entidad: <strong>Superintendencia de Sociedades (NIT 899999086)</strong></div>
+      <div class="meta-item">Fuente: <strong>Socrata API (datos.gov.co - 9sue-ezhx)</strong></div>
+      <div class="meta-item">Fecha: <strong>Octubre 2026</strong></div>
+    </div>
+  </div>
+
+  <!-- KPI SUMMARY -->
+  <div class="kpi-grid">
+    <div class="kpi-card highlight">
+      <div class="kpi-value">$15.286 M</div>
+      <div class="kpi-label">Bolsa Estratégica TI NIKADU</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value">8</div>
+      <div class="kpi-label">Macro-Oportunidades Clave</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value">$49.208 M</div>
+      <div class="kpi-label">Presupuesto PAA Total</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value">Vigente 2026</div>
+      <div class="kpi-label">Vigencia Oficial Activa</div>
+    </div>
+  </div>
+
+  <!-- SECCIÓN 1: ESTADO NORMATIVO Y VIGENCIAS -->
+  <h2><span class="section-tag">01</span> Estado de Vigencias y Hallazgo en Socrata</h2>
+  
+  <div class="callout-warning">
+    <div class="callout-title">📌 Estado de la Vigencia 2027 vs. Vigencia 2026</div>
+    <p style="margin: 0;">
+      Al consultar la base de datos abierta de Socrata (SECOP II - <code>9sue-ezhx</code>) para el NIT <code>899999086</code>, la <strong>vigencia 2027 registra 0 procesos publicados</strong>. Esto se debe a los plazos legales fijados por el Decreto 1082 de 2015, el cual estipula que las entidades públicas estructuran y publican su PAA de la siguiente vigencia a finales de diciembre o antes del <strong>31 de enero</strong> una vez sancionado el Presupuesto General de la Nación. Por consiguiente, este reporte analiza la <strong>vigencia oficial activa (2026, Versión 9)</strong>, la cual contiene 354 procesos planeados por $49.208.970.773 COP y proyecta con exactitud los requerimientos recurrentes y tecnológicos de la entidad.
+    </p>
+  </div>
+
+  <!-- SECCIÓN 2: MACRO OPORTUNIDADES NIKADU IA -->
+  <h2><span class="section-tag">02</span> Macro-Oportunidades de Alto Impacto para NIKADU IA</h2>
+  <p>Filtrando los procesos individuales de OPS y aplicando el perfil tecnológico de <strong>NIKADU IA</strong> (Inteligencia Artificial, Agentes Conversacionales, RPA, Software a la Medida, Analítica y Soluciones Cloud), se identifican las siguientes oportunidades prioritarias:</p>
+
+  <!-- OPP 1 -->
+  <div class="opp-card">
+    <div class="opp-header">
+      <div class="opp-title">1. Operación del Centro de Contacto Omnicanal (Teléfono, Chat, Presencial y Escrito)</div>
+      <div class="opp-budget">$2.167.068.763 COP</div>
+    </div>
+    <div class="opp-tags">
+      <span class="tag ai">🤖 Fit Agentes IA & Bots</span>
+      <span class="tag primary">Modalidad: Selección Abierta / No Definido</span>
+      <span class="tag accent">Fecha Inicio: Octubre</span>
+      <span class="tag">Duración: 18 Meses</span>
+      <span class="tag">UNSPSC: 80111600</span>
+    </div>
+    <div class="opp-desc">
+      <strong>Objeto:</strong> Operación del centro de contacto, para atención de los canales telefónico, chat, presencial y escrito, para la sede Bogotá de la Superintendencia de Sociedades.
+    </div>
+    <div class="opp-fit">
+      🎯 <strong>Potencial NIKADU IA:</strong> Oportunidad de oro para desplegar <em>Agentes Inteligentes y Chatbots Omnicanal con IA Generativa</em> integrados a bases de conocimiento normativo. Permite a NIKADU postularse como aliado tecnológico de automatización conversacional o consorcio con un BPO tradicional.
+    </div>
+    <div class="opp-meta">
+      <span><strong>Contacto:</strong> Eliana Bernal Riveros (Relación Estado-Ciudadano)</span>
+      <span><strong>Email:</strong> ebernal@supersociedades.gov.co</span>
+    </div>
+  </div>
+
+  <!-- OPP 2 -->
+  <div class="opp-card">
+    <div class="opp-header">
+      <div class="opp-title">2. Mantenimiento Evolutivo y Gestión del Gestor Documental GEDESS (IBM VPCS)</div>
+      <div class="opp-budget">$2.008.021.340 COP</div>
+    </div>
+    <div class="opp-tags">
+      <span class="tag ai">⚙️ Fábrica de Software & Arquitectura</span>
+      <span class="tag primary">Modalidad: Convocatoria Especializada</span>
+      <span class="tag accent">Fecha Inicio: Octubre</span>
+      <span class="tag">Duración: 2 Meses</span>
+      <span class="tag">UNSPSC: 81111500 / 43231500</span>
+    </div>
+    <div class="opp-desc">
+      <strong>Objeto:</strong> Adquirir la suscripción para el soporte al licenciamiento para VPCS de IBM, junto con el servicio de mantenimiento evolutivo y la administración y gestión de los componentes del gestor de documentos electrónicos de la entidad (GEDESS).
+    </div>
+    <div class="opp-fit">
+      🎯 <strong>Potencial NIKADU IA:</strong> Desarrollo de software a la medida, arquitectura cloud, automatización de radicación y flujos documentales. Capacidad de integrar OCR avanzado e indexación semántica con IA.
+    </div>
+    <div class="opp-meta">
+      <span><strong>Contacto:</strong> María José Rosales López (Proyectos de Tecnología)</span>
+      <span><strong>Email:</strong> mariarl@supersociedades.gov.co</span>
+    </div>
+  </div>
+
+  <!-- OPP 3 -->
+  <div class="opp-card">
+    <div class="opp-header">
+      <div class="opp-title">3. BPO Especializado para Recepción de Información Financiera (XBRL y STORM)</div>
+      <div class="opp-budget">$1.559.387.200 COP</div>
+    </div>
+    <div class="opp-tags">
+      <span class="tag ai">📊 Analítica de Datos & Automatización</span>
+      <span class="tag primary">Modalidad: Servicios BPO Especializados</span>
+      <span class="tag accent">Fecha Inicio: Febrero</span>
+      <span class="tag">Duración: 6 Meses</span>
+      <span class="tag">UNSPSC: 81111800; 81112200</span>
+    </div>
+    <div class="opp-desc">
+      <strong>Objeto:</strong> Soporte especializado BPO para recepción de información financiera bajo estándares internacionales y no financiera mediante uso de herramientas XBRL y STORM, asegurando validación técnica y documental.
+    </div>
+    <div class="opp-fit">
+      🎯 <strong>Potencial NIKADU IA:</strong> Automatización inteligente de pipelines de ingesta, reconciliación automática de estados financieros, validadores sintácticos automáticos y analítica de datos a gran escala.
+    </div>
+    <div class="opp-meta">
+      <span><strong>Contacto:</strong> Fredy Leonardo Cárdenas Castellanos (Informes Empresariales)</span>
+      <span><strong>Email:</strong> fredyca@supersociedades.gov.co</span>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- OPP 4 -->
+  <div class="opp-card">
+    <div class="opp-header">
+      <div class="opp-title">4. Atención de Mesa de Ayuda Niveles 1 y 2 (Presencial y Remota)</div>
+      <div class="opp-budget">$4.770.044.008 COP</div>
+    </div>
+    <div class="opp-tags">
+      <span class="tag ai">🤖 Soporte TI L1 Automatizado por IA</span>
+      <span class="tag primary">Modalidad: Selección Abreviada Subasta Inversa</span>
+      <span class="tag accent">Fecha Inicio: Agosto</span>
+      <span class="tag">Duración: 24 Meses</span>
+      <span class="tag">UNSPSC: 81111800</span>
+    </div>
+    <div class="opp-desc">
+      <strong>Objeto:</strong> Prestar los servicios técnicos y profesionales para la atención de la mesa de ayuda en los niveles 1 y 2 tanto de manera presencial como remota, incluyendo la coordinación y bolsa de repuestos.
+    </div>
+    <div class="opp-fit">
+      🎯 <strong>Potencial NIKADU IA:</strong> El mayor contrato de servicios de TI. NIKADU puede asociarse con un integrador de hardware/field support y aportar la capa de <em>Self-Service AI Desk</em> (resolución de incidentes nivel 1 con agentes autónomos), reduciendo drásticamente el costo operativo y ofreciendo la propuesta técnica más competitiva.
+    </div>
+    <div class="opp-meta">
+      <span><strong>Contacto:</strong> Ricardo Fernelix Ríos Rosales (Director de TIC)</span>
+      <span><strong>Email:</strong> rrios@supersociedades.gov.co</span>
+    </div>
+  </div>
+
+  <!-- OPP 5 -->
+  <div class="opp-card">
+    <div class="opp-header">
+      <div class="opp-title">5. Licenciamiento, Soporte y Evolución de Aplicaciones del Portal Web</div>
+      <div class="opp-budget">$768.712.000 COP</div>
+    </div>
+    <div class="opp-tags">
+      <span class="tag ai">💻 Desarrollo Web & Apps</span>
+      <span class="tag primary">Modalidad: Selección Abreviada Subasta Inversa</span>
+      <span class="tag accent">Fecha Inicio: Septiembre</span>
+      <span class="tag">Duración: 1 Mes (Plurifuncional)</span>
+      <span class="tag">UNSPSC: 81112200 / 81111500</span>
+    </div>
+    <div class="opp-desc">
+      <strong>Objeto:</strong> Suscripción de licenciamiento y soporte de aplicaciones para los entornos del portal web institucional, disponibilidad, seguridad y evolución mediante prácticas de mejora continua.
+    </div>
+    <div class="opp-fit">
+      🎯 <strong>Potencial NIKADU IA:</strong> Desarrollo fullstack, refactorización moderna, integración de microservicios, accesibilidad web y portales ciudadanos con asistentes cognitivos.
+    </div>
+    <div class="opp-meta">
+      <span><strong>Contacto:</strong> Ricardo Fernelix Ríos Rosales (Director de TIC)</span>
+      <span><strong>Email:</strong> rrios@supersociedades.gov.co</span>
+    </div>
+  </div>
+
+  <!-- OPP 6 -->
+  <div class="opp-card">
+    <div class="opp-header">
+      <div class="opp-title">6. Microsoft Azure & Defender for Cloud (Nube, Datos y Ciberseguridad)</div>
+      <div class="opp-budget">$780.000.000 COP</div>
+    </div>
+    <div class="opp-tags">
+      <span class="tag primary">☁️ Cloud & Ciberseguridad</span>
+      <span class="tag accent">Fecha Inicio: Marzo</span>
+      <span class="tag">Duración: 2 Meses</span>
+      <span class="tag">UNSPSC: 81111800</span>
+    </div>
+    <div class="opp-desc">
+      <strong>Objeto:</strong> Suscripción de Microsoft Azure como entorno de respaldo y recuperación para información, datos y máquinas virtuales; así como Defender for Cloud para monitoreo de seguridad y servidores.
+    </div>
+    <div class="opp-fit">
+      🎯 <strong>Potencial NIKADU IA:</strong> Arquitectura e infraestructura cloud, administración segura de bases de datos, observabilidad y respaldo automatizado.
+    </div>
+    <div class="opp-meta">
+      <span><strong>Contacto:</strong> Ricardo Fernelix Ríos Rosales (Director de TIC)</span>
+      <span><strong>Email:</strong> rrios@supersociedades.gov.co</span>
+    </div>
+  </div>
+
+  <!-- OPP 7 & 8 MINI CARDS -->
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+    <div class="opp-card" style="margin-bottom: 0;">
+      <div class="opp-header">
+        <div class="opp-title" style="font-size: 9.5pt;">7. Mantenimiento & Desarrollo Software SOFIA</div>
+        <div class="opp-budget" style="font-size: 9.5pt;">$33.152.000 COP</div>
+      </div>
+      <div class="opp-tags"><span class="tag ai">Fábrica de Software</span> <span class="tag">Sep</span></div>
+      <div class="opp-desc" style="font-size: 8.5pt;">Actualización, soporte, mantenimiento y bolsa de horas de desarrollo del aplicativo SOFIA de gestión de inventarios.</div>
+      <div class="opp-meta"><span>Marisol Castiblanco (Innovación y Dev)</span></div>
+    </div>
+
+    <div class="opp-card" style="margin-bottom: 0;">
+      <div class="opp-header">
+        <div class="opp-title" style="font-size: 9.5pt;">8. Software Riesgos & Auditoría (ITS)</div>
+        <div class="opp-budget" style="font-size: 9.5pt;">$31.818.181 COP</div>
+      </div>
+      <div class="opp-tags"><span class="tag ai">Mejoras Evolutivas</span> <span class="tag">Ago</span></div>
+      <div class="opp-desc" style="font-size: 8.5pt;">Licenciamiento, soporte y mejoras evolutivas para la plataforma institucional de riesgos y auditoría ITS.</div>
+      <div class="opp-meta"><span>Marisol Castiblanco (Innovación y Dev)</span></div>
+    </div>
+  </div>
+
+  <!-- SECCIÓN 3: MATRIZ RESUMEN -->
+  <h2><span class="section-tag">03</span> Matriz Resumen de Oportunidades Tecnológicas</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 32%;">Proceso / Objeto</th>
+        <th style="width: 22%;">Modalidad</th>
+        <th style="width: 16%;">Presupuesto COP</th>
+        <th style="width: 12%;">Mes Inicio</th>
+        <th style="width: 18%;">Rol NIKADU IA</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Mesa de Ayuda Niveles 1 y 2</strong></td>
+        <td>Subasta Inversa</td>
+        <td>$4.770.044.008</td>
+        <td>Agosto</td>
+        <td>Consorcio (Capa IA Desk L1)</td>
+      </tr>
+      <tr>
+        <td><strong>Centro de Contacto Omnicanal</strong></td>
+        <td>Convocatoria Abierta</td>
+        <td>$2.167.068.763</td>
+        <td>Octubre</td>
+        <td>Líder Tecnológico (Bots IA)</td>
+      </tr>
+      <tr>
+        <td><strong>Gestor Documental GEDESS (IBM)</strong></td>
+        <td>Especializada</td>
+        <td>$2.008.021.340</td>
+        <td>Octubre</td>
+        <td>Desarrollo & Evolutivos</td>
+      </tr>
+      <tr>
+        <td><strong>BPO Información Financiera XBRL</strong></td>
+        <td>Servicios BPO TI</td>
+        <td>$1.559.387.200</td>
+        <td>Febrero</td>
+        <td>Automatización de Datos</td>
+      </tr>
+      <tr>
+        <td><strong>Plataforma Portal Web y Apps</strong></td>
+        <td>Subasta Inversa</td>
+        <td>$768.712.000</td>
+        <td>Septiembre</td>
+        <td>Desarrollo Fullstack / Web</td>
+      </tr>
+      <tr>
+        <td><strong>Microsoft Azure & Defender Cloud</strong></td>
+        <td>Suscripción Nube</td>
+        <td>$780.000.000</td>
+        <td>Marzo</td>
+        <td>Partner Cloud / Seguridad</td>
+      </tr>
+      <tr>
+        <td><strong>Desarrollo Aplicativo SOFIA</strong></td>
+        <td>Contratación Directa</td>
+        <td>$33.152.000</td>
+        <td>Septiembre</td>
+        <td>Fábrica de Software</td>
+      </tr>
+      <tr>
+        <td><strong>Software de Auditoría ITS</strong></td>
+        <td>Contratación Directa</td>
+        <td>$31.818.181</td>
+        <td>Agosto</td>
+        <td>Evolutivos & Soporte</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- SECCIÓN 4: RECOMENDACIONES TÁCTICAS -->
+  <h2><span class="section-tag">04</span> Recomendaciones Tácticas para NIKADU IA</h2>
+  <div class="callout">
+    <div class="callout-title">🚀 Plan de Acción para la Captura de Oportunidades:</div>
+    <ol style="margin: 6px 0 0 16px; padding: 0; font-size: 9pt; color: #1e293b; line-height: 1.5;">
+      <li><strong>Incidencia en RFI (Estudios Previos de Mercado):</strong> En los procesos de <em>Centro de Contacto ($2.167M)</em> y <em>Mesa de Ayuda ($4.770M)</em>, enviar cotizaciones institucionales incorporando métricas de IA para que los pliegos técnicos valoren formalmente agentes conversacionales y automatización.</li>
+      <li><strong>Estructuración de Consorcios Estratégicos:</strong> Para la Subasta Inversa de Mesa de Ayuda, aliarse con proveedores con capacidad logística en Bogotá (técnicos en sitio) donde NIKADU suministre la solución de software y mesa de ayuda virtual cognitiva.</li>
+      <li><strong>Alerta Automatizada Radar SECOP 2027:</strong> Activar el monitoreo del script <code>downloadPAA.js</code> a partir de diciembre/enero para ser los primeros en descargar el PAA 2027 tan pronto sea oficializado en SECOP II.</li>
+    </ol>
+  </div>
+
+  <div class="footer">
+    Documento confidencial generado automáticamente por <strong>Radar SECOP</strong> para <strong>NIKADU IA</strong> | Datos oficiales de SECOP II vía API Socrata datos.gov.co
+  </div>
+
+</body>
+</html>
+`;
+
+  fs.writeFileSync(htmlPath, htmlContent, 'utf-8');
+  console.log('HTML generado en:', htmlPath);
+
+  // Convert to PDF using Edge / Chrome headless
+  const edgePath = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
+  const chromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+  const browserBin = fs.existsSync(edgePath) ? edgePath : chromePath;
+
+  return new Promise((resolve, reject) => {
+    execFile(browserBin, [
+      '--headless',
+      '--disable-gpu',
+      '--no-sandbox',
+      '--no-pdf-header-footer',
+      `--print-to-pdf=${pdfPath}`,
+      htmlPath
+    ], (error, stdout, stderr) => {
+      if (error) {
+        console.error('Error generando PDF:', error);
+        reject(error);
+      } else {
+        console.log('PDF generado exitosamente en:', pdfPath);
+        resolve(pdfPath);
+      }
+    });
+  });
+}
+
+if (require.main === module) {
+  generatePDF().catch(console.error);
+}
+
+module.exports = { generatePDF };

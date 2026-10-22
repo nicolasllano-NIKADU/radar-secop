@@ -992,3 +992,23 @@ body {
   display: flex;
   justify-content: center;
 }
+
+/* ==================== MÓDULO 1: ESTILOS SAAS B2B ==================== */
+@media (max-width: 768px) {
+  .consortium-layout {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.card-glass {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.card-glass:hover {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.plural-member-slider {
+  cursor: pointer;
+}
+

@@ -7,12 +7,16 @@ const db = require('./database');
 const scanner = require('./scanner');
 const notifier = require('./notifier');
 const sourcesCatalog = require('./sources');
+const companyRoutes = require('./routes/companyRoutes');
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
+
+// Módulo 1: Identidad Empresarial, RUP y Simulaciones Plurales
+app.use('/api/empresas', companyRoutes);
 
 // Verificación inteligente para entornos serverless/PaaS (Render free tier):
 // Si el contenedor se despierta o el usuario entra y el último escaneo tiene más de 45 minutos, escanea en segundo plano

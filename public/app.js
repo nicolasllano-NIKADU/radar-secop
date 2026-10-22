@@ -629,6 +629,334 @@ document.getElementById('btnTestTelegram').addEventListener('click', async () =>
   }
 });
 
+// ==================== MÓDULO 1: GESTIÓN DE EMPRESAS Y CONSORCIOS ====================
+let userCompanies = [];
+
+async function loadCompanies() {
+  const grid = document.getElementById('companiesGrid');
+  if (!grid) return;
+  try {
+    const res = await fetch('/api/empresas');
+    const json = await res.json();
+    if (json.ok && Array.isArray(json.data)) {
+      userCompanies = json.data;
+      renderCompanies(userCompanies);
+      renderPluralMembersSelector(userCompanies);
+    }
+  } catch (err) {
+    console.error('Error cargando empresas:', err);
+    grid.innerHTML = '<div style="color: var(--danger); padding: 20px;">Error al cargar empresas.</div>';
+  }
+}
+
+function renderCompanies(companies) {
+  const grid = document.getElementById('companiesGrid');
+  if (!grid) return;
+
+  if (companies.length === 0) {
+    grid.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align: center; padding: 40px; background: var(--lacquer-surface); border: 1px dashed var(--hairline); border-radius: var(--radius-md);">
+        <p style="color: var(--text-warm); margin-bottom: 8px;">No tienes empresas registradas todavía.</p>
+        <p style="font-size: 0.8rem; color: var(--text-muted);">Registra tu empresa o tus aliados para simular consorcios y monitorear pliegos.</p>
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = companies.map(c => {
+    const liq = c.indice_liquidez !== null ? parseFloat(c.indice_liquidez).toFixed(2) : '--';
+    const end = c.indice_endeudamiento !== null ? (parseFloat(c.indice_endeudamiento) * 100).toFixed(1) + '%' : '--';
+    const ct = c.capital_trabajo !== null ? '$' + formatMonto(c.capital_trabajo) : '--';
+    const cob = c.cobertura_intereses !== null ? parseFloat(c.cobertura_intereses).toFixed(1) + 'x' : '--';
+    const esPropia = c.es_propia;
+    const badgeType = esPropia 
+      ? '<span style="background: rgba(0, 229, 255, 0.15); color: var(--tech-cyan); font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;">PROPIA</span>'
+      : '<span style="background: rgba(212, 175, 55, 0.15); color: var(--champagne); font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;">ALIADO</span>';
+
+    return `
+      <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 16px; border-radius: var(--radius-md); display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+            ${badgeType}
+            <span style="font-size: 0.72rem; color: var(--text-faint); font-family: monospace;">NIT: ${c.nit}${c.digito_verificacion ? '-' + c.digito_verificacion : ''}</span>
+          </div>
+          <h3 style="font-size: 1rem; font-weight: 800; color: var(--champagne); margin-bottom: 12px; line-height: 1.3;">${c.razon_social}</h3>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; font-size: 0.75rem;">
+            <div style="background: var(--lacquer-deep); padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
+              <div style="color: var(--text-faint); font-size: 0.65rem;">Índice Liquidez</div>
+              <div style="font-weight: 800; font-size: 0.95rem; color: var(--success);" class="tabular-nums">${liq}</div>
+            </div>
+            <div style="background: var(--lacquer-deep); padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
+              <div style="color: var(--text-faint); font-size: 0.65rem;">Endeudamiento</div>
+              <div style="font-weight: 800; font-size: 0.95rem; color: var(--tech-cyan);" class="tabular-nums">${end}</div>
+            </div>
+            <div style="background: var(--lacquer-deep); padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
+              <div style="color: var(--text-faint); font-size: 0.65rem;">Capital de Trabajo</div>
+              <div style="font-weight: 800; font-size: 0.85rem; color: var(--champagne);" class="tabular-nums">${ct}</div>
+            </div>
+            <div style="background: var(--lacquer-deep); padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
+              <div style="color: var(--text-faint); font-size: 0.65rem;">Cob. Intereses</div>
+              <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-warm);" class="tabular-nums">${cob}</div>
+            </div>
+          </div>
+        </div>
+
+        <button onclick="openEditFinancialModal(${c.id})" class="btn-action" style="width: 100%; font-size: 0.78rem; padding: 6px; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-warm);">
+          Actualizar RUP / Financiero
+        </button>
+      </div>
+    `;
+  }).join('');
+}
+
+// Simulador de Consorcios
+function renderPluralMembersSelector(companies) {
+  const container = document.getElementById('pluralMembersList');
+  if (!container) return;
+
+  if (companies.length === 0) {
+    container.innerHTML = '<div style="font-size: 0.8rem; color: var(--text-faint);">Registra empresas primero.</div>';
+    return;
+  }
+
+  container.innerHTML = companies.map((c, i) => {
+    // Si hay 2 empresas, poner por defecto 60% y 40%
+    const defaultPct = i === 0 ? 60 : (i === 1 ? 40 : 0);
+    const checked = i < 2 ? 'checked' : '';
+
+    return `
+      <div style="background: var(--lacquer-deep); border: 1px solid var(--hairline); border-radius: var(--radius-sm); padding: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; font-weight: 700; color: var(--text-warm); cursor: pointer;">
+            <input type="checkbox" class="plural-member-check" data-id="${c.id}" ${checked} onchange="updatePluralTotals()">
+            <span>${c.razon_social}</span>
+          </label>
+          <span style="font-size: 0.75rem; color: var(--champagne); font-weight: 800;" id="lblPct_${c.id}">${defaultPct}%</span>
+        </div>
+        <input type="range" min="0" max="100" step="1" value="${defaultPct}" class="plural-member-slider" data-id="${c.id}" style="width: 100%; accent-color: var(--primary);" oninput="onPluralSliderChange(${c.id}, this.value)">
+      </div>
+    `;
+  }).join('');
+
+  updatePluralTotals();
+}
+
+function onPluralSliderChange(empresaId, val) {
+  const lbl = document.getElementById(`lblPct_${empresaId}`);
+  if (lbl) lbl.textContent = `${val}%`;
+  updatePluralTotals();
+}
+
+function updatePluralTotals() {
+  const checks = document.querySelectorAll('.plural-member-check');
+  let total = 0;
+  checks.forEach(chk => {
+    if (chk.checked) {
+      const id = chk.getAttribute('data-id');
+      const slider = document.querySelector(`.plural-member-slider[data-id="${id}"]`);
+      if (slider) total += parseFloat(slider.value) || 0;
+    }
+  });
+
+  const lblTotal = document.getElementById('lblTotalPorcentaje');
+  if (lblTotal) {
+    lblTotal.textContent = `${total}%`;
+    lblTotal.style.color = Math.abs(total - 100) < 0.01 ? 'var(--success)' : 'var(--danger)';
+  }
+}
+
+async function calcularConsorcio() {
+  const checks = document.querySelectorAll('.plural-member-check:checked');
+  const miembros = [];
+  checks.forEach(chk => {
+    const id = parseInt(chk.getAttribute('data-id'), 10);
+    const slider = document.querySelector(`.plural-member-slider[data-id="${id}"]`);
+    const pct = slider ? parseFloat(slider.value) : 0;
+    if (pct > 0) {
+      miembros.push({ empresa_id: id, porcentaje: pct });
+    }
+  });
+
+  if (miembros.length === 0) {
+    showToast('Selecciona al menos un integrante');
+    return;
+  }
+
+  const suma = miembros.reduce((acc, m) => acc + m.porcentaje, 0);
+  if (Math.abs(suma - 100) > 0.01) {
+    showToast(`La participación debe sumar 100%. Actual: ${suma}%`);
+    return;
+  }
+
+  const reqLiquidez = parseFloat(document.getElementById('reqLiquidez').value);
+  const reqEndeudamiento = parseFloat(document.getElementById('reqEndeudamiento').value);
+  const reqCobertura = parseFloat(document.getElementById('reqCobertura').value);
+  const reqCapTrabajo = parseFloat(document.getElementById('reqCapTrabajo').value);
+
+  showToast('Calculando agregación contable plural...');
+
+  try {
+    const res = await fetch('/api/empresas/simular-plural', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        miembros,
+        requisitos_pliego: {
+          min_liquidez: reqLiquidez,
+          max_endeudamiento: reqEndeudamiento,
+          min_cobertura_intereses: reqCobertura,
+          min_capital_trabajo: reqCapTrabajo
+        }
+      })
+    });
+
+    const json = await res.json();
+    if (json.ok && json.evaluacion) {
+      renderPluralResult(json.simulacion, json.evaluacion);
+    } else {
+      showToast(json.error || 'Error en cálculo');
+    }
+  } catch (err) {
+    showToast('Error de red al simular consorcio');
+  }
+}
+
+function renderPluralResult(sim, ev) {
+  const banner = document.getElementById('pluralStatusBanner');
+  const details = document.getElementById('pluralDetailsTable');
+  if (!banner || !details) return;
+
+  const habilitado = ev.cumplimiento_general === 'HABILITADO';
+  banner.textContent = habilitado ? '✅ ESTRUCTURA PLURAL HABILITADA' : '❌ NO CUMPLE CONDICIONES DEL PLIEGO';
+  banner.style.background = habilitado ? 'rgba(0, 230, 118, 0.15)' : 'rgba(255, 23, 68, 0.15)';
+  banner.style.color = habilitado ? 'var(--success)' : 'var(--danger)';
+  banner.style.borderColor = habilitado ? 'var(--success)' : 'var(--danger)';
+
+  details.innerHTML = ev.detalles.map(d => {
+    const badgeColor = d.cumple ? 'var(--success)' : 'var(--danger)';
+    const icon = d.cumple ? '✓' : '✗';
+    return `
+      <div style="background: var(--lacquer-deep); border: 1px solid var(--hairline); padding: 10px; border-radius: var(--radius-sm); display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <div style="font-weight: 700; color: var(--text-warm);">${d.indicador}</div>
+          <div style="font-size: 0.72rem; color: var(--text-faint);">Exigido: <b>${d.exigido}</b> | Consolidado: <b style="color: var(--champagne);">${d.obtenido}</b></div>
+        </div>
+        <span style="font-weight: 800; font-size: 0.85rem; color: ${badgeColor}; padding: 3px 8px; border-radius: 4px; background: rgba(255,255,255,0.05);">${icon} ${d.estado_semaforo}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+// Modal Nueva Empresa
+const btnOpenNewCompany = document.getElementById('btnOpenNewCompanyModal');
+const companyModal = document.getElementById('companyModal');
+const btnCloseCompany = document.getElementById('btnCloseCompanyModal');
+const btnCancelCompany = document.getElementById('btnCancelCompany');
+const formCompany = document.getElementById('formCompany');
+
+if (btnOpenNewCompany && companyModal) {
+  btnOpenNewCompany.addEventListener('click', () => {
+    document.getElementById('companyFormId').value = '';
+    formCompany.reset();
+    companyModal.classList.add('active');
+  });
+}
+
+function closeCompanyModal() {
+  if (companyModal) companyModal.classList.remove('active');
+}
+if (btnCloseCompany) btnCloseCompany.addEventListener('click', closeCompanyModal);
+if (btnCancelCompany) btnCancelCompany.addEventListener('click', closeCompanyModal);
+
+if (formCompany) {
+  formCompany.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const nit = document.getElementById('compNit').value.trim();
+    const dv = document.getElementById('compDv').value.trim();
+    const razon = document.getElementById('compRazon').value.trim();
+    const esPropia = document.getElementById('compEsPropia').value === 'true';
+    const tamano = document.getElementById('compTamano').value;
+
+    const ac = parseFloat(document.getElementById('compActivoCorriente').value) || 0;
+    const pc = parseFloat(document.getElementById('compPasivoCorriente').value) || 0;
+    const at = parseFloat(document.getElementById('compActivoTotal').value) || 0;
+    const pt = parseFloat(document.getElementById('compPasivoTotal').value) || 0;
+    const uo = parseFloat(document.getElementById('compUtilidadOp').value) || 0;
+    const gi = parseFloat(document.getElementById('compGastosInt').value) || 0;
+
+    showToast('Guardando empresa...');
+
+    try {
+      // 1. Guardar Empresa
+      const res = await fetch('/api/empresas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nit,
+          digito_verificacion: dv,
+          razon_social: razon,
+          es_propia: esPropia,
+          tamano_empresa: tamano
+        })
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || 'Error al guardar empresa');
+
+      const empresaId = json.data.id;
+
+      // 2. Si ingresó estados financieros, guardarlos
+      if (ac > 0 || at > 0) {
+        await fetch(`/api/empresas/${empresaId}/financiero`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            anio_fiscal: 2025,
+            activo_corriente: ac,
+            pasivo_corriente: pc,
+            activo_total: at,
+            pasivo_total: pt,
+            utilidad_operacional: uo,
+            gastos_intereses: gi
+          })
+        });
+      }
+
+      showToast('Empresa guardada exitosamente');
+      closeCompanyModal();
+      loadCompanies();
+    } catch (err) {
+      showToast(err.message || 'Error guardando');
+    }
+  });
+}
+
+function openEditFinancialModal(empresaId) {
+  const comp = userCompanies.find(c => c.id === empresaId);
+  if (!comp) return;
+
+  document.getElementById('companyFormId').value = comp.id;
+  document.getElementById('compNit').value = comp.nit || '';
+  document.getElementById('compDv').value = comp.digito_verificacion || '';
+  document.getElementById('compRazon').value = comp.razon_social || '';
+  document.getElementById('compEsPropia').value = String(comp.es_propia);
+  document.getElementById('compTamano').value = comp.tamano_empresa || 'MIPYME';
+
+  document.getElementById('compActivoCorriente').value = comp.activo_corriente || '';
+  document.getElementById('compPasivoCorriente').value = comp.pasivo_corriente || '';
+  document.getElementById('compActivoTotal').value = comp.activo_total || '';
+  document.getElementById('compPasivoTotal').value = comp.pasivo_total || '';
+  document.getElementById('compUtilidadOp').value = comp.utilidad_operacional || '';
+  document.getElementById('compGastosInt').value = comp.gastos_intereses || '';
+
+  if (companyModal) companyModal.classList.add('active');
+}
+
+const btnCalcularPlural = document.getElementById('btnCalcularPlural');
+if (btnCalcularPlural) {
+  btnCalcularPlural.addEventListener('click', calcularConsorcio);
+}
+
 // ==================== INICIALIZACIÓN ====================
 window.addEventListener('DOMContentLoaded', () => {
   const savedProfileBtn = document.querySelector(`.company-btn[data-profile="${currentProfile}"]`);
@@ -640,4 +968,5 @@ window.addEventListener('DOMContentLoaded', () => {
   renderFilterChips();
   loadStats();
   loadOportunidades();
+  loadCompanies();
 });
