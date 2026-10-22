@@ -11,6 +11,7 @@ const companyRoutes = require('./routes/companyRoutes');
 const documentManager = require('./documentManager');
 const paaManager = require('./paaManager');
 const companyManager = require('./companyManager');
+const subsanabilidadEngine = require('./subsanabilidadEngine');
 
 const app = express();
 
@@ -266,6 +267,20 @@ app.post('/api/paa/sync', async (req, res) => {
   } catch (err) {
     console.error('Error sincronizando PAA:', err.message);
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 11. Módulo de Auditoría Legal, Subsanabilidad y Causales de Rechazo
+app.get('/api/subsanabilidad/catalogo', (req, res) => {
+  res.json({ success: true, data: subsanabilidadEngine.getCatalog() });
+});
+
+app.post('/api/subsanabilidad/diagnosticar', (req, res) => {
+  try {
+    const diagnostico = subsanabilidadEngine.diagnoseCompliance(req.body);
+    res.json({ success: true, data: diagnostico });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
   }
 });
 

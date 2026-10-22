@@ -395,6 +395,73 @@
       </div>
     </section>
 
+    <!-- ================= VISTA 5: AUDITORÍA LEGAL & SUBSANABILIDAD ================= -->
+    <section id="view-compliance" class="view-section">
+      <div style="margin-bottom: 16px;">
+        <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--champagne); margin-bottom: 4px;">Auditor Legal & Guía de Subsanabilidad</h2>
+        <p style="font-size: 0.8rem; color: var(--text-muted);">Doctrina vinculante ANCP-CCE, prevalencia del derecho sustancial y causales de rechazo</p>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;" class="compliance-layout">
+        <!-- Columna Izquierda: Evaluador de Casos -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 16px; border-radius: var(--radius-md);">
+          <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-warm); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+            <span>⚖️ Diagnosticar Requerimiento o Subsanación</span>
+          </h3>
+
+          <form id="formComplianceCheck" style="display: flex; flex-direction: column; gap: 10px; font-size: 0.8rem;">
+            <div>
+              <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Tipo de Exigencia / Requisito</label>
+              <select id="compReqType" class="cfg-input" style="width: 100%;">
+                <option value="HABILITANTE">Requisito Habilitante (Jurídico, Experiencia o Financiero)</option>
+                <option value="PUNTAJE">Elemento que Otorga Puntaje Ponderable (Oferta Económica, Industria Nacional, etc.)</option>
+              </select>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <div>
+                <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Fecha Cierre Licitación</label>
+                <input type="date" id="compFechaCierre" class="cfg-input" value="2026-10-15" style="width: 100%;">
+              </div>
+              <div>
+                <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Fecha Ocurrencia del Hecho</label>
+                <input type="date" id="compFechaHecho" class="cfg-input" value="2026-10-01" style="width: 100%;">
+              </div>
+            </div>
+
+            <div>
+              <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Fecha de Expedición del Documento / Certificado</label>
+              <input type="date" id="compFechaDoc" class="cfg-input" value="2026-10-20" style="width: 100%;">
+            </div>
+
+            <div>
+              <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Descripción de la Observación o Documento</label>
+              <textarea id="compDescObservacion" class="cfg-input" rows="2" style="width: 100%; resize: vertical;" placeholder="Ej: La entidad requiere certificado de experiencia emitido con fecha posterior al cierre."></textarea>
+            </div>
+
+            <button type="submit" class="btn-action btn-action-primary" style="margin-top: 4px;">
+              Diagnosticar Viabilidad Legal
+            </button>
+          </form>
+        </div>
+
+        <!-- Columna Derecha: Dictamen y Fundamento de Defensa -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 16px; border-radius: var(--radius-md); display: flex; flex-direction: column;">
+          <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-warm); margin-bottom: 12px;">
+            <span>📋 Dictamen Jurídico y Minuta de Respuesta</span>
+          </h3>
+
+          <div id="complianceResultBanner" style="padding: 12px; border-radius: var(--radius-sm); text-align: center; font-weight: 800; font-size: 1rem; margin-bottom: 12px; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-faint);">
+            Ingresa las fechas y presiona Diagnosticar
+          </div>
+
+          <div id="complianceResultBody" style="font-size: 0.78rem; display: flex; flex-direction: column; gap: 8px; flex: 1;">
+            <p style="color: var(--text-faint); margin: 0;">El motor analizará los Conceptos C-057/2026, C-1376/2025 y la distinción entre Hecho vs Documento Probatorio según Ley 1882/2018.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <!-- Barra de Navegación Inferior (Mobile First Ergonomics) -->
@@ -438,6 +505,12 @@
         <line x1="3" y1="10" x2="21" y2="10"/>
       </svg>
       <span>PAA 2026</span>
+    </button>
+    <button class="nav-item" data-target="view-compliance">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      <span>Subsanabilidad</span>
     </button>
     <button class="nav-item" data-target="view-sources">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">

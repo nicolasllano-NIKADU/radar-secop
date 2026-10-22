@@ -1551,6 +1551,92 @@ document.getElementById('btnCloseExpModal')?.addEventListener('click', () => {
   document.getElementById('experienceModal')?.classList.remove('active');
 });
 
+// ==================== MÓDULO SUBSANABILIDAD & AUDITORÍA LEGAL ====================
+document.getElementById('formComplianceCheck')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const reqType = document.getElementById('compReqType').value;
+  const fechaCierre = document.getElementById('compFechaCierre').value;
+  const fechaHecho = document.getElementById('compFechaHecho').value;
+  const fechaDoc = document.getElementById('compFechaDoc').value;
+  const desc = document.getElementById('compDescObservacion').value;
+
+  const banner = document.getElementById('complianceResultBanner');
+  const body = document.getElementById('complianceResultBody');
+
+  if (banner) {
+    banner.textContent = '⏳ Analizando precedentes doctrinales ANCP-CCE...';
+    banner.style.color = 'var(--champagne)';
+  }
+
+  try {
+    const res = await fetch('/api/subsanabilidad/diagnosticar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tipoRequisito: reqType,
+        afectaPuntaje: reqType === 'PUNTAJE',
+        fechaCierreProceso: fechaCierre,
+        fechaHecho: fechaHecho,
+        fechaDocumento: fechaDoc,
+        descripcion: desc
+      })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+
+    const d = json.data;
+    const esSub = d.esSubsanable;
+
+    if (banner) {
+      banner.textContent = esSub ? '✅ REQUISITO PLENAMENTE SUBSANABLE' : '❌ CAUSAL DE RECHAZO INSUBSANABLE';
+      banner.style.background = esSub ? 'rgba(0, 230, 118, 0.15)' : 'rgba(255, 23, 68, 0.15)';
+      banner.style.color = esSub ? 'var(--success)' : 'var(--danger)';
+      banner.style.borderColor = esSub ? 'var(--success)' : 'var(--danger)';
+    }
+
+    let doctrinasHtml = '';
+    if (d.doctrinas && d.doctrinas.length > 0) {
+      doctrinasHtml = d.doctrinas.map(doc => `
+        <div style="background: rgba(0,229,255,0.08); border-left: 3px solid var(--tech-cyan); padding: 6px 10px; margin-top: 6px;">
+          <b>${doc.principio}:</b> ${doc.regla} <br><span style="color: var(--text-faint);">Fuente: ${doc.doctrinaAplicable}</span>
+        </div>
+      `).join('');
+    }
+
+    body.innerHTML = `
+      <div style="background: var(--lacquer-deep); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
+        <div style="color: var(--text-warm); font-weight: 700; margin-bottom: 4px;">Motivo y Análisis Dogmático:</div>
+        <div>${d.motivo}</div>
+        <div style="font-size: 0.72rem; color: var(--text-faint); margin-top: 6px;"><b>Fundamento:</b> ${d.fundamentoLegal}</div>
+        ${doctrinasHtml}
+      </div>
+
+      ${d.plantillaRespuesta ? `
+        <div style="margin-top: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <span style="font-weight: 700; color: var(--champagne);">Minuta de Respuesta Legal sugerida:</span>
+            <button class="btn-action" onclick="navigator.clipboard.writeText(document.getElementById('txtMinutaLegal').innerText); showToast('Minuta copiada');" style="font-size: 0.7rem; padding: 2px 8px;">
+              📋 Copiar Minuta
+            </button>
+          </div>
+          <div id="txtMinutaLegal" style="background: rgba(0,0,0,0.3); border: 1px solid var(--hairline); padding: 8px 10px; border-radius: var(--radius-sm); font-family: monospace; font-size: 0.72rem; line-height: 1.45; white-space: pre-wrap; color: var(--text-warm);">
+${d.plantillaRespuesta}
+          </div>
+        </div>
+      ` : ''}
+    `;
+
+    showToast(esSub ? 'Dictamen: Subsanable' : 'Dictamen: Insubsanable');
+  } catch (err) {
+    if (banner) {
+      banner.textContent = 'Error en diagnóstico';
+      banner.style.color = 'var(--danger)';
+    }
+    showToast(`Error: ${err.message}`);
+  }
+});
+
 // Filtros de mes para PAA
 document.querySelectorAll('#paaMonthFilters .filter-pill').forEach(btn => {
   btn.addEventListener('click', () => {
