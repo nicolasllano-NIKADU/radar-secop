@@ -561,6 +561,45 @@
       </div>
     </section>
 
+    <!-- ================= VISTA 9: PIPELINE KANBAN Y GESTIÓN COMERCIAL (MÓDULO 6) ================= -->
+    <section id="view-pipeline" class="view-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--champagne); margin-bottom: 4px;">Pipeline de Licitación & Gestión en Equipo</h2>
+          <p style="font-size: 0.8rem; color: var(--text-muted);">Tablero Kanban transaccional de 6 fases, evaluación Go/No-Go y tareas interdisciplinarias</p>
+        </div>
+        <button id="btnNewPipelineProceso" class="btn-action btn-action-primary" style="padding: 8px 14px; font-size: 0.82rem; gap: 6px;">
+          <span>➕ Incorporar Licitación al Pipeline</span>
+        </button>
+      </div>
+
+      <!-- Barra de Métricas y Valor en Riesgo de la Cartera -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 18px;">
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm);">
+          <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Valor Total en Pipeline</div>
+          <div id="pipeTotalVal" style="font-size: 1.3rem; font-weight: 800; color: var(--champagne); margin-top: 2px;" class="tabular-nums">$ 0 COP</div>
+          <div style="font-size: 0.7rem; color: var(--text-muted);" id="pipeCountProcs">0 procesos activos</div>
+        </div>
+
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm);">
+          <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Valor Ponderado al Riesgo</div>
+          <div id="pipeWeightedVal" style="font-size: 1.3rem; font-weight: 800; color: var(--tech-cyan); margin-top: 2px;" class="tabular-nums">$ 0 COP</div>
+          <div style="font-size: 0.7rem; color: var(--text-muted);">Σ (Presupuesto × Prob. Éxito)</div>
+        </div>
+
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm);">
+          <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Tasa de Adjudicación (Win Rate)</div>
+          <div id="pipeWinRate" style="font-size: 1.3rem; font-weight: 800; color: var(--success); margin-top: 2px;" class="tabular-nums">0%</div>
+          <div style="font-size: 0.7rem; color: var(--text-muted);" id="pipeAdjudicadosCount">0 adjudicados</div>
+        </div>
+      </div>
+
+      <!-- Tablero Kanban Responsive con 6 Columnas -->
+      <div id="kanbanBoardContainer" style="display: flex; gap: 14px; overflow-x: auto; padding-bottom: 14px; min-height: 480px; align-items: flex-start;">
+        <div style="text-align: center; padding: 40px; color: var(--text-faint); width: 100%;">Cargando tablero Kanban...</div>
+      </div>
+    </section>
+
   </main>
 
   <!-- Barra de Navegación Inferior (Mobile First Ergonomics) -->
@@ -574,6 +613,14 @@
         <path d="M8 22h8"/>
       </svg>
       <span>Radar</span>
+    </button>
+    <button class="nav-item" data-target="view-pipeline">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <rect x="3" y="3" width="5" height="18" rx="1"/>
+        <rect x="10" y="3" width="5" height="12" rx="1"/>
+        <rect x="17" y="3" width="5" height="15" rx="1"/>
+      </svg>
+      <span>Pipeline</span>
     </button>
     <button class="nav-item" data-target="view-companies">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -740,6 +787,14 @@
             <line x1="12" y1="8" x2="12.01" y2="8"/>
           </svg>
           <span>🎯 Simular Oferta</span>
+        </button>
+        <button id="modalBtnAddToPipeline" class="btn-action" style="flex: 1; min-width: 140px; justify-content: center; background: rgba(168, 85, 247, 0.15); border: 1px solid #a855f7; color: #d8b4fe;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <rect x="3" y="3" width="5" height="18" rx="1"/>
+            <rect x="10" y="3" width="5" height="12" rx="1"/>
+            <rect x="17" y="3" width="5" height="15" rx="1"/>
+          </svg>
+          <span>📌 Al Pipeline</span>
         </button>
         <button id="modalNotifyBtn" class="btn-action btn-action-tele" style="flex: 1; min-width: 140px; justify-content: center;">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -977,6 +1032,131 @@
         <div style="display: flex; gap: 8px; margin-top: 6px;">
           <button type="button" id="btnCancelNewContract" class="btn-action" style="flex: 1; background: var(--lacquer-surface);">Cancelar</button>
           <button type="submit" class="btn-action btn-action-primary" style="flex: 1;">Guardar Contrato</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Detalle y Gestión del Pipeline (Módulo 6) -->
+  <div id="pipelineItemModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 650px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span id="pipeModalStageBadge" class="entity-badge" style="background: var(--purple-accent, #a855f7); color: #fff;">FASE</span>
+          <span id="pipeModalGoBadge" style="font-size: 0.75rem; font-weight: 800; padding: 2px 8px; border-radius: 4px;">GO/NO-GO</span>
+        </div>
+        <button id="btnClosePipeModal" class="btn-close-modal" aria-label="Cerrar modal">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="18" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <h3 id="pipeModalTitle" style="font-size: 1.15rem; font-weight: 800; color: var(--champagne); margin-bottom: 4px;">Referencia</h3>
+      <div id="pipeModalSubtitle" style="font-size: 0.78rem; color: var(--text-faint); margin-bottom: 14px;">Entidad • Presupuesto</div>
+
+      <!-- Controles de Fase y Decisión Go / No-Go -->
+      <div style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div>
+          <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Fase Actual del Kanban:</label>
+          <select id="pipeSelectStage" style="width: 100%; padding: 6px; font-size: 0.8rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 4px;">
+            <option value="IDENTIFICADO">1. Identificado</option>
+            <option value="EVALUADO">2. Evaluado (Go/No-Go)</option>
+            <option value="EN_PREPARACION">3. En Preparación</option>
+            <option value="PRESENTADO">4. Presentado SECOP II</option>
+            <option value="SUBSANACION">5. En Traslado / Subsanación</option>
+            <option value="ADJUDICADO">6. Adjudicado / Ganado</option>
+            <option value="PERDIDO">7. Perdido / Desierto</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Decisión Estratégica:</label>
+          <select id="pipeSelectGoNoGo" style="width: 100%; padding: 6px; font-size: 0.8rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 4px;">
+            <option value="PENDIENTE">⏳ Pendiente de Comité</option>
+            <option value="GO">✅ GO (Presentar Oferta)</option>
+            <option value="NO_GO">❌ NO-GO (Descartar)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Tareas Interdisciplinarias (Checklist) -->
+      <div style="margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span style="font-size: 0.82rem; font-weight: 700; color: var(--champagne);">📋 Checklist Interdisciplinario</span>
+          <span id="pipeTasksProgress" style="font-size: 0.72rem; color: var(--text-muted);">0 / 0 completadas</span>
+        </div>
+        <div id="pipeTasksList" style="display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto; margin-bottom: 8px;"></div>
+        
+        <!-- Input para agregar nueva tarea -->
+        <div style="display: flex; gap: 6px;">
+          <select id="pipeNewTaskProfile" style="padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 4px; width: 110px;">
+            <option value="JURIDICO">Jurídico</option>
+            <option value="FINANCIERO">Financiero</option>
+            <option value="TECNICO">Técnico</option>
+            <option value="GENERAL">General</option>
+          </select>
+          <input type="text" id="pipeNewTaskInput" placeholder="Nueva tarea pendiente..." style="flex: 1; padding: 6px 10px; font-size: 0.78rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 4px;" />
+          <button id="btnPipeAddTask" class="btn-action btn-action-primary" style="padding: 6px 12px; font-size: 0.75rem;">➕</button>
+        </div>
+      </div>
+
+      <!-- Bitácora y Notas -->
+      <div style="margin-bottom: 16px; border-top: 1px solid var(--hairline); padding-top: 12px;">
+        <span style="font-size: 0.82rem; font-weight: 700; color: var(--champagne); display: block; margin-bottom: 8px;">📝 Bitácora de Novedades y Notas</span>
+        <div id="pipeBitacoraList" style="display: flex; flex-direction: column; gap: 6px; max-height: 140px; overflow-y: auto; margin-bottom: 8px; font-size: 0.76rem;"></div>
+        <div style="display: flex; gap: 6px;">
+          <input type="text" id="pipeNewBitacoraInput" placeholder="Agregar nota al expediente..." style="flex: 1; padding: 6px 10px; font-size: 0.78rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 4px;" />
+          <button id="btnPipeAddBitacora" class="btn-action" style="padding: 6px 12px; font-size: 0.75rem; background: var(--lacquer-surface); border: 1px solid var(--hairline);">Comentar</button>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--hairline); padding-top: 12px;">
+        <button id="btnDeletePipeProceso" class="btn-action" style="color: var(--danger); background: rgba(255, 23, 68, 0.1); border: 1px solid var(--danger); font-size: 0.75rem; padding: 6px 12px;">
+          🗑️ Eliminar del Pipeline
+        </button>
+        <button id="btnClosePipeModalBtn" class="btn-action btn-action-primary" style="padding: 6px 16px; font-size: 0.8rem;">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Incorporar Nueva Licitación al Pipeline Manualmente -->
+  <div id="newPipelineModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header">
+        <h3 style="font-size: 1.1rem; font-weight: 800; color: var(--champagne);">Incorporar Licitación al Pipeline</h3>
+        <button id="btnCloseNewPipeModal" class="btn-close-modal">✕</button>
+      </div>
+      <form id="newPipelineForm" style="display: flex; flex-direction: column; gap: 10px; font-size: 0.8rem;">
+        <div>
+          <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Referencia o Código del Proceso *</label>
+          <input type="text" id="newPipeRef" required class="cfg-input" placeholder="LP-001-2026" style="width: 100%;">
+        </div>
+        <div>
+          <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Entidad Contratante *</label>
+          <input type="text" id="newPipeEntidad" required class="cfg-input" placeholder="Alcaldía Mayor de Bogotá" style="width: 100%;">
+        </div>
+        <div>
+          <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Presupuesto Oficial Estimado ($ COP) *</label>
+          <input type="number" id="newPipePresupuesto" required class="cfg-input" placeholder="1000000000" style="width: 100%;">
+        </div>
+        <div>
+          <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Objeto Contractual</label>
+          <textarea id="newPipeObjeto" rows="2" class="cfg-input" placeholder="Descripción breve del alcance..." style="width: 100%;"></textarea>
+        </div>
+        <div>
+          <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Fase Inicial</label>
+          <select id="newPipeFase" class="cfg-input" style="width: 100%;">
+            <option value="IDENTIFICADO" selected>Identificado</option>
+            <option value="EVALUADO">Evaluado (Go / No-Go)</option>
+            <option value="EN_PREPARACION">En Preparación</option>
+          </select>
+        </div>
+        <div style="display: flex; gap: 8px; margin-top: 8px;">
+          <button type="button" id="btnCancelNewPipe" class="btn-action" style="flex: 1; background: var(--lacquer-surface);">Cancelar</button>
+          <button type="submit" class="btn-action btn-action-primary" style="flex: 1;">Incorporar</button>
         </div>
       </form>
     </div>

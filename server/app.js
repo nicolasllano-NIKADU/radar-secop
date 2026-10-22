@@ -16,6 +16,7 @@ const contractManager = require('./contractManager');
 const complianceEngine = require('./complianceEngine');
 const reportGenerator = require('./reportGenerator');
 const economicEngine = require('./economicEngine');
+const pipelineManager = require('./pipelineManager');
 
 const app = express();
 
@@ -536,6 +537,93 @@ app.get('/api/economico/historial', async (req, res) => {
     res.json({ success: true, data: q.rows });
   } catch (err) {
     console.error('Error listando historial económico:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 16. Módulo de Pipeline Kanban y Gestión Comercial en Equipo (Módulo 6)
+app.get('/api/pipeline', async (req, res) => {
+  try {
+    const data = await pipelineManager.getPipeline(req.query.empresa_id);
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('Error obteniendo pipeline:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/pipeline', async (req, res) => {
+  try {
+    const nuevo = await pipelineManager.addProceso(req.body);
+    res.json({ success: true, data: nuevo });
+  } catch (err) {
+    console.error('Error creando proceso en pipeline:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.patch('/api/pipeline/:id/fase', async (req, res) => {
+  try {
+    const { fase, autor } = req.body;
+    const actualizado = await pipelineManager.updateFase(req.params.id, fase, autor);
+    if (!actualizado) return res.status(404).json({ success: false, error: 'Proceso no encontrado' });
+    res.json({ success: true, data: actualizado });
+  } catch (err) {
+    console.error('Error actualizando fase:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.patch('/api/pipeline/:id/go-nogo', async (req, res) => {
+  try {
+    const { decision, autor } = req.body;
+    const actualizado = await pipelineManager.updateGoNoGo(req.params.id, decision, autor);
+    if (!actualizado) return res.status(404).json({ success: false, error: 'Proceso no encontrado' });
+    res.json({ success: true, data: actualizado });
+  } catch (err) {
+    console.error('Error actualizando Go/No-Go:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/pipeline/:id/tareas', async (req, res) => {
+  try {
+    const nuevaTarea = await pipelineManager.addTask(req.params.id, req.body);
+    res.json({ success: true, data: nuevaTarea });
+  } catch (err) {
+    console.error('Error agregando tarea a pipeline:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.patch('/api/pipeline/tareas/:taskId', async (req, res) => {
+  try {
+    const { completada } = req.body;
+    const tarea = await pipelineManager.toggleTask(req.params.taskId, completada);
+    res.json({ success: true, data: tarea });
+  } catch (err) {
+    console.error('Error actualizando tarea:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/pipeline/:id/bitacora', async (req, res) => {
+  try {
+    const { autor, comentario } = req.body;
+    const bitacora = await pipelineManager.addBitacora(req.params.id, autor, comentario);
+    res.json({ success: true, data: bitacora });
+  } catch (err) {
+    console.error('Error agregando comentario a bitácora:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/pipeline/:id', async (req, res) => {
+  try {
+    const ok = await pipelineManager.deleteProceso(req.params.id);
+    res.json({ success: ok });
+  } catch (err) {
+    console.error('Error eliminando proceso de pipeline:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

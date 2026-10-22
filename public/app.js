@@ -2221,6 +2221,409 @@ document.getElementById('modalBtnSimulateEconomic')?.addEventListener('click', (
   runMonteCarloSimulation();
 });
 
+// ==================== MÓDULO DE PIPELINE KANBAN Y GESTIÓN COMERCIAL (MÓDULO 6) ====================
+let cachedPipelineData = null;
+let activePipelineItemId = null;
+
+async function loadPipeline() {
+  const container = document.getElementById('kanbanBoardContainer');
+  if (!container) return;
+
+  try {
+    const res = await fetch('/api/pipeline');
+    const json = await res.json();
+    if (!json.success || !json.data) {
+      container.innerHTML = `<div style="color: var(--danger); padding: 20px;">Error al cargar el pipeline: ${json.error}</div>`;
+      return;
+    }
+
+    cachedPipelineData = json.data;
+    renderPipeline(json.data);
+  } catch (err) {
+    container.innerHTML = `<div style="color: var(--danger); padding: 20px;">Error de conexión: ${err.message}</div>`;
+  }
+}
+
+function renderPipeline(data) {
+  const container = document.getElementById('kanbanBoardContainer');
+  if (!container) return;
+
+  // Actualizar métricas del Header
+  const m = data.metricas;
+  const elTotal = document.getElementById('pipeTotalVal');
+  const elWeighted = document.getElementById('pipeWeightedVal');
+  const elCount = document.getElementById('pipeCountProcs');
+  const elWin = document.getElementById('pipeWinRate');
+  const elAdj = document.getElementById('pipeAdjudicadosCount');
+
+  if (elTotal) elTotal.textContent = `${formatCOP(m.valor_total_pipeline)} COP`;
+  if (elWeighted) elWeighted.textContent = `${formatCOP(m.valor_ponderado_riesgo)} COP`;
+  if (elCount) elCount.textContent = `${m.total_procesos} procesos activos`;
+  if (elWin) elWin.textContent = `${m.win_rate}%`;
+  if (elAdj) elAdj.textContent = `${m.procesos_adjudicados} adjudicados`;
+
+  if (!data.columnas || data.columnas.length === 0) {
+    container.innerHTML = `<div style="text-align: center; padding: 40px; color: var(--text-faint); width: 100%;">No hay columnas configuradas</div>`;
+    return;
+  }
+
+  const fasesKeys = data.columnas.map(c => c.id);
+
+  container.innerHTML = data.columnas.map((col, colIdx) => {
+    const subtotal = col.items.reduce((acc, it) => acc + (parseFloat(it.presupuesto) || 0), 0);
+
+    return `
+      <div class="kanban-col" style="flex: 0 0 280px; background: var(--lacquer-surface); border: 1px solid var(--hairline); border-radius: var(--radius-md); display: flex; flex-direction: column; max-height: 75vh; overflow: hidden;">
+        <!-- Header de Columna -->
+        <div style="padding: 12px 14px; border-bottom: 1px solid var(--hairline); background: var(--lacquer-deep); display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span>${col.icon || '📁'}</span>
+            <span style="font-size: 0.82rem; font-weight: 800; color: ${col.color || 'var(--champagne)'};">${col.label}</span>
+            <span style="background: rgba(255,255,255,0.08); font-size: 0.7rem; padding: 1px 6px; border-radius: 10px; color: var(--text-warm);">${col.items.length}</span>
+          </div>
+          <span style="font-size: 0.7rem; color: var(--text-faint);" class="tabular-nums">${formatCOP(subtotal)}</span>
+        </div>
+
+        <!-- Tarjetas de la Columna -->
+        <div style="padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; flex: 1;">
+          ${col.items.length === 0 ? `
+            <div style="text-align: center; padding: 25px 10px; color: var(--text-faint); font-size: 0.74rem; border: 1px dashed rgba(255,255,255,0.08); border-radius: 6px;">
+              Sin licitaciones en esta fase
+            </div>
+          ` : col.items.map(it => {
+            let goBadgeStyle = 'background: rgba(254, 202, 87, 0.15); color: #feca57;';
+            let goText = '⏳ PENDIENTE';
+            if (it.decision_go_nogo === 'GO') {
+              goBadgeStyle = 'background: rgba(29, 209, 161, 0.15); color: #1dd1a1;';
+              goText = '✅ GO';
+            } else if (it.decision_go_nogo === 'NO_GO') {
+              goBadgeStyle = 'background: rgba(255, 107, 107, 0.15); color: #ff6b6b;';
+              goText = '❌ NO-GO';
+            }
+
+            return `
+              <div class="kanban-card" style="background: var(--lacquer-deep); border: 1px solid var(--hairline); border-radius: var(--radius-sm); padding: 10px; cursor: pointer; transition: transform 0.15s, border-color 0.15s;" onclick="openPipelineItemModal(${it.id})">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+                  <span class="entity-badge" style="font-size: 0.65rem; padding: 2px 5px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${it.entidad}</span>
+                  <span style="font-size: 0.65rem; font-weight: 800; padding: 1px 5px; border-radius: 3px; ${goBadgeStyle}">${goText}</span>
+                </div>
+
+                <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-warm); margin-bottom: 4px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                  ${it.objeto || it.proceso_referencia}
+                </div>
+
+                <div style="font-size: 0.85rem; font-weight: 800; color: var(--champagne); margin-bottom: 8px;" class="tabular-nums">
+                  ${formatCOP(it.presupuesto)}
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 6px; font-size: 0.7rem; color: var(--text-faint);">
+                  <span>📋 ${it.tareas_completadas}/${it.tareas_totales} tareas</span>
+                  <div style="display: flex; gap: 4px;" onclick="event.stopPropagation();">
+                    ${colIdx > 0 ? `
+                      <button onclick="movePipelineStage(${it.id}, '${fasesKeys[colIdx - 1]}')" class="btn-action" style="padding: 2px 6px; font-size: 0.7rem; background: var(--lacquer-surface);" title="Retroceder fase">◀</button>
+                    ` : ''}
+                    ${colIdx < fasesKeys.length - 1 ? `
+                      <button onclick="movePipelineStage(${it.id}, '${fasesKeys[colIdx + 1]}')" class="btn-action" style="padding: 2px 6px; font-size: 0.7rem; background: var(--lacquer-surface);" title="Avanzar fase">▶</button>
+                    ` : ''}
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function movePipelineStage(id, nuevaFase) {
+  try {
+    const res = await fetch(`/api/pipeline/${id}/fase`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fase: nuevaFase, autor: 'Tablero' })
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast(`Proceso movido a: ${nuevaFase}`);
+      loadPipeline();
+    } else {
+      showToast(`Error: ${json.error}`);
+    }
+  } catch (e) {
+    showToast('Error de conexión al mover tarjeta');
+  }
+}
+
+function openPipelineItemModal(id) {
+  if (!cachedPipelineData) return;
+
+  let item = null;
+  for (const col of cachedPipelineData.columnas) {
+    const found = col.items.find(it => it.id === id);
+    if (found) { item = found; break; }
+  }
+
+  if (!item) return;
+  activePipelineItemId = id;
+
+  document.getElementById('pipeModalTitle').textContent = item.proceso_referencia;
+  document.getElementById('pipeModalSubtitle').textContent = `${item.entidad} • ${formatCOP(item.presupuesto)} • Responsable: ${item.responsable}`;
+  document.getElementById('pipeSelectStage').value = item.fase;
+  document.getElementById('pipeSelectGoNoGo').value = item.decision_go_nogo;
+
+  renderPipelineTasks(item.tareas || []);
+  renderPipelineBitacora(item.bitacora || []);
+
+  document.getElementById('pipelineItemModal')?.classList.add('open');
+}
+
+function renderPipelineTasks(tareas) {
+  const container = document.getElementById('pipeTasksList');
+  const progress = document.getElementById('pipeTasksProgress');
+  if (!container) return;
+
+  const total = tareas.length;
+  const completadas = tareas.filter(t => t.completada).length;
+  if (progress) progress.textContent = `${completadas} / ${total} completadas`;
+
+  if (total === 0) {
+    container.innerHTML = `<span style="font-size: 0.75rem; color: var(--text-faint);">No hay tareas registradas</span>`;
+    return;
+  }
+
+  container.innerHTML = tareas.map(t => {
+    let pColor = 'var(--text-muted)';
+    if (t.perfil === 'JURIDICO') pColor = '#a855f7';
+    else if (t.perfil === 'FINANCIERO') pColor = 'var(--gold)';
+    else if (t.perfil === 'TECNICO') pColor = 'var(--tech-cyan)';
+
+    return `
+      <div style="display: flex; align-items: center; justify-content: space-between; background: var(--lacquer-deep); padding: 6px 10px; border-radius: 4px; border: 1px solid var(--hairline); font-size: 0.78rem;">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; flex: 1;">
+          <input type="checkbox" ${t.completada ? 'checked' : ''} onchange="togglePipelineTask(${t.id}, this.checked)" />
+          <span style="font-size: 0.68rem; font-weight: 800; color: ${pColor}; padding: 1px 4px; border-radius: 2px; border: 1px solid ${pColor};">[${t.perfil}]</span>
+          <span style="text-decoration: ${t.completada ? 'line-through' : 'none'}; color: ${t.completada ? 'var(--text-faint)' : 'var(--text-primary)'};">${t.titulo}</span>
+        </label>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderPipelineBitacora(bitacora) {
+  const container = document.getElementById('pipeBitacoraList');
+  if (!container) return;
+
+  if (bitacora.length === 0) {
+    container.innerHTML = `<span style="font-size: 0.75rem; color: var(--text-faint);">Sin notas registradas</span>`;
+    return;
+  }
+
+  container.innerHTML = bitacora.map(b => `
+    <div style="background: var(--lacquer-deep); padding: 6px 8px; border-radius: 4px; border-left: 2px solid var(--champagne);">
+      <div style="display: flex; justify-content: space-between; font-size: 0.68rem; color: var(--text-faint); margin-bottom: 2px;">
+        <b>${b.autor}</b>
+        <span>${new Date(b.creado_en).toLocaleString('es-CO')}</span>
+      </div>
+      <div style="color: var(--text-warm);">${b.comentario}</div>
+    </div>
+  `).join('');
+}
+
+async function togglePipelineTask(taskId, completada) {
+  try {
+    await fetch(`/api/pipeline/tareas/${taskId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ completada })
+    });
+    loadPipeline();
+  } catch (e) {
+    showToast('Error al actualizar tarea');
+  }
+}
+
+// Event Listeners del Modal Pipeline
+document.getElementById('btnClosePipeModal')?.addEventListener('click', () => {
+  document.getElementById('pipelineItemModal')?.classList.remove('open');
+});
+document.getElementById('btnClosePipeModalBtn')?.addEventListener('click', () => {
+  document.getElementById('pipelineItemModal')?.classList.remove('open');
+});
+
+document.getElementById('pipeSelectStage')?.addEventListener('change', async (e) => {
+  if (!activePipelineItemId) return;
+  await movePipelineStage(activePipelineItemId, e.target.value);
+});
+
+document.getElementById('pipeSelectGoNoGo')?.addEventListener('change', async (e) => {
+  if (!activePipelineItemId) return;
+  try {
+    const res = await fetch(`/api/pipeline/${activePipelineItemId}/go-nogo`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ decision: e.target.value, autor: 'Comité' })
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast(`Decisión Go/No-Go: ${e.target.value}`);
+      loadPipeline();
+    }
+  } catch (err) {
+    showToast('Error al actualizar decisión');
+  }
+});
+
+document.getElementById('btnPipeAddTask')?.addEventListener('click', async () => {
+  if (!activePipelineItemId) return;
+  const input = document.getElementById('pipeNewTaskInput');
+  const perfil = document.getElementById('pipeNewTaskProfile')?.value || 'GENERAL';
+  const titulo = input?.value.trim();
+  if (!titulo) return;
+
+  try {
+    const res = await fetch(`/api/pipeline/${activePipelineItemId}/tareas`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ perfil, titulo })
+    });
+    const json = await res.json();
+    if (json.success) {
+      input.value = '';
+      loadPipeline();
+      // Reabrir modal actualizado
+      setTimeout(() => openPipelineItemModal(activePipelineItemId), 300);
+    }
+  } catch (err) {
+    showToast('Error agregando tarea');
+  }
+});
+
+document.getElementById('btnPipeAddBitacora')?.addEventListener('click', async () => {
+  if (!activePipelineItemId) return;
+  const input = document.getElementById('pipeNewBitacoraInput');
+  const comentario = input?.value.trim();
+  if (!comentario) return;
+
+  try {
+    const res = await fetch(`/api/pipeline/${activePipelineItemId}/bitacora`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ autor: 'Licitador', comentario })
+    });
+    const json = await res.json();
+    if (json.success) {
+      input.value = '';
+      loadPipeline();
+      setTimeout(() => openPipelineItemModal(activePipelineItemId), 300);
+    }
+  } catch (err) {
+    showToast('Error agregando nota');
+  }
+});
+
+document.getElementById('btnDeletePipeProceso')?.addEventListener('click', async () => {
+  if (!activePipelineItemId) return;
+  if (!confirm('¿Estás seguro de retirar este proceso del Pipeline?')) return;
+
+  try {
+    const res = await fetch(`/api/pipeline/${activePipelineItemId}`, { method: 'DELETE' });
+    const json = await res.json();
+    if (json.success) {
+      showToast('Proceso eliminado del Pipeline');
+      document.getElementById('pipelineItemModal')?.classList.remove('open');
+      loadPipeline();
+    }
+  } catch (err) {
+    showToast('Error al eliminar');
+  }
+});
+
+// Botón "Al Pipeline" desde el Modal de Detalle de Oportunidad
+document.getElementById('modalBtnAddToPipeline')?.addEventListener('click', async () => {
+  const item = oportunidades.find(o => o.id === activeModalId);
+  if (!item) return;
+
+  const lider = userCompanies.find(c => c.es_propia) || userCompanies[0];
+
+  try {
+    const res = await fetch('/api/pipeline', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        empresa_id: lider ? lider.id : null,
+        proceso_referencia: item.referencia || item.id,
+        entidad: item.entidad,
+        objeto: item.descripcion || item.nombre,
+        presupuesto: parseFloat(item.precio_base || item.cuantia || 0),
+        fecha_cierre: item.fecha_cierre,
+        departamento: item.departamento || 'Colombia',
+        url_secop: item.url
+      })
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast('¡Oportunidad incorporada al Pipeline Kanban!');
+      document.getElementById('detailModal')?.classList.remove('open');
+      loadPipeline();
+
+      // Cambiar a la vista Pipeline
+      document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+      document.querySelector('.nav-item[data-target="view-pipeline"]')?.classList.add('active');
+      document.getElementById('view-pipeline')?.classList.add('active');
+    } else {
+      showToast(`Error: ${json.error}`);
+    }
+  } catch (err) {
+    showToast('Error incorporando al Pipeline');
+  }
+});
+
+// Modal Nueva Licitación Manual
+document.getElementById('btnNewPipelineProceso')?.addEventListener('click', () => {
+  document.getElementById('newPipelineModal')?.classList.add('open');
+});
+document.getElementById('btnCloseNewPipeModal')?.addEventListener('click', () => {
+  document.getElementById('newPipelineModal')?.classList.remove('open');
+});
+document.getElementById('btnCancelNewPipe')?.addEventListener('click', () => {
+  document.getElementById('newPipelineModal')?.classList.remove('open');
+});
+
+document.getElementById('newPipelineForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const lider = userCompanies.find(c => c.es_propia) || userCompanies[0];
+
+  const body = {
+    empresa_id: lider ? lider.id : null,
+    proceso_referencia: document.getElementById('newPipeRef').value.trim(),
+    entidad: document.getElementById('newPipeEntidad').value.trim(),
+    presupuesto: parseFloat(document.getElementById('newPipePresupuesto').value || 0),
+    objeto: document.getElementById('newPipeObjeto').value.trim(),
+    fase: document.getElementById('newPipeFase').value
+  };
+
+  try {
+    const res = await fetch('/api/pipeline', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast('Licitación agregada al Pipeline');
+      document.getElementById('newPipelineModal')?.classList.remove('open');
+      document.getElementById('newPipelineForm').reset();
+      loadPipeline();
+    } else {
+      showToast(`Error: ${json.error}`);
+    }
+  } catch (err) {
+    showToast('Error de conexión');
+  }
+});
+
 // ==================== INICIALIZACIÓN ====================
 window.addEventListener('DOMContentLoaded', () => {
   const savedProfileBtn = document.querySelector(`.company-btn[data-profile="${currentProfile}"]`);
@@ -2236,4 +2639,5 @@ window.addEventListener('DOMContentLoaded', () => {
   loadPAAOpportunities();
   loadContracts();
   loadComplianceDashboard();
+  loadPipeline();
 });
