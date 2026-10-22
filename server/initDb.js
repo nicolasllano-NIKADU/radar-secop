@@ -9,7 +9,8 @@ const SCHEMAS = [
   'schema_compliance.sql',
   'schema_economico.sql',
   'schema_pipeline.sql',
-  'schema_auth.sql'
+  'schema_auth.sql',
+  'schema_competencia.sql'
 ];
 
 async function runAllMigrations() {

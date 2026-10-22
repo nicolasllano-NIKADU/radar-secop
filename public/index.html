@@ -607,6 +607,107 @@
       </div>
     </section>
 
+    <!-- ================= VISTA 10: INTELIGENCIA COMPETITIVA & CONTRATISTAS (SOCRATA JBJY-VK9H) ================= -->
+    <section id="view-competitors" class="view-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--champagne); margin-bottom: 4px;">👥 Inteligencia Competitiva & Precios Adjudicados</h2>
+          <p style="font-size: 0.8rem; color: var(--text-muted);">Registro oficial SECOP II (jbjy-vk9h) — Ranking de ganadores, cuotas de mercado, índice Herfindahl y calibración para Pliegos Tipo</p>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button id="btnVerSeguimientoCompetidores" class="btn-action" style="padding: 8px 14px; font-size: 0.82rem; background: rgba(245, 158, 11, 0.12); border: 1px solid #f59e0b; color: #fbbf24; gap: 6px;">
+            <span>⭐ Radar de Competidores Seguidos</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Barra de Filtros y Búsqueda de Mercado -->
+      <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 16px; border-radius: var(--radius-md); margin-bottom: 16px;">
+        <div style="font-size: 0.82rem; font-weight: 700; color: var(--champagne); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+          <span>🔍 Parámetros de Análisis de Mercado</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+          <div>
+            <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Entidad Compradora:</label>
+            <input type="text" id="compEntidadInput" placeholder="Ej: ALCALDÍA DE BOGOTÁ, SENA, EPM..." style="width: 100%; padding: 8px; font-size: 0.82rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Palabra Clave en Objeto:</label>
+            <input type="text" id="compPalabraInput" placeholder="Ej: SOFTWARE, INTELIGENCIA ARTIFICIAL, CLOUD..." style="width: 100%; padding: 8px; font-size: 0.82rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Código UNSPSC (Segmento):</label>
+            <input type="text" id="compUnspscInput" placeholder="Ej: 4323, 8111, 7210..." style="width: 100%; padding: 8px; font-size: 0.82rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Límite de Contratos:</label>
+            <select id="compLimitSelect" style="width: 100%; padding: 8px; font-size: 0.82rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">
+              <option value="50">50 contratos recientes</option>
+              <option value="100" selected>100 contratos recientes</option>
+              <option value="200">200 contratos recientes</option>
+            </select>
+          </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px;">
+          <button id="btnEjecutarAnalisisComp" class="btn-action btn-action-primary" style="padding: 8px 18px; font-size: 0.82rem; gap: 6px;">
+            <span>🚀 Analizar Mercado y Competidores</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Resumen Ejecutivo y Métricas de Concentración -->
+      <div id="compKpisContainer" style="display: none; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px;">
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm);">
+          <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Contratos Analizados</div>
+          <div id="compKpiTotal" style="font-size: 1.3rem; font-weight: 800; color: var(--champagne); margin-top: 2px;" class="tabular-nums">0</div>
+          <div style="font-size: 0.7rem; color: var(--text-muted);" id="compKpiOrigen">Socrata SECOP II</div>
+        </div>
+
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm);">
+          <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Monto Adjudicado Total</div>
+          <div id="compKpiMonto" style="font-size: 1.3rem; font-weight: 800; color: var(--tech-cyan); margin-top: 2px;" class="tabular-nums">$ 0 COP</div>
+          <div style="font-size: 0.7rem; color: var(--text-muted);">Volumen de mercado analizado</div>
+        </div>
+
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm);">
+          <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Ticket Mediana</div>
+          <div id="compKpiTicket" style="font-size: 1.3rem; font-weight: 800; color: var(--champagne); margin-top: 2px;" class="tabular-nums">$ 0 COP</div>
+          <div style="font-size: 0.7rem; color: var(--text-muted);" id="compKpiTicketProm">Prom: $ 0 COP</div>
+        </div>
+
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm);">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Índice Herfindahl (HHI)</div>
+            <span id="compHhiBadge" class="badge" style="font-size: 0.65rem; padding: 2px 6px;">COMPETITIVO</span>
+          </div>
+          <div id="compKpiHhi" style="font-size: 1.3rem; font-weight: 800; color: var(--champagne); margin-top: 2px;" class="tabular-nums">0.0</div>
+          <div style="font-size: 0.7rem; color: var(--text-muted);" id="compHhiDesc">Concentración del sector</div>
+        </div>
+      </div>
+
+      <!-- Banner de Calibración Estratégica para Monte Carlo -->
+      <div id="compMontecarloBanner" style="display: none; background: rgba(0, 229, 255, 0.06); border: 1px solid var(--tech-cyan); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+        <div style="flex: 1; min-width: 260px;">
+          <div style="font-size: 0.85rem; font-weight: 700; color: var(--tech-cyan); display: flex; align-items: center; gap: 6px;">
+            <span>🎲 Calibración Empírica para Simulador Monte Carlo (Pliegos Tipo)</span>
+          </div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;" id="compMontecarloAdvice">
+            Los datos reales indican una dispersión de ofertas sugerida entre 91% y 98% del Presupuesto Oficial con ~6 competidores.
+          </div>
+        </div>
+        <button id="btnTransferToMontecarlo" class="btn-action" style="background: rgba(0, 229, 255, 0.15); border: 1px solid var(--tech-cyan); color: var(--tech-cyan); padding: 8px 14px; font-size: 0.8rem; font-weight: 700; gap: 6px;">
+          <span>🎯 Enviar Parámetros a Pliegos Tipo</span>
+        </button>
+      </div>
+
+      <!-- Ranking de Ganadores y Cuotas de Mercado -->
+      <div id="compContentArea" style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="text-align: center; padding: 40px; color: var(--text-faint); background: var(--lacquer-surface); border: 1px dashed var(--hairline); border-radius: var(--radius-md);">
+          Configura una entidad o término de búsqueda (ej: "SOFTWARE") y haz clic en "Analizar Mercado y Competidores" para ver el mapa de adjudicaciones.
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <!-- Barra de Navegación Inferior (Mobile First Ergonomics) -->
@@ -688,6 +789,15 @@
         <line x1="12" y1="8" x2="12.01" y2="8"/>
       </svg>
       <span>Pliegos Tipo</span>
+    </button>
+    <button class="nav-item" data-target="view-competitors">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+      <span>Competencia</span>
     </button>
     <button class="nav-item" data-target="view-sources">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -802,6 +912,15 @@
             <rect x="17" y="3" width="5" height="15" rx="1"/>
           </svg>
           <span>📌 Al Pipeline</span>
+        </button>
+        <button id="modalBtnAnalyzeCompetitors" class="btn-action" style="flex: 1; min-width: 140px; justify-content: center; background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #6ee7b7;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          <span>👥 Ver Ganadores Previos</span>
         </button>
         <button id="modalNotifyBtn" class="btn-action btn-action-tele" style="flex: 1; min-width: 140px; justify-content: center;">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -1241,6 +1360,38 @@
           Crear Cuenta y Empresa
         </button>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal Historial de Contratista -->
+  <div id="contractorDetailModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 650px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="entity-badge" style="background: #10b981; color: #000;">PROVEEDOR</div>
+          <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-warm);" id="contractorModalSubtitle">Historial de Adjudicaciones SECOP II</span>
+        </div>
+        <button id="btnCloseContractorModal" class="btn-close-modal" aria-label="Cerrar modal">✕</button>
+      </div>
+      <div id="contractorModalBody" style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px; max-height: 520px; overflow-y: auto;">
+        <div style="text-align: center; padding: 30px; color: var(--text-faint);">Cargando historial del contratista...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Radar de Competidores en Seguimiento -->
+  <div id="watchlistModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 650px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="entity-badge" style="background: #f59e0b; color: #000;">RADAR</div>
+          <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-warm);">Competidores en Seguimiento Estratégico</span>
+        </div>
+        <button id="btnCloseWatchlistModal" class="btn-close-modal" aria-label="Cerrar modal">✕</button>
+      </div>
+      <div id="watchlistModalBody" style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px; max-height: 500px; overflow-y: auto;">
+        <div style="text-align: center; padding: 30px; color: var(--text-faint);">Cargando lista de seguimiento...</div>
+      </div>
     </div>
   </div>
 

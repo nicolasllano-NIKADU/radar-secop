@@ -18,6 +18,7 @@ const reportGenerator = require('./reportGenerator');
 const economicEngine = require('./economicEngine');
 const pipelineManager = require('./pipelineManager');
 const authManager = require('./authManager');
+const competitiveIntelligence = require('./competitiveIntelligence');
 const initDb = require('./initDb');
 
 const app = express();
@@ -675,6 +676,70 @@ app.post('/api/auth/cambiar-empresa', authManager.requireAuth(), async (req, res
   } catch (err) {
     console.error('Error cambiando empresa:', err.message);
     res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== MÓDULO: INTELIGENCIA COMPETITIVA & SOCRATA JBJY-VK9H ====================
+
+app.get('/api/competencia/analizar', async (req, res) => {
+  try {
+    const { entidad, palabra_clave, unspsc, min_valor, limit, force_refresh } = req.query;
+    const data = await competitiveIntelligence.analizarMercado({
+      entidad: entidad || '',
+      palabraClave: palabra_clave || '',
+      unspsc: unspsc || '',
+      minValor: min_valor ? parseFloat(min_valor) : 10000000,
+      limit: limit ? parseInt(limit, 10) : 100,
+      forceRefresh: force_refresh === 'true' || force_refresh === '1'
+    });
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('Error analizando competencia:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/competencia/contratista/:nit', async (req, res) => {
+  try {
+    const { nit } = req.params;
+    const data = await competitiveIntelligence.obtenerHistorialContratista(nit);
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('Error consultando contratista:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/competencia/seguimiento', async (req, res) => {
+  try {
+    const userId = req.user?.id || null;
+    const data = await competitiveIntelligence.listarSeguimiento(userId);
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('Error listando seguimiento:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/competencia/seguimiento', async (req, res) => {
+  try {
+    const userId = req.user?.id || null;
+    const data = await competitiveIntelligence.agregarSeguimiento(userId, req.body);
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('Error agregando seguimiento:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/competencia/seguimiento/:id', async (req, res) => {
+  try {
+    const userId = req.user?.id || null;
+    const deleted = await competitiveIntelligence.eliminarSeguimiento(userId, req.params.id);
+    res.json({ success: true, deleted });
+  } catch (err) {
+    console.error('Error eliminando seguimiento:', err.message);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

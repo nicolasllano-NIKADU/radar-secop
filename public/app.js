@@ -641,6 +641,7 @@ document.querySelectorAll('.nav-item').forEach(btn => {
 
     if (targetId === 'view-sources') loadSources();
     if (targetId === 'view-config') loadTelegramConfig();
+    if (targetId === 'view-competitors') initCompetitorsView();
   });
 });
 
@@ -2795,6 +2796,440 @@ document.getElementById('formRegister')?.addEventListener('submit', async (e) =>
   } catch (err) {
     showToast('Error de conexión');
   }
+});
+
+// ==================== MÓDULO: INTELIGENCIA COMPETITIVA Y CONTRATISTAS (SOCRATA JBJY-VK9H) ====================
+let lastCompetitiveData = null;
+let lastMonteCarloCalibration = null;
+
+function initCompetitorsView() {
+  if (!lastCompetitiveData) {
+    const compPalabraInput = document.getElementById('compPalabraInput');
+    if (compPalabraInput && !compPalabraInput.value) {
+      compPalabraInput.value = currentProfile === 'CERABELA' ? 'ARTESANIAS' : 'SOFTWARE';
+    }
+  }
+}
+
+async function ejecutarAnalisisCompetencia(forceRefresh = false) {
+  const entidad = document.getElementById('compEntidadInput')?.value.trim() || '';
+  const palabraClave = document.getElementById('compPalabraInput')?.value.trim() || '';
+  const unspsc = document.getElementById('compUnspscInput')?.value.trim() || '';
+  const limit = document.getElementById('compLimitSelect')?.value || '100';
+
+  const container = document.getElementById('compContentArea');
+  const kpisContainer = document.getElementById('compKpisContainer');
+  const montecarloBanner = document.getElementById('compMontecarloBanner');
+
+  if (container) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 50px; background: var(--lacquer-surface); border: 1px solid var(--hairline); border-radius: var(--radius-md);">
+        <div style="font-size: 1.8rem; margin-bottom: 8px;">📡 ⏳</div>
+        <div style="font-size: 0.95rem; font-weight: 700; color: var(--tech-cyan);">Consultando base de datos oficial SECOP II (jbjy-vk9h)...</div>
+        <div style="font-size: 0.78rem; color: var(--text-faint); margin-top: 4px;">Analizando precios adjudicados, cuotas de mercado y concentración de contratistas.</div>
+      </div>
+    `;
+  }
+
+  try {
+    const params = new URLSearchParams({
+      entidad,
+      palabra_clave: palabraClave,
+      unspsc,
+      limit,
+      force_refresh: forceRefresh ? 'true' : 'false'
+    });
+
+    const res = await fetch(`/api/competencia/analizar?${params.toString()}`);
+    const json = await res.json();
+
+    if (!json.success || !json.data) {
+      throw new Error(json.error || 'Error al obtener datos');
+    }
+
+    const data = json.data;
+    lastCompetitiveData = data;
+    lastMonteCarloCalibration = data.monteCarloParams;
+
+    // Renderizar KPIs
+    if (kpisContainer) {
+      kpisContainer.style.display = 'grid';
+      document.getElementById('compKpiTotal').textContent = data.totalContratos;
+      document.getElementById('compKpiOrigen').textContent = data.source === 'CACHE_POSTGRES' ? '⚡ Caché Local (Instantáneo)' : '🌐 Socrata SECOP II en vivo';
+      document.getElementById('compKpiMonto').textContent = `$ ${Math.round(data.montoTotal).toLocaleString('es-CO')} COP`;
+      document.getElementById('compKpiTicket').textContent = `$ ${Math.round(data.ticketMediana).toLocaleString('es-CO')} COP`;
+      document.getElementById('compKpiTicketProm').textContent = `Prom: $ ${Math.round(data.ticketPromedio).toLocaleString('es-CO')} COP`;
+      
+      const kpiHhi = document.getElementById('compKpiHhi');
+      const hhiBadge = document.getElementById('compHhiBadge');
+      const hhiDesc = document.getElementById('compHhiDesc');
+
+      if (kpiHhi) kpiHhi.textContent = data.indiceHerfindahl;
+      if (hhiBadge) {
+        hhiBadge.textContent = data.nivelConcentracion?.etiqueta || 'NORMAL';
+        hhiBadge.style.background = data.nivelConcentracion?.color || '#38bdf8';
+        hhiBadge.style.color = '#000';
+      }
+      if (hhiDesc) hhiDesc.textContent = data.nivelConcentracion?.descripcion || '';
+    }
+
+    // Renderizar Banner Monte Carlo
+    if (montecarloBanner && data.monteCarloParams) {
+      montecarloBanner.style.display = 'flex';
+      const advice = document.getElementById('compMontecarloAdvice');
+      if (advice) {
+        advice.innerHTML = `
+          <b>${data.monteCarloParams.recomendacionEstrategica}</b><br>
+          <span style="color: var(--champagne);">Rango de descuento sugerido: <b>${data.monteCarloParams.suggestedMinPct}% a ${data.monteCarloParams.suggestedMaxPct}%</b> | Competidores estimados: <b>${data.monteCarloParams.competidoresSugeridos}</b></span>
+        `;
+      }
+    }
+
+    // Renderizar Tablas y Top Contratistas
+    renderResultadosCompetencia(data);
+  } catch (err) {
+    console.error('Error analizando competencia:', err);
+    if (container) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: var(--danger); background: var(--lacquer-surface); border: 1px solid var(--hairline); border-radius: var(--radius-md);">
+          ❌ Error al consultar SECOP II: ${err.message}. Verifica los criterios de búsqueda e intenta de nuevo.
+        </div>
+      `;
+    }
+  }
+}
+
+function renderResultadosCompetencia(data) {
+  const container = document.getElementById('compContentArea');
+  if (!container) return;
+
+  const topContratistas = data.topContratistas || [];
+  const muestra = data.contratosMuestra || [];
+
+  let html = `
+    <!-- Leaderboard de Contratistas -->
+    <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 18px; border-radius: var(--radius-md);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <div style="font-size: 0.95rem; font-weight: 800; color: var(--champagne); display: flex; align-items: center; gap: 8px;">
+          <span>🏆 Top Contratistas Adjudicatarios</span>
+          <span style="font-size: 0.72rem; color: var(--text-faint); font-weight: 400;">(${topContratistas.length} actores con mayores montos ganados)</span>
+        </div>
+      </div>
+  `;
+
+  if (topContratistas.length === 0) {
+    html += `<div style="text-align: center; padding: 20px; color: var(--text-faint);">No se encontraron contratos para los criterios especificados.</div>`;
+  } else {
+    html += `<div style="display: flex; flex-direction: column; gap: 10px;">`;
+    topContratistas.forEach((c, idx) => {
+      const medal = idx === 0 ? '🥇' : (idx === 1 ? '🥈' : (idx === 2 ? '🥉' : `#${idx+1}`));
+      const barWidth = Math.min(Math.max(c.cuotaMercadoPct, 2), 100);
+
+      html += `
+        <div style="background: var(--lacquer-deep); border: 1px solid var(--hairline); border-radius: var(--radius-sm); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 1.1rem; font-weight: 800; width: 28px; text-align: center;">${medal}</span>
+              <div>
+                <div style="font-size: 0.88rem; font-weight: 800; color: var(--champagne); display: flex; align-items: center; gap: 6px;">
+                  <span>${c.nombre}</span>
+                  ${c.esPyme ? '<span style="font-size: 0.65rem; background: rgba(16, 185, 129, 0.2); color: var(--success); padding: 1px 5px; border-radius: 4px;">PYME</span>' : ''}
+                </div>
+                <div style="font-size: 0.72rem; color: var(--text-faint);">NIT: <b style="color: var(--text-warm);">${c.nit}</b> | Contratos ganados: <b style="color: var(--text-warm);">${c.contratosGanados}</b> | Ticket prom: $ ${Math.round(c.ticketPromedio).toLocaleString('es-CO')} COP</div>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="text-align: right;">
+                <div style="font-size: 0.95rem; font-weight: 800; color: var(--tech-cyan);" class="tabular-nums">$ ${Math.round(c.montoTotal).toLocaleString('es-CO')} COP</div>
+                <div style="font-size: 0.72rem; color: var(--text-faint);">${c.cuotaMercadoPct}% del total analizado</div>
+              </div>
+              <button onclick="abrirHistorialContratista('${c.nit}')" class="btn-action" style="padding: 5px 10px; font-size: 0.75rem; background: rgba(0, 229, 255, 0.1); border: 1px solid var(--tech-cyan); color: var(--tech-cyan);">
+                🔍 Historial
+              </button>
+              <button onclick="seguirCompetidor('${c.nit}', '${encodeURIComponent(c.nombre)}')" class="btn-action" style="padding: 5px 10px; font-size: 0.75rem; background: rgba(245, 158, 11, 0.1); border: 1px solid #f59e0b; color: #fbbf24;">
+                ⭐ Seguir
+              </button>
+            </div>
+          </div>
+
+          <!-- Barra de Progreso de Cuota de Mercado -->
+          <div style="width: 100%; height: 6px; background: rgba(255, 255, 255, 0.05); border-radius: 3px; overflow: hidden;">
+            <div style="width: ${barWidth}%; height: 100%; background: linear-gradient(90deg, var(--tech-cyan), #10b981); border-radius: 3px;"></div>
+          </div>
+        </div>
+      `;
+    });
+    html += `</div>`;
+  }
+  html += `</div>`;
+
+  // Muestra de Contratos Adjudicados
+  html += `
+    <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 18px; border-radius: var(--radius-md);">
+      <div style="font-size: 0.95rem; font-weight: 800; color: var(--champagne); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+        <span>📋 Contratos Adjudicados Recientes (Muestra Oficial SECOP II)</span>
+      </div>
+      <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem; text-align: left;">
+          <thead>
+            <tr style="border-bottom: 1px solid var(--hairline); color: var(--text-faint);">
+              <th style="padding: 8px 10px;">Entidad</th>
+              <th style="padding: 8px 10px;">Proveedor Adjudicado</th>
+              <th style="padding: 8px 10px;">Objeto Contractual</th>
+              <th style="padding: 8px 10px;">Modalidad</th>
+              <th style="padding: 8px 10px; text-align: right;">Valor Adjudicado</th>
+              <th style="padding: 8px 10px; text-align: center;">Firma</th>
+              <th style="padding: 8px 10px; text-align: center;">SECOP II</th>
+            </tr>
+          </thead>
+          <tbody>
+  `;
+
+  if (muestra.length === 0) {
+    html += `<tr><td colspan="7" style="padding: 20px; text-align: center; color: var(--text-faint);">No hay muestra de contratos disponible.</td></tr>`;
+  } else {
+    muestra.forEach(m => {
+      const fecha = m.fechaFirma ? m.fechaFirma.slice(0, 10) : '--';
+      const secopLink = m.url ? `<a href="${m.url}" target="_blank" style="color: var(--tech-cyan); text-decoration: underline;">Abrir ↗</a>` : '--';
+
+      html += `
+        <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.04); transition: background 0.15s ease;">
+          <td style="padding: 8px 10px; font-weight: 600; color: var(--champagne); max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${m.entidad}">${m.entidad}</td>
+          <td style="padding: 8px 10px; color: var(--text-warm); max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${m.proveedor}">${m.proveedor}</td>
+          <td style="padding: 8px 10px; color: var(--text-muted); max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${m.objeto}">${m.objeto}</td>
+          <td style="padding: 8px 10px; color: var(--text-faint); font-size: 0.72rem;">${m.modalidad}</td>
+          <td style="padding: 8px 10px; text-align: right; font-weight: 700; color: var(--tech-cyan);" class="tabular-nums">$ ${Math.round(m.valor).toLocaleString('es-CO')}</td>
+          <td style="padding: 8px 10px; text-align: center; color: var(--text-faint);">${fecha}</td>
+          <td style="padding: 8px 10px; text-align: center;">${secopLink}</td>
+        </tr>
+      `;
+    });
+  }
+
+  html += `
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+}
+
+// Historial detallado de un contratista
+async function abrirHistorialContratista(nit) {
+  const modal = document.getElementById('contractorDetailModal');
+  const body = document.getElementById('contractorModalBody');
+  const subtitle = document.getElementById('contractorModalSubtitle');
+  if (!modal || !body) return;
+
+  modal.classList.add('open');
+  body.innerHTML = `<div style="text-align: center; padding: 40px; color: var(--tech-cyan);">⏳ Consultando historial completo en SECOP II...</div>`;
+
+  try {
+    const res = await fetch(`/api/competencia/contratista/${encodeURIComponent(nit)}`);
+    const json = await res.json();
+    if (!json.success || !json.data) throw new Error(json.error || 'No se pudo obtener el historial');
+
+    const d = json.data;
+    if (subtitle) subtitle.textContent = `${d.nombre} (NIT: ${d.nit})`;
+
+    let html = `
+      <div style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm); display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div>
+          <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Total Contratos Ganados</div>
+          <div style="font-size: 1.3rem; font-weight: 800; color: var(--champagne);">${d.totalContratos}</div>
+        </div>
+        <div>
+          <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Monto Total Adjudicado</div>
+          <div style="font-size: 1.3rem; font-weight: 800; color: var(--tech-cyan);">$ ${Math.round(d.montoTotalAdjudicado).toLocaleString('es-CO')} COP</div>
+        </div>
+      </div>
+
+      <div style="font-size: 0.8rem; font-weight: 700; color: var(--champagne); margin-top: 6px;">Entidades Contratantes Recurrentes:</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+        ${d.entidadesContratantes.map(e => `<span style="font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-warm); padding: 3px 8px; border-radius: 4px;">${e}</span>`).join('')}
+      </div>
+
+      <div style="font-size: 0.8rem; font-weight: 700; color: var(--champagne); margin-top: 10px;">Adjudicaciones Recientes (${d.contratos.length}):</div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        ${d.contratos.slice(0, 15).map(c => `
+          <div style="background: var(--lacquer-deep); border: 1px solid var(--hairline); padding: 10px 12px; border-radius: var(--radius-sm); font-size: 0.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <span style="font-weight: 700; color: var(--champagne);">${c.entidad}</span>
+              <span style="font-weight: 800; color: var(--tech-cyan);">$ ${Math.round(c.valor).toLocaleString('es-CO')} COP</span>
+            </div>
+            <div style="color: var(--text-muted); line-height: 1.3;">${c.objeto}</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 0.7rem; color: var(--text-faint);">
+              <span>${c.modalidad} | Fecha: ${c.fechaFirma ? c.fechaFirma.slice(0, 10) : '--'}</span>
+              ${c.url ? `<a href="${c.url}" target="_blank" style="color: var(--tech-cyan); text-decoration: underline;">Ver Proceso SECOP ↗</a>` : ''}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+
+    body.innerHTML = html;
+  } catch (err) {
+    body.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--danger);">Error: ${err.message}</div>`;
+  }
+}
+
+// Seguir competidor
+async function seguirCompetidor(nit, nombreEncoded) {
+  const nombre = decodeURIComponent(nombreEncoded);
+  try {
+    const res = await fetch('/api/competencia/seguimiento', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nit,
+        nombre,
+        sector: 'Contratista SECOP II',
+        notas: 'Agregado desde análisis de competencia'
+      })
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast(`⭐ Ahora sigues a: ${nombre}`);
+    } else {
+      showToast(`Error: ${json.error}`);
+    }
+  } catch (err) {
+    showToast('Error de red al guardar seguimiento');
+  }
+}
+
+// Abrir Radar de Competidores en Seguimiento
+async function abrirModalWatchlist() {
+  const modal = document.getElementById('watchlistModal');
+  const body = document.getElementById('watchlistModalBody');
+  if (!modal || !body) return;
+
+  modal.classList.add('open');
+  body.innerHTML = `<div style="text-align: center; padding: 30px; color: var(--tech-cyan);">⏳ Cargando competidores en seguimiento...</div>`;
+
+  try {
+    const res = await fetch('/api/competencia/seguimiento');
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'Error al listar seguimiento');
+
+    const list = json.data || [];
+    if (list.length === 0) {
+      body.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: var(--text-faint);">
+          Aún no sigues a ningún competidor. Haz clic en "⭐ Seguir" en el ranking de contratistas para monitorear a tus rivales clave.
+        </div>
+      `;
+      return;
+    }
+
+    let html = `<div style="display: flex; flex-direction: column; gap: 8px;">`;
+    list.forEach(c => {
+      html += `
+        <div style="background: var(--lacquer-deep); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+          <div>
+            <div style="font-size: 0.88rem; font-weight: 700; color: var(--champagne);">${c.nombre_competidor}</div>
+            <div style="font-size: 0.72rem; color: var(--text-faint);">NIT: <b style="color: var(--text-warm);">${c.nit_competidor}</b> | Sector: ${c.sector_principal || 'General'}</div>
+            ${c.notas ? `<div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">📝 ${c.notas}</div>` : ''}
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <button onclick="abrirHistorialContratista('${c.nit_competidor}')" class="btn-action" style="padding: 4px 8px; font-size: 0.72rem; background: rgba(0, 229, 255, 0.1); border: 1px solid var(--tech-cyan); color: var(--tech-cyan);">
+              🔍 Historial
+            </button>
+            <button onclick="eliminarCompetidorSeguimiento('${c.id}')" class="btn-action" style="padding: 4px 8px; font-size: 0.72rem; background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #f87171;">
+              🗑️
+            </button>
+          </div>
+        </div>
+      `;
+    });
+    html += `</div>`;
+    body.innerHTML = html;
+  } catch (err) {
+    body.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--danger);">Error: ${err.message}</div>`;
+  }
+}
+
+// Eliminar competidor de seguimiento
+async function eliminarCompetidorSeguimiento(id) {
+  try {
+    const res = await fetch(`/api/competencia/seguimiento/${id}`, { method: 'DELETE' });
+    const json = await res.json();
+    if (json.success && json.deleted) {
+      showToast('Competidor removido del radar');
+      abrirModalWatchlist();
+    }
+  } catch (err) {
+    showToast('Error al eliminar');
+  }
+}
+
+// Transferir calibración a Simulador Monte Carlo (Pliegos Tipo)
+document.getElementById('btnTransferToMontecarlo')?.addEventListener('click', () => {
+  if (!lastMonteCarloCalibration) return;
+
+  const econCompetidores = document.getElementById('econCompetidores');
+  const econPerfil = document.getElementById('econPerfil');
+  const econPresupuesto = document.getElementById('econPresupuesto');
+
+  if (econCompetidores) {
+    const sug = lastMonteCarloCalibration.competidoresSugeridos;
+    if (sug <= 4) econCompetidores.value = '3';
+    else if (sug <= 7) econCompetidores.value = '6';
+    else if (sug <= 12) econCompetidores.value = '10';
+    else econCompetidores.value = '16';
+  }
+
+  if (econPerfil) {
+    if (lastMonteCarloCalibration.suggestedBias === 'down') econPerfil.value = 'AGRESIVO';
+    else if (lastMonteCarloCalibration.suggestedBias === 'up') econPerfil.value = 'CONSERVADOR';
+    else econPerfil.value = 'MODERADO';
+  }
+
+  if (econPresupuesto && (!econPresupuesto.value || econPresupuesto.value === '0') && lastMonteCarloCalibration.ticketMedianaRef) {
+    econPresupuesto.value = Math.round(lastMonteCarloCalibration.ticketMedianaRef);
+  }
+
+  // Activar pestaña Pliegos Tipo
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+  document.querySelector('.nav-item[data-target="view-economic"]')?.classList.add('active');
+  document.getElementById('view-economic')?.classList.add('active');
+
+  runMonteCarloSimulation();
+  showToast('🎯 ¡Parámetros de mercado transferidos al Simulador Monte Carlo!');
+});
+
+// Event Listeners para Inteligencia Competitiva
+document.getElementById('btnEjecutarAnalisisComp')?.addEventListener('click', () => ejecutarAnalisisCompetencia(true));
+document.getElementById('btnVerSeguimientoCompetidores')?.addEventListener('click', abrirModalWatchlist);
+document.getElementById('btnCloseWatchlistModal')?.addEventListener('click', () => {
+  document.getElementById('watchlistModal')?.classList.remove('open');
+});
+document.getElementById('btnCloseContractorModal')?.addEventListener('click', () => {
+  document.getElementById('contractorDetailModal')?.classList.remove('open');
+});
+
+// Botón de detalle de oportunidad para ver ganadores
+document.getElementById('modalBtnAnalyzeCompetitors')?.addEventListener('click', () => {
+  const item = oportunidades.find(o => o.id === activeModalId);
+  if (!item) return;
+
+  document.getElementById('detailModal')?.classList.remove('open');
+
+  const compEntidadInput = document.getElementById('compEntidadInput');
+  const compPalabraInput = document.getElementById('compPalabraInput');
+  if (compEntidadInput) compEntidadInput.value = item.entidad || '';
+  if (compPalabraInput) compPalabraInput.value = '';
+
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+  document.querySelector('.nav-item[data-target="view-competitors"]')?.classList.add('active');
+  document.getElementById('view-competitors')?.classList.add('active');
+
+  ejecutarAnalisisCompetencia(true);
 });
 
 // ==================== INICIALIZACIÓN ====================
