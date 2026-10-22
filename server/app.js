@@ -32,6 +32,7 @@ const preflightAuditEngine = require('./preflightAuditEngine');
 const adendasEngine = require('./adendasEngine');
 const postAdjudicacionEngine = require('./postAdjudicacionEngine');
 const residualCapacityEngine = require('./residualCapacityEngine');
+const telegramBotEngine = require('./telegramBotEngine');
 const initDb = require('./initDb');
 
 const app = express();
@@ -185,13 +186,13 @@ app.get('/api/profiles', (req, res) => {
   res.json({ success: true, data: Object.values(config.profiles) });
 });
 
-// 7. Configuración y prueba de Telegram
+// 7. Configuración y prueba de Telegram Bot & Notificaciones Push
 app.get('/api/telegram/config', (req, res) => {
-  const { botToken, chatId } = notifier.getCredentials();
+  const { botToken, defaultChatId } = telegramBotEngine.getBotCredentials();
   res.json({
-    configured: !!(botToken && chatId),
+    configured: !!(botToken && defaultChatId),
     maskedToken: botToken ? `${botToken.slice(0, 6)}...${botToken.slice(-4)}` : '',
-    chatId: chatId || ''
+    chatId: defaultChatId || ''
   });
 });
 
@@ -199,6 +200,7 @@ app.post('/api/telegram/config', (req, res) => {
   try {
     const { botToken, chatId } = req.body;
     notifier.updateCredentials(botToken, chatId);
+    telegramBotEngine.setCredentials(botToken, chatId);
     res.json({ success: true, message: 'Credenciales guardadas correctamente' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -216,9 +218,9 @@ app.post('/api/telegram/test', async (req, res) => {
 
 app.post('/api/telegram/detect', async (req, res) => {
   try {
-    const detectedId = await notifier.autoDetectChatId();
-    if (detectedId) {
-      res.json({ success: true, chatId: detectedId });
+    const detected = await telegramBotEngine.autoDetectChatId();
+    if (detected && detected.chatId) {
+      res.json({ success: true, chatId: detected.chatId, remitente: detected.remitente });
     } else {
       res.json({
         success: false,
@@ -227,6 +229,118 @@ app.post('/api/telegram/detect', async (req, res) => {
     }
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Canales y Destinatarios de Alertas (Multi-Canal)
+app.get('/api/telegram/canales', async (req, res) => {
+  try {
+    const empresaId = req.query.empresa_id ? parseInt(req.query.empresa_id, 10) : null;
+    const canales = await telegramBotEngine.listarCanales(empresaId);
+    res.json({ success: true, count: canales.length, data: canales });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/telegram/canales', async (req, res) => {
+  try {
+    const canal = await telegramBotEngine.guardarCanal(req.body);
+    res.json({ success: true, data: canal });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/telegram/canales/:id', async (req, res) => {
+  try {
+    const r = await telegramBotEngine.eliminarCanal(parseInt(req.params.id, 10));
+    res.json({ success: true, data: r });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Suscripción de Procesos a Alertas en Tiempo Real
+app.get('/api/telegram/suscripciones', async (req, res) => {
+  try {
+    const empresaId = req.query.empresa_id ? parseInt(req.query.empresa_id, 10) : null;
+    const suscripciones = await telegramBotEngine.listarSuscripciones(empresaId);
+    res.json({ success: true, count: suscripciones.length, data: suscripciones });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/telegram/suscripcion', async (req, res) => {
+  try {
+    const suscripcion = await telegramBotEngine.suscribirProceso(req.body);
+    res.json({ success: true, data: suscripcion });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/telegram/suscripcion/:id', async (req, res) => {
+  try {
+    const r = await telegramBotEngine.eliminarSuscripcion(parseInt(req.params.id, 10));
+    res.json({ success: true, data: r });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Disparadores de Alertas Push Especializadas
+app.post('/api/telegram/alerta-adenda', async (req, res) => {
+  try {
+    const { adenda, proceso_info = {}, empresa_id = null } = req.body;
+    if (!adenda) return res.status(400).json({ success: false, error: 'Datos de adenda requeridos' });
+    const resultados = await telegramBotEngine.notificarAdendaCronograma(adenda, proceso_info, empresa_id);
+    res.json({ success: true, data: resultados });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/telegram/alerta-evaluacion', async (req, res) => {
+  try {
+    const { evaluacion, proceso_info = {}, empresa_id = null } = req.body;
+    const resultados = await telegramBotEngine.notificarInformeEvaluacion(evaluacion, proceso_info, empresa_id);
+    res.json({ success: true, data: resultados });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/telegram/alerta-poliza', async (req, res) => {
+  try {
+    const { poliza, contrato_info = {}, empresa_id = null } = req.body;
+    const resultados = await telegramBotEngine.notificarAlertaPolizaVencimiento(poliza, contrato_info, empresa_id);
+    res.json({ success: true, data: resultados });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Bitácora de Alertas Push
+app.get('/api/telegram/historial', async (req, res) => {
+  try {
+    const limite = parseInt(req.query.limite, 10) || 50;
+    const historial = await telegramBotEngine.consultarHistorial(limite);
+    res.json({ success: true, count: historial.length, data: historial });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Webhook para Comandos Interactivos (/start, /resumen, /ping)
+app.post('/api/telegram/webhook', async (req, res) => {
+  try {
+    await telegramBotEngine.procesarComandoTelegram(req.body);
+    res.json({ ok: true });
+  } catch (err) {
+    console.warn('Error en webhook de Telegram:', err.message);
+    res.json({ ok: false, error: err.message });
   }
 });
 

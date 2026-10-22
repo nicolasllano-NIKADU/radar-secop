@@ -298,10 +298,29 @@ async function loadTelegramConfig() {
   try {
     const res = await fetch('/api/telegram/config');
     const json = await res.json();
+    const badge = document.getElementById('tgConnectionBadge');
     if (json.configured) {
       document.getElementById('cfgBotToken').placeholder = `Token activo: ${json.maskedToken}`;
       document.getElementById('cfgChatId').value = json.chatId || '';
+      if (badge) {
+        badge.textContent = '🟢 Bot Conectado';
+        badge.style.background = 'rgba(16, 185, 129, 0.2)';
+        badge.style.borderColor = 'var(--success)';
+        badge.style.color = 'var(--success)';
+      }
+    } else {
+      if (badge) {
+        badge.textContent = '⚠️ Sin Configurar';
+        badge.style.background = 'rgba(239, 68, 68, 0.2)';
+        badge.style.borderColor = 'var(--danger)';
+        badge.style.color = 'var(--danger)';
+      }
     }
+
+    // Cargar listas asociadas
+    loadTelegramChannels();
+    loadTelegramSubscriptions();
+    loadTelegramHistory();
   } catch (e) {
     console.error('Error cargando config telegram:', e);
   }
@@ -578,6 +597,36 @@ document.getElementById('modalNotifyBtn').addEventListener('click', () => {
   }
 });
 
+document.getElementById('modalSubscribeTelegramBtn')?.addEventListener('click', async () => {
+  if (!activeModalId) return;
+  const item = oportunidades.find(o => o.id === activeModalId);
+  if (!item) return;
+
+  showToast('Suscribiendo proceso a alertas en tiempo real...');
+  try {
+    const lider = (userCompanies && userCompanies.length > 0) ? (userCompanies.find(c => c.es_propia) || userCompanies[0]) : null;
+    const res = await fetch('/api/telegram/suscripcion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        empresa_id: lider ? lider.id : null,
+        proceso_id: item.id,
+        numero_proceso: item.referencia || item.id,
+        entidad: item.entidad || 'Entidad Contratante',
+        objeto: item.descripcion || item.nombre || ''
+      })
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast('🔔 ¡Proceso monitoreado! Recibirás alertas inmediatas en Telegram de adendas y cronograma.');
+    } else {
+      showToast(`Error: ${json.error || 'Revisa la configuración del Bot'}`);
+    }
+  } catch (e) {
+    showToast('Error de conexión al suscribir');
+  }
+});
+
 // Botón Escanear Ahora
 document.getElementById('btnScanNow').addEventListener('click', async () => {
   const btn = document.getElementById('btnScanNow');
@@ -646,8 +695,43 @@ document.querySelectorAll('.nav-item').forEach(btn => {
   });
 });
 
-// Configuración de Telegram
-document.getElementById('btnSaveTelegram').addEventListener('click', async () => {
+// ==================== CENTRO DE NOTIFICACIONES PUSH & TELEGRAM BOT ====================
+
+// Navegación de pestañas internas del Centro de Notificaciones
+const tgTabs = [
+  { btn: 'tabTgCredsBtn', panel: 'panelTgCreds' },
+  { btn: 'tabTgCanalesBtn', panel: 'panelTgCanales' },
+  { btn: 'tabTgSuscripBtn', panel: 'panelTgSuscrip' },
+  { btn: 'tabTgLogBtn', panel: 'panelTgLog' }
+];
+
+tgTabs.forEach(({ btn, panel }) => {
+  document.getElementById(btn)?.addEventListener('click', () => {
+    tgTabs.forEach(t => {
+      document.getElementById(t.btn)?.style.setProperty('background', 'var(--lacquer-surface)');
+      document.getElementById(t.btn)?.style.setProperty('border-color', 'var(--hairline)');
+      document.getElementById(t.btn)?.style.setProperty('color', 'var(--text-warm)');
+      const p = document.getElementById(t.panel);
+      if (p) p.style.display = 'none';
+    });
+
+    const activeBtn = document.getElementById(btn);
+    if (activeBtn) {
+      activeBtn.style.background = 'rgba(0, 136, 204, 0.18)';
+      activeBtn.style.borderColor = '#0088cc';
+      activeBtn.style.color = '#38bdf8';
+    }
+    const activePanel = document.getElementById(panel);
+    if (activePanel) activePanel.style.display = 'block';
+
+    if (panel === 'panelTgCanales') loadTelegramChannels();
+    if (panel === 'panelTgSuscrip') loadTelegramSubscriptions();
+    if (panel === 'panelTgLog') loadTelegramHistory();
+  });
+});
+
+// Guardar credenciales de Telegram
+document.getElementById('btnSaveTelegram')?.addEventListener('click', async () => {
   const botToken = document.getElementById('cfgBotToken').value.trim();
   const chatId = document.getElementById('cfgChatId').value.trim();
 
@@ -665,38 +749,40 @@ document.getElementById('btnSaveTelegram').addEventListener('click', async () =>
     const json = await res.json();
     if (json.success) {
       showToast('Credenciales guardadas exitosamente');
+      loadTelegramConfig();
     }
   } catch (e) {
     showToast('Error al guardar configuración');
   }
 });
 
-const btnAutoDetect = document.getElementById('btnAutoDetectChatId');
-if (btnAutoDetect) {
-  btnAutoDetect.addEventListener('click', async () => {
-    showToast('Consultando mensajes recibidos en Telegram...');
-    try {
-      const res = await fetch('/api/telegram/detect', { method: 'POST' });
-      const json = await res.json();
-      if (json.success && json.chatId) {
-        document.getElementById('cfgChatId').value = json.chatId;
-        showToast(`¡Chat ID detectado con éxito! (${json.chatId})`);
-      } else {
-        showToast(json.error || 'Abre el bot en Telegram y pulsa Iniciar primero');
-      }
-    } catch (e) {
-      showToast('Error de conexión');
+// Auto-detectar Chat ID
+document.getElementById('btnAutoDetectChatId')?.addEventListener('click', async () => {
+  showToast('Consultando mensajes recibidos en Telegram...');
+  try {
+    const res = await fetch('/api/telegram/detect', { method: 'POST' });
+    const json = await res.json();
+    if (json.success && json.chatId) {
+      document.getElementById('cfgChatId').value = json.chatId;
+      showToast(`¡Chat ID detectado con éxito! (${json.chatId} - ${json.remitente || 'Usuario'})`);
+      loadTelegramConfig();
+    } else {
+      showToast(json.error || 'Abre el bot en Telegram y pulsa Iniciar primero');
     }
-  });
-}
+  } catch (e) {
+    showToast('Error de conexión');
+  }
+});
 
-document.getElementById('btnTestTelegram').addEventListener('click', async () => {
+// Probar envío de Telegram
+document.getElementById('btnTestTelegram')?.addEventListener('click', async () => {
   showToast('Enviando mensaje de prueba al celular...');
   try {
     const res = await fetch('/api/telegram/test', { method: 'POST' });
     const json = await res.json();
     if (json.success) {
       showToast('Mensaje de prueba recibido en Telegram');
+      loadTelegramHistory();
     } else {
       showToast(`Error: ${json.error || 'Revisa tu Token y Chat ID'}`);
     }
@@ -704,6 +790,207 @@ document.getElementById('btnTestTelegram').addEventListener('click', async () =>
     showToast('Error enviando prueba');
   }
 });
+
+// Refrescar historial manual
+document.getElementById('btnReloadTgHistory')?.addEventListener('click', () => {
+  loadTelegramConfig();
+  showToast('Centro de notificaciones actualizado');
+});
+
+// Cargar Canales Configurados
+async function loadTelegramChannels() {
+  const container = document.getElementById('tgChannelsList');
+  if (!container) return;
+
+  try {
+    const res = await fetch('/api/telegram/canales');
+    const json = await res.json();
+    if (!json.success || !json.data || json.data.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 24px; color: var(--text-faint); font-size: 0.8rem; background: var(--lacquer-deep); border-radius: var(--radius-sm); border: 1px dashed var(--hairline);">
+          No hay canales secundarios registrados. Se está usando el Chat ID principal. Pulsa <b>+ Agregar Canal o Grupo</b> para crear canales segmentados.
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = json.data.map(c => `
+      <div style="background: var(--lacquer-deep); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <div>
+          <div style="font-size: 0.82rem; font-weight: 700; color: var(--champagne); display: flex; align-items: center; gap: 6px;">
+            <span>📢 ${c.alias}</span>
+            <code style="font-size: 0.72rem; color: var(--tech-cyan);">${c.chat_id}</code>
+          </div>
+          <div style="font-size: 0.7rem; color: var(--text-muted); display: flex; gap: 10px; margin-top: 4px; flex-wrap: wrap;">
+            <span>${c.alertar_oportunidades_fit ? '✅ High-Fit (≥' + c.score_minimo_fit + '%)' : '❌ Licitaciones'}</span>
+            <span>${c.alertar_adendas_cronograma ? '✅ Adendas Ley 1882' : '❌ Adendas'}</span>
+            <span>${c.alertar_evaluacion_traslado ? '✅ Informes Evaluación' : '❌ Evaluación'}</span>
+            <span>${c.alertar_polizas_vencimiento ? '✅ Pólizas' : '❌ Pólizas'}</span>
+          </div>
+        </div>
+        <div>
+          <button class="btn-action" style="padding: 3px 8px; font-size: 0.7rem; color: var(--danger); border-color: rgba(239, 68, 68, 0.3);" onclick="deleteTelegramChannel(${c.id})">
+            🗑️ Eliminar
+          </button>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    container.innerHTML = `<div style="color: var(--danger); font-size: 0.8rem;">Error cargando canales</div>`;
+  }
+}
+
+// Agregar Canal Nuevo
+document.getElementById('btnNewTgChannel')?.addEventListener('click', async () => {
+  const alias = prompt('Nombre o alias del canal / grupo (ej: Grupo Obras Licitaciones):');
+  if (!alias) return;
+  const chatId = prompt('Chat ID de Telegram del grupo o canal (ej: -1001234567890 o tu ID):');
+  if (!chatId) return;
+
+  try {
+    const res = await fetch('/api/telegram/canales', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        alias,
+        chat_id: chatId,
+        alertar_oportunidades_fit: true,
+        alertar_adendas_cronograma: true,
+        alertar_evaluacion_traslado: true,
+        alertar_polizas_vencimiento: true
+      })
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast('Canal de Telegram registrado con éxito');
+      loadTelegramChannels();
+    } else {
+      showToast(`Error: ${json.error}`);
+    }
+  } catch (e) {
+    showToast('Error de conexión al agregar canal');
+  }
+});
+
+window.deleteTelegramChannel = async (id) => {
+  if (!confirm('¿Deseas eliminar este canal de alertas?')) return;
+  try {
+    const res = await fetch(`/api/telegram/canales/${id}`, { method: 'DELETE' });
+    const json = await res.json();
+    if (json.success) {
+      showToast('Canal eliminado');
+      loadTelegramChannels();
+    }
+  } catch (e) {
+    showToast('Error al eliminar canal');
+  }
+};
+
+// Cargar Procesos Monitoreados con Suscripción
+async function loadTelegramSubscriptions() {
+  const container = document.getElementById('tgSubscriptionsList');
+  if (!container) return;
+
+  try {
+    const res = await fetch('/api/telegram/suscripciones');
+    const json = await res.json();
+    if (!json.success || !json.data || json.data.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 24px; color: var(--text-faint); font-size: 0.8rem; background: var(--lacquer-deep); border-radius: var(--radius-sm); border: 1px dashed var(--hairline);">
+          No hay procesos suscritos a alertas push actualmente. Para monitorear una licitación, ábrela y pulsa <b>🔔 Monitorear en Telegram</b>.
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = json.data.map(s => `
+      <div style="background: var(--lacquer-deep); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <div style="max-width: 80%;">
+          <div style="font-size: 0.82rem; font-weight: 700; color: var(--champagne); display: flex; align-items: center; gap: 6px;">
+            <span style="color: var(--tech-cyan);">📌 ${s.numero_proceso}</span>
+            <span class="entity-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--success); font-size: 0.65rem;">ACTIVO</span>
+          </div>
+          <div style="font-size: 0.72rem; color: var(--text-warm); margin-top: 2px;">${s.entidad || 'Entidad Estatal'}</div>
+          <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 2px;">Destino: ${s.chat_id} • Monitoreando Adendas, Cronograma y Evaluación</div>
+        </div>
+        <div>
+          <button class="btn-action" style="padding: 3px 8px; font-size: 0.7rem; color: var(--danger); border-color: rgba(239, 68, 68, 0.3);" onclick="deleteTelegramSubscription(${s.id})">
+            Desuscribir
+          </button>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    container.innerHTML = `<div style="color: var(--danger); font-size: 0.8rem;">Error cargando suscripciones</div>`;
+  }
+}
+
+window.deleteTelegramSubscription = async (id) => {
+  if (!confirm('¿Deseas cancelar el monitoreo de este proceso?')) return;
+  try {
+    const res = await fetch(`/api/telegram/suscripcion/${id}`, { method: 'DELETE' });
+    const json = await res.json();
+    if (json.success) {
+      showToast('Monitoreo cancelado');
+      loadTelegramSubscriptions();
+    }
+  } catch (e) {
+    showToast('Error al cancelar suscripción');
+  }
+};
+
+// Cargar Historial y Bitácora de Alertas Enviadas
+async function loadTelegramHistory() {
+  const tbody = document.getElementById('tgLogTableBody');
+  const countEl = document.getElementById('tgLogCount');
+  if (!tbody) return;
+
+  try {
+    const res = await fetch('/api/telegram/historial?limite=30');
+    const json = await res.json();
+    if (!json.success || !json.data || json.data.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--text-faint);">No se registran envíos recientes en la bitácora.</td></tr>`;
+      if (countEl) countEl.textContent = '0 eventos registrados';
+      return;
+    }
+
+    if (countEl) countEl.textContent = `${json.data.length} eventos registrados`;
+
+    tbody.innerHTML = json.data.map(l => {
+      const fecha = l.creado_en ? new Date(l.creado_en).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' }) : 'Reciente';
+      let badgeColor = 'var(--text-faint)';
+      let badgeBg = 'rgba(255, 255, 255, 0.05)';
+      if (l.tipo_alerta === 'ADENDA_CRONOGRAMA') { badgeColor = 'var(--danger)'; badgeBg = 'rgba(239, 68, 68, 0.15)'; }
+      else if (l.tipo_alerta === 'ALTA_AFINIDAD') { badgeColor = 'var(--tech-cyan)'; badgeBg = 'rgba(0, 229, 255, 0.15)'; }
+      else if (l.tipo_alerta === 'INFORME_EVALUACION') { badgeColor = 'var(--gold)'; badgeBg = 'rgba(212, 175, 55, 0.15)'; }
+      else if (l.tipo_alerta === 'POLIZA_VENCIMIENTO') { badgeColor = '#f59e0b'; badgeBg = 'rgba(245, 158, 11, 0.15)'; }
+
+      const isEnviado = l.estado === 'ENVIADO';
+
+      return `
+        <tr style="border-bottom: 1px solid var(--hairline);">
+          <td style="padding: 6px 10px; color: var(--text-faint);">${fecha}</td>
+          <td style="padding: 6px 10px;">
+            <span style="font-size: 0.65rem; padding: 2px 6px; border-radius: 3px; font-weight: 700; color: ${badgeColor}; background: ${badgeBg};">
+              ${l.tipo_alerta}
+            </span>
+          </td>
+          <td style="padding: 6px 10px; color: var(--text-primary); font-weight: 600;">
+            ${l.titulo || l.proceso_referencia || 'Alerta'}
+          </td>
+          <td style="padding: 6px 10px; color: var(--text-muted); font-family: monospace;">${l.chat_id}</td>
+          <td style="padding: 6px 10px;">
+            <span style="color: ${isEnviado ? 'var(--success)' : 'var(--danger)'}; font-weight: 700;">
+              ${isEnviado ? '✓ Enviado' : '✗ ' + (l.error_detalle || 'Falló')}
+            </span>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--danger);">Error cargando bitácora</td></tr>`;
+  }
+}
 
 // ==================== MÓDULO 1: GESTIÓN DE EMPRESAS Y CONSORCIOS ====================
 let userCompanies = [];

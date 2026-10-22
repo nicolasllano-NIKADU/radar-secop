@@ -117,9 +117,41 @@ class Notifier {
         }
         return { success: false, error: resJson.description };
       }
+      try {
+        const dbPostgres = require('./dbPostgres');
+        await dbPostgres.query(`
+          INSERT INTO telegram_notificaciones_log (
+            chat_id, tipo_alerta, titulo, mensaje_texto, mensaje_id, estado, error_detalle
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `, [
+          payload.chat_id,
+          'NOTIFICACION_DIRECTA',
+          'Alerta SECOP II',
+          messageText,
+          String(resJson.result.message_id),
+          'ENVIADO',
+          null
+        ]);
+      } catch (_) {}
+
       return { success: true, messageId: resJson.result.message_id, chatId: payload.chat_id };
     } catch (err) {
       console.error('❌ Error de red enviando a Telegram:', err.message);
+      try {
+        const dbPostgres = require('./dbPostgres');
+        await dbPostgres.query(`
+          INSERT INTO telegram_notificaciones_log (
+            chat_id, tipo_alerta, titulo, mensaje_texto, estado, error_detalle
+          ) VALUES ($1, $2, $3, $4, $5, $6)
+        `, [
+          payload.chat_id,
+          'NOTIFICACION_DIRECTA',
+          'Alerta SECOP II',
+          messageText,
+          'FALLIDO',
+          err.message
+        ]);
+      } catch (_) {}
       return { success: false, error: err.message };
     }
   }

@@ -169,7 +169,18 @@ class AdendasEngine {
       adendaData.estado_gestion || 'PENDIENTE_REVISION'
     ]);
 
-    return { success: true, id: res.rows[0].id, creado_en: res.rows[0].creado_en };
+    const insertResult = { success: true, id: res.rows[0].id, creado_en: res.rows[0].creado_en };
+
+    // Notificación Push automática a Telegram en tiempo real
+    try {
+      const telegramBotEngine = require('./telegramBotEngine');
+      telegramBotEngine.notificarAdendaCronograma(adendaData, {
+        referencia: adendaData.numero_proceso,
+        entidad: adendaData.entidad_nombre
+      }).catch(err => console.warn('Aviso: Falló envío de adenda a Telegram:', err.message));
+    } catch (_) {}
+
+    return insertResult;
   }
 
   /**

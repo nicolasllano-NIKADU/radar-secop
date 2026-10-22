@@ -193,61 +193,136 @@
         </button>
       </div>
 
-      <!-- Tarjeta Telegram Bot -->
-      <div class="config-card">
-        <div class="config-title">
-          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <line x1="22" y1="2" x2="11" y2="13"/>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-          </svg>
-          <span>Bot de Telegram (Alertas Push al Celular)</span>
-        </div>
-        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 14px; line-height: 1.5;">
-          Recibe notificaciones automáticas cada vez que el escáner descubra nuevas oportunidades afines a NIKADU IA o CERABELA.
-        </p>
-
-        <a href="https://t.me/SECOP_Agente_bot" target="_blank" rel="noopener noreferrer" class="btn-action btn-action-primary" style="margin-bottom: 10px; width: 100%; text-decoration: none; justify-content: center; gap: 8px;">
-          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <line x1="22" y1="2" x2="11" y2="13"/>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-          </svg>
-          <span>1. Toca aquí para abrir @SECOP_Agente_bot y pulsa 'Iniciar'</span>
-        </a>
-
-        <button id="btnAutoDetectChatId" class="btn-action" style="margin-bottom: 14px; width: 100%; justify-content: center; border: 1px solid var(--gold-mid); background: rgba(212, 163, 89, 0.12); color: var(--champagne); gap: 8px;">
-          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <circle cx="11" cy="11" r="8"/>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-          <span>2. Detectar mi Chat ID Automáticamente</span>
-        </button>
-        
-        <div class="form-group">
-          <label class="form-label">Telegram Bot Token (desde @BotFather):</label>
-          <input type="password" id="cfgBotToken" class="form-input" placeholder="Ej: 1234567890:ABCdefGHIjklMNOpqrSTUvwxyz">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Tu Chat ID de Telegram (número personal, ej: 123456789):</label>
-          <input type="text" id="cfgChatId" class="form-input" placeholder="Ej: 987654321">
-        </div>
-
-        <div style="display: flex; gap: 8px;">
-          <button id="btnSaveTelegram" class="btn-save-cfg" style="flex: 2;">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-              <polyline points="17 21 17 13 7 13 7 21"/>
-              <polyline points="7 3 7 8 15 8"/>
-            </svg>
-            <span>Guardar Credenciales</span>
-          </button>
-          <button id="btnTestTelegram" class="btn-action btn-action-tele" style="flex: 1;">
+      <!-- Tarjeta Telegram Bot & Centro de Notificaciones Push -->
+      <div class="config-card" style="grid-column: 1 / -1;">
+        <div class="config-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <line x1="22" y1="2" x2="11" y2="13"/>
               <polygon points="22 2 15 22 11 13 2 9 22 2"/>
             </svg>
-            <span>Probar Envío</span>
+            <span style="font-size: 1.05rem; font-weight: 800; color: var(--champagne);">Centro de Notificaciones Push & Telegram Bot SECOP II</span>
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <span id="tgConnectionBadge" class="entity-badge" style="background: rgba(16, 185, 129, 0.2); border: 1px solid var(--success); color: var(--success); font-size: 0.72rem;">🟢 Bot Conectado</span>
+            <button id="btnReloadTgHistory" class="btn-action" style="padding: 3px 8px; font-size: 0.72rem;">🔄 Refrescar</button>
+          </div>
+        </div>
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 14px; line-height: 1.5;">
+          Monitoreo estocástico y alertas en tiempo real vía Telegram Bot para <b>Licitaciones de Alta Afinidad</b>, <b>Adendas y Modificación de Cronograma (Ley 1882/2018)</b>, <b>Informes de Evaluación (Plazo de Observaciones)</b> y <b>Vigencias de Pólizas</b>.
+        </p>
+
+        <!-- Pestañas internas del Centro de Notificaciones -->
+        <div style="display: flex; gap: 8px; margin-bottom: 14px; border-bottom: 1px solid var(--hairline); padding-bottom: 8px; flex-wrap: wrap;">
+          <button id="tabTgCredsBtn" class="btn-action" style="font-size: 0.78rem; padding: 5px 12px; background: rgba(0, 136, 204, 0.18); border: 1px solid #0088cc; color: #38bdf8; font-weight: 700;">
+            🔑 Credenciales & Conexión
           </button>
+          <button id="tabTgCanalesBtn" class="btn-action" style="font-size: 0.78rem; padding: 5px 12px; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-warm);">
+            📢 Canales & Filtros de Alertas
+          </button>
+          <button id="tabTgSuscripBtn" class="btn-action" style="font-size: 0.78rem; padding: 5px 12px; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-warm);">
+            🔔 Procesos Monitoreados
+          </button>
+          <button id="tabTgLogBtn" class="btn-action" style="font-size: 0.78rem; padding: 5px 12px; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-warm);">
+            📜 Bitácora de Alertas Enviadas
+          </button>
+        </div>
+
+        <!-- PANEL 1: CREDENCIALES & CONEXIÓN -->
+        <div id="panelTgCreds">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 12px;">
+            <div>
+              <a href="https://t.me/SECOP_Agente_bot" target="_blank" rel="noopener noreferrer" class="btn-action btn-action-primary" style="margin-bottom: 10px; width: 100%; text-decoration: none; justify-content: center; gap: 8px;">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <line x1="22" y1="2" x2="11" y2="13"/>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+                <span>1. Abrir @SECOP_Agente_bot y pulsar 'Iniciar'</span>
+              </a>
+
+              <button id="btnAutoDetectChatId" class="btn-action" style="width: 100%; justify-content: center; border: 1px solid var(--gold-mid); background: rgba(212, 163, 89, 0.12); color: var(--champagne); gap: 8px;">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <circle cx="11" cy="11" r="8"/>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <span>2. Detectar mi Chat ID Automáticamente</span>
+              </button>
+            </div>
+
+            <div>
+              <div class="form-group" style="margin-bottom: 8px;">
+                <label class="form-label" style="font-size: 0.72rem;">Telegram Bot Token (desde @BotFather):</label>
+                <input type="password" id="cfgBotToken" class="form-input" style="font-size: 0.8rem; padding: 6px 10px;" placeholder="Ej: 1234567890:ABCdefGHIjklMNOpqrSTUvwxyz">
+              </div>
+
+              <div class="form-group" style="margin-bottom: 8px;">
+                <label class="form-label" style="font-size: 0.72rem;">Chat ID Principal (Número personal o grupo):</label>
+                <input type="text" id="cfgChatId" class="form-input" style="font-size: 0.8rem; padding: 6px 10px;" placeholder="Ej: 987654321 o -100123456789">
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button id="btnSaveTelegram" class="btn-save-cfg" style="flex: 2; padding: 8px 16px; font-size: 0.82rem;">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              </svg>
+              <span>Guardar Credenciales</span>
+            </button>
+            <button id="btnTestTelegram" class="btn-action btn-action-tele" style="flex: 1; padding: 8px 16px; font-size: 0.82rem;">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+              <span>Probar Envío</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- PANEL 2: CANALES & FILTROS DE ALERTAS -->
+        <div id="panelTgCanales" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span style="font-size: 0.8rem; font-weight: 700; color: var(--champagne);">Canales y Destinatarios Configurados</span>
+            <button id="btnNewTgChannel" class="btn-action" style="font-size: 0.75rem; padding: 4px 10px; background: rgba(0, 229, 255, 0.15); border: 1px solid var(--tech-cyan); color: var(--tech-cyan);">+ Agregar Canal o Grupo</button>
+          </div>
+          <div id="tgChannelsList" style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="text-align: center; padding: 20px; color: var(--text-faint); font-size: 0.8rem;">Cargando canales configurados...</div>
+          </div>
+        </div>
+
+        <!-- PANEL 3: PROCESOS MONITOREADOS EN TIEMPO REAL -->
+        <div id="panelTgSuscrip" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span style="font-size: 0.8rem; font-weight: 700; color: var(--champagne);">Procesos con Suscripción Activa de Alertas</span>
+            <span style="font-size: 0.72rem; color: var(--text-faint);">Reciben push inmediato al detectarse Adendas o Informes</span>
+          </div>
+          <div id="tgSubscriptionsList" style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="text-align: center; padding: 20px; color: var(--text-faint); font-size: 0.8rem;">No hay procesos suscritos aún. Puedes suscribir cualquier proceso desde su ficha de detalle.</div>
+          </div>
+        </div>
+
+        <!-- PANEL 4: BITÁCORA DE ALERTAS ENVIADAS -->
+        <div id="panelTgLog" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span style="font-size: 0.8rem; font-weight: 700; color: var(--champagne);">Últimas Notificaciones Push Enviadas</span>
+            <span style="font-size: 0.72rem; color: var(--text-faint);" id="tgLogCount">0 eventos registrados</span>
+          </div>
+          <div id="tgLogTableWrapper" style="max-height: 280px; overflow-y: auto; border: 1px solid var(--hairline); border-radius: var(--radius-sm);">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.72rem; text-align: left;">
+              <thead>
+                <tr style="background: var(--lacquer-deep); color: var(--text-faint); border-bottom: 1px solid var(--hairline);">
+                  <th style="padding: 6px 10px;">Fecha</th>
+                  <th style="padding: 6px 10px;">Tipo</th>
+                  <th style="padding: 6px 10px;">Título / Referencia</th>
+                  <th style="padding: 6px 10px;">Chat ID</th>
+                  <th style="padding: 6px 10px;">Estado</th>
+                </tr>
+              </thead>
+              <tbody id="tgLogTableBody">
+                <tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--text-faint);">Cargando bitácora de alertas...</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -1370,7 +1445,14 @@
             <line x1="22" y1="2" x2="11" y2="13"/>
             <polygon points="22 2 15 22 11 13 2 9 22 2"/>
           </svg>
-          <span>Telegram</span>
+          <span>Enviar a Telegram</span>
+        </button>
+        <button id="modalSubscribeTelegramBtn" class="btn-action" style="flex: 1; min-width: 150px; justify-content: center; background: rgba(0, 136, 204, 0.18); border: 1px solid #0088cc; color: #38bdf8;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span>🔔 Monitorear en Telegram</span>
         </button>
       </div>
     </div>
