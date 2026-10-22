@@ -1,7 +1,15 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const companyManager = require('../companyManager');
 const financialEngine = require('../financialEngine');
+const rupParser = require('../rupParser');
+
+// Configuración de multer en memoria para subida de PDFs (límite 15MB)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 }
+});
 
 // Middleware para inyectar usuario de sesión (temporalmente el admin por defecto)
 router.use(async (req, res, next) => {
@@ -92,6 +100,39 @@ router.post('/simular-plural', async (req, res) => {
   } catch (err) {
     console.error('Error en simulación plural:', err);
     res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+// POST /api/empresas/upload-rup - Analiza y extrae automáticamente datos de RUP desde PDF
+router.post('/upload-rup', upload.single('rup_pdf'), async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ ok: false, error: 'Debe adjuntar un archivo PDF de RUP o Estados Financieros.' });
+    }
+
+    const parsed = await rupParser.parseRUPBuffer(req.file.buffer);
+    
+    // Opcionalmente, precalcular indicadores con el motor financiero para mostrar en la previsualización
+    const indicadores = financialEngine.calculateRatios({
+      activo_corriente: parsed.activo_corriente,
+      pasivo_corriente: parsed.pasivo_corriente,
+      activo_total: parsed.activo_total,
+      pasivo_total: parsed.pasivo_total,
+      patrimonio: parsed.patrimonio,
+      utilidad_operacional: parsed.utilidad_operacional,
+      gastos_intereses: parsed.gastos_intereses
+    });
+
+    res.json({
+      ok: true,
+      data: {
+        ...parsed,
+        indicadores
+      }
+    });
+  } catch (err) {
+    console.error('Error procesando PDF de RUP:', err);
+    res.status(500).json({ ok: false, error: err.message });
   }
 });
 

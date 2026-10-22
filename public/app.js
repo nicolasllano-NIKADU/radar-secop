@@ -928,8 +928,93 @@ if (btnOpenNewCompany && companyModal) {
   btnOpenNewCompany.addEventListener('click', () => {
     document.getElementById('companyFormId').value = '';
     formCompany.reset();
+    const spinner = document.getElementById('rupUploadSpinner');
+    if (spinner) spinner.style.display = 'none';
     companyModal.classList.add('active');
   });
+}
+
+// Drag & Drop y Subida Asistida de PDF RUP
+const dropzoneRup = document.getElementById('dropzoneRup');
+const rupPdfInput = document.getElementById('rupPdfInput');
+const rupUploadSpinner = document.getElementById('rupUploadSpinner');
+
+if (dropzoneRup && rupPdfInput) {
+  dropzoneRup.addEventListener('click', () => rupPdfInput.click());
+
+  dropzoneRup.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzoneRup.style.background = 'rgba(212, 175, 55, 0.15)';
+  });
+
+  dropzoneRup.addEventListener('dragleave', () => {
+    dropzoneRup.style.background = 'rgba(212, 175, 55, 0.05)';
+  });
+
+  dropzoneRup.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzoneRup.style.background = 'rgba(212, 175, 55, 0.05)';
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleRupPdfFile(e.dataTransfer.files[0]);
+    }
+  });
+
+  rupPdfInput.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files[0]) {
+      handleRupPdfFile(e.target.files[0]);
+    }
+  });
+}
+
+async function handleRupPdfFile(file) {
+  if (!file.name.toLowerCase().endsWith('.pdf')) {
+    showToast('Por favor selecciona un archivo PDF válido');
+    return;
+  }
+
+  if (rupUploadSpinner) rupUploadSpinner.style.display = 'block';
+  showToast('Analizando PDF con IA y extrayendo balance...');
+
+  const formData = new FormData();
+  formData.append('rup_pdf', file);
+
+  try {
+    const res = await fetch('/api/empresas/upload-rup', {
+      method: 'POST',
+      body: formData
+    });
+    const json = await res.json();
+
+    if (!json.ok) {
+      throw new Error(json.error || 'Error al procesar el archivo');
+    }
+
+    const data = json.data;
+    // Autocompletar campos del formulario
+    if (data.nit) {
+      const parts = data.nit.split('-');
+      document.getElementById('compNit').value = parts[0] || '';
+      if (parts[1]) document.getElementById('compDv').value = parts[1];
+    }
+    if (data.razon_social) document.getElementById('compRazon').value = data.razon_social;
+    if (data.tamano_empresarial) {
+      document.getElementById('compTamano').value = data.tamano_empresarial === 'GRANDE' ? 'GRANDE' : 'MIPYME';
+    }
+
+    // Partidas de balance
+    if (data.activo_corriente) document.getElementById('compActivoCorriente').value = data.activo_corriente;
+    if (data.pasivo_corriente) document.getElementById('compPasivoCorriente').value = data.pasivo_corriente;
+    if (data.activo_total) document.getElementById('compActivoTotal').value = data.activo_total;
+    if (data.pasivo_total) document.getElementById('compPasivoTotal').value = data.pasivo_total;
+    if (data.utilidad_operacional) document.getElementById('compUtilidadOp').value = data.utilidad_operacional;
+    if (data.gastos_intereses) document.getElementById('compGastosInt').value = data.gastos_intereses;
+
+    showToast(`✨ Datos RUP extraídos: ${data.razon_social || 'Empresa'}`);
+  } catch (err) {
+    showToast(`Error: ${err.message}`);
+  } finally {
+    if (rupUploadSpinner) rupUploadSpinner.style.display = 'none';
+  }
 }
 
 function closeCompanyModal() {

@@ -671,7 +671,18 @@
         </button>
       </div>
 
-      <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--champagne); margin-bottom: 12px;">Registrar Empresa o Aliado</h3>
+      <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--champagne); margin-bottom: 8px;">Registrar Empresa o Aliado</h3>
+
+      <!-- Zona de Carga RUP Asistida / Smart Dropzone -->
+      <div id="dropzoneRup" style="background: rgba(212, 175, 55, 0.05); border: 2px dashed var(--gold); border-radius: var(--radius-sm); padding: 14px; text-align: center; margin-bottom: 14px; cursor: pointer; transition: all 0.2s ease;">
+        <input type="file" id="rupPdfInput" accept="application/pdf" style="display: none;">
+        <div style="font-size: 1.3rem; margin-bottom: 4px;">📄 ✨</div>
+        <div style="font-size: 0.82rem; font-weight: 700; color: var(--champagne);">Cargar Certificado RUP / Estados Financieros (PDF)</div>
+        <div style="font-size: 0.72rem; color: var(--text-faint); margin-top: 2px;">Extracción inteligente automática con IA Flash y motor de auditoría. Haz clic o arrastra el archivo.</div>
+        <div id="rupUploadSpinner" style="display: none; margin-top: 8px; font-size: 0.78rem; color: var(--tech-cyan);">
+          ⏳ Procesando documento y calculando indicadores...
+        </div>
+      </div>
 
       <form id="formCompany" style="display: flex; flex-direction: column; gap: 12px;">
         <input type="hidden" id="companyFormId" value="">
