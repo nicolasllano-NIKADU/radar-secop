@@ -11,7 +11,8 @@ const SCHEMAS = [
   'schema_pipeline.sql',
   'schema_auth.sql',
   'schema_competencia.sql',
-  'schema_predictivo.sql'
+  'schema_predictivo.sql',
+  'schema_observaciones_puntaje.sql'
 ];
 
 async function runAllMigrations() {

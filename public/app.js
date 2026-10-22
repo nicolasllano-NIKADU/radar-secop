@@ -4009,6 +4009,414 @@ document.getElementById('bidDocsModal')?.addEventListener('click', (e) => {
   }
 });
 
+// ==================== MÓDULO 10: SIMULADOR DE 100 PUNTOS, DESEMPATES Y OBSERVACIONES AL PLIEGO ====================
+
+let currentScoringProcesoId = null;
+let currentScoringData = null;
+let currentObsProcesoId = null;
+let currentObsDetectedList = [];
+
+// 1. Conexión de botones desde detailModal
+document.getElementById('modalBtnScoringStrategy')?.addEventListener('click', () => {
+  if (!activeModalId) return;
+  abrirModalScoring(activeModalId);
+});
+
+document.getElementById('modalBtnObservations')?.addEventListener('click', () => {
+  if (!activeModalId) return;
+  abrirModalObservaciones(activeModalId);
+});
+
+// Conexión de botones desde pliegoAuditModal
+document.getElementById('btnAuditToScoring')?.addEventListener('click', () => {
+  if (!currentAuditProcesoId) return;
+  document.getElementById('pliegoAuditModal')?.classList.remove('open');
+  abrirModalScoring(currentAuditProcesoId);
+});
+
+document.getElementById('btnAuditToObservations')?.addEventListener('click', () => {
+  if (!currentAuditProcesoId) return;
+  document.getElementById('pliegoAuditModal')?.classList.remove('open');
+  abrirModalObservaciones(currentAuditProcesoId);
+});
+
+// ==================== SIMULADOR DE PONDERACIÓN (100 PUNTOS) ====================
+
+function abrirModalScoring(procesoId) {
+  const opp = oportunidades.find(o => o.id === procesoId);
+  if (!opp) return;
+
+  currentScoringProcesoId = procesoId;
+
+  const refEl = document.getElementById('scoringProcesoRef');
+  const metaEl = document.getElementById('scoringProcesoMeta');
+  if (refEl) refEl.textContent = `Proceso: ${opp.referencia || opp.id} — ${opp.nombre || opp.objeto}`;
+  if (metaEl) metaEl.textContent = `${opp.entidad} • Presupuesto Oficial: ${formatCOP(opp.precio_base)}`;
+
+  // Valor por defecto de la oferta: 98% del presupuesto oficial
+  const inputOferta = document.getElementById('scoringOfertaPrecio');
+  if (inputOferta) {
+    const po = parseFloat(opp.precio_base || 500000000);
+    inputOferta.value = Math.round(po * 0.98);
+  }
+
+  // Abrir modal
+  document.getElementById('scoringModal')?.classList.add('open');
+
+  // Ejecutar primera simulación
+  ejecutarSimulacionScoring();
+}
+
+async function ejecutarSimulacionScoring() {
+  if (!currentScoringProcesoId) return;
+  const opp = oportunidades.find(o => o.id === currentScoringProcesoId);
+  const po = parseFloat(opp?.precio_base || 1000000000);
+
+  const precioOferta = parseFloat(document.getElementById('scoringOfertaPrecio')?.value) || (po * 0.98);
+  const acreditaIndustriaNacional = document.getElementById('scoringCheckIndNac')?.checked !== false;
+  const acreditaPersonalDiscapacidad = !!document.getElementById('scoringCheckDiscapacidad')?.checked;
+  const esEmpresaMujeres = !!document.getElementById('scoringCheckMujeres')?.checked;
+  const calidadTecnicaPuntos = parseFloat(document.getElementById('scoringCalidadRange')?.value) || 15;
+
+  const targetEmpresa = userCompanies.find(c => c.es_propia) || userCompanies[0];
+  const empresaId = targetEmpresa?.id || null;
+
+  try {
+    const res = await fetch('/api/estrategia/puntaje/simular', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        procesoId: currentScoringProcesoId,
+        empresaId,
+        precioOferta,
+        acreditaIndustriaNacional,
+        esServicio: false,
+        acreditaPersonalDiscapacidad,
+        esEmpresaMujeres,
+        calidadTecnicaPuntos,
+        ponderacionConfig: { presupuestoOficial: po }
+      })
+    });
+
+    const json = await res.json();
+    if (!json.success || !json.data) throw new Error(json.error || 'Error al calcular ponderación');
+
+    currentScoringData = json.data;
+    renderResultadoScoring(json.data);
+  } catch (err) {
+    console.error('Error calculando scoring:', err);
+    showToast('Error en cálculo de ponderación: ' + err.message);
+  }
+}
+
+function renderResultadoScoring(data) {
+  const { calificacion, desgloseCriterios, desempate } = data;
+
+  const puntajeEl = document.getElementById('scoringPuntajeBig');
+  const badgeEl = document.getElementById('scoringNivelBadge');
+  if (puntajeEl) puntajeEl.textContent = calificacion.puntajeTotal;
+  if (badgeEl) {
+    badgeEl.textContent = calificacion.nivelBadge;
+    badgeEl.style.background = calificacion.color;
+  }
+
+  // Desglose de Criterios
+  const tbody = document.getElementById('scoringDesgloseTbody');
+  if (tbody) {
+    tbody.innerHTML = desgloseCriterios.map(c => `
+      <tr style="border-bottom: 1px solid var(--hairline);">
+        <td style="padding: 6px 0; color: var(--champagne); font-weight: 700;">${c.criterio}</td>
+        <td style="padding: 6px 4px; color: var(--text-warm);">${c.detalle}</td>
+        <td style="padding: 6px 0; text-align: right; font-weight: 800; color: var(--tech-cyan); white-space: nowrap;">
+          ${c.puntosAsignados} / ${c.puntosMaximos} pts
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // Árbol de Desempates
+  const blindajeBadge = document.getElementById('scoringBlindajeBadge');
+  const dictamenEl = document.getElementById('scoringDesempateDictamen');
+  const stepsEl = document.getElementById('scoringDesempateSteps');
+
+  if (blindajeBadge) blindajeBadge.textContent = `Blindaje ante Empates: ${desempate.blindajeDesempateScore}%`;
+  if (dictamenEl) dictamenEl.textContent = desempate.diagnostico;
+
+  if (stepsEl) {
+    stepsEl.innerHTML = desempate.arbolDesempate.map(s => `
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 6px; background: rgba(255,255,255,0.02); border-radius: 3px;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="background: ${s.aplica ? '#10b981' : 'var(--hairline)'}; color: #fff; font-size: 0.65rem; font-weight: 800; padding: 1px 6px; border-radius: 3px;">
+            ${s.aplica ? 'APLICA' : 'NO APLICA'}
+          </span>
+          <span style="color: var(--text-warm);">Regla ${s.orden}: ${s.criterio}</span>
+        </div>
+        <span style="font-size: 0.68rem; color: var(--text-faint);">${s.fundamento}</span>
+      </div>
+    `).join('');
+  }
+}
+
+// Event Listeners Scoring
+document.getElementById('scoringCalidadRange')?.addEventListener('input', (e) => {
+  const lbl = document.getElementById('scoringCalidadLabel');
+  if (lbl) lbl.textContent = `${e.target.value} pts`;
+});
+
+document.getElementById('btnRecalcularScoring')?.addEventListener('click', ejecutarSimulacionScoring);
+
+document.getElementById('btnGuardarEstrategiaScoring')?.addEventListener('click', async () => {
+  if (!currentScoringData) return;
+  try {
+    const res = await fetch('/api/estrategia/puntaje/guardar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        proceso_id: currentScoringProcesoId,
+        empresa_id: currentScoringData.oferente.id,
+        puntaje_economico: currentScoringData.calificacion.puntajeEconomico,
+        puntaje_industria_nacional: currentScoringData.calificacion.puntajeIndustriaNacional,
+        puntaje_discapacidad: currentScoringData.calificacion.puntajeDiscapacidad,
+        puntaje_mipyme_mujeres: currentScoringData.calificacion.puntajeMujeres,
+        puntaje_calidad_tecnica: currentScoringData.calificacion.puntajeCalidad,
+        puntaje_total: currentScoringData.calificacion.puntajeTotal,
+        criterios_desempate: currentScoringData.desempate
+      })
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast('💾 Estrategia de ponderación guardada en base de datos');
+    }
+  } catch (err) {
+    showToast('Error al guardar estrategia: ' + err.message);
+  }
+});
+
+// Cerrar modal scoring
+document.getElementById('btnCloseScoringModal')?.addEventListener('click', () => {
+  document.getElementById('scoringModal')?.classList.remove('open');
+});
+document.getElementById('btnCloseScoringModalBtn')?.addEventListener('click', () => {
+  document.getElementById('scoringModal')?.classList.remove('open');
+});
+document.getElementById('scoringModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'scoringModal') {
+    document.getElementById('scoringModal')?.classList.remove('open');
+  }
+});
+
+// ==================== OBSERVACIONES AL PLIEGO DE CONDICIONES ====================
+
+async function abrirModalObservaciones(procesoId) {
+  const opp = oportunidades.find(o => o.id === procesoId);
+  if (!opp) return;
+
+  currentObsProcesoId = procesoId;
+
+  const refEl = document.getElementById('obsProcesoRef');
+  const metaEl = document.getElementById('obsProcesoMeta');
+  if (refEl) refEl.textContent = `Proceso: ${opp.referencia || opp.id} — ${opp.nombre || opp.objeto}`;
+  if (metaEl) metaEl.textContent = `${opp.entidad} • Objeto Contractual`;
+
+  // Abrir modal
+  document.getElementById('observationsModal')?.classList.add('open');
+
+  // Consultar cláusulas detectadas
+  const selectEl = document.getElementById('obsClausulasSelect');
+  if (selectEl) selectEl.innerHTML = '<option value="">Analizando requisitos y pliego...</option>';
+
+  try {
+    const res = await fetch('/api/pliego/observaciones/analizar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ procesoId })
+    });
+    const json = await res.json();
+    if (json.success && Array.isArray(json.data)) {
+      currentObsDetectedList = json.data;
+      if (selectEl) {
+        selectEl.innerHTML = `
+          <option value="">-- Selecciona una cláusula detectada para autocompletar --</option>
+          ${json.data.map((c, idx) => `
+            <option value="${idx}">⚡ [${c.tipo}] ${c.titulo}</option>
+          `).join('')}
+          <option value="CUSTOM">✏️ Redactar Observación Personalizada</option>
+        `;
+      }
+      if (json.data.length > 0) {
+        seleccionarClausulaObs(0);
+      }
+    }
+  } catch (err) {
+    console.error('Error analizando observaciones:', err);
+    if (selectEl) selectEl.innerHTML = '<option value="CUSTOM">✏️ Redactar Observación Personalizada</option>';
+  }
+}
+
+function seleccionarClausulaObs(index) {
+  if (index === 'CUSTOM' || index === '' || !currentObsDetectedList[index]) {
+    document.getElementById('obsInputTitulo').value = 'Observación al Pliego de Condiciones';
+    document.getElementById('obsTextareaClausula').value = '';
+    document.getElementById('obsTextareaArgumento').value = 'De conformidad con los principios de transparencia y selección objetiva (Ley 80/1993)...';
+    document.getElementById('obsTextareaPeticion').value = 'Solicitamos respetuosamente modificar la exigencia observada.';
+  } else {
+    const item = currentObsDetectedList[index];
+    document.getElementById('obsInputTitulo').value = item.titulo || '';
+    document.getElementById('obsTextareaClausula').value = item.clausula || '';
+    document.getElementById('obsTextareaArgumento').value = item.argumento || '';
+    document.getElementById('obsTextareaPeticion').value = item.peticion || '';
+  }
+  actualizarPreviewObservacion();
+}
+
+document.getElementById('obsClausulasSelect')?.addEventListener('change', (e) => {
+  seleccionarClausulaObs(e.target.value);
+});
+
+async function actualizarPreviewObservacion() {
+  const container = document.getElementById('obsDocPreviewContainer');
+  const titulo = document.getElementById('obsInputTitulo')?.value;
+  const clausulaImpugnada = document.getElementById('obsTextareaClausula')?.value;
+  const argumentoJuridico = document.getElementById('obsTextareaArgumento')?.value;
+  const peticionConcreta = document.getElementById('obsTextareaPeticion')?.value;
+
+  const targetEmpresa = userCompanies.find(c => c.es_propia) || userCompanies[0];
+  const empresaId = targetEmpresa?.id || null;
+
+  try {
+    const res = await fetch('/api/pliego/observaciones/generar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        procesoId: currentObsProcesoId,
+        empresaId,
+        titulo,
+        clausulaImpugnada,
+        argumentoJuridico,
+        peticionConcreta
+      })
+    });
+    const json = await res.json();
+    if (json.success && json.data?.documentoHtml) {
+      if (container) container.innerHTML = json.data.documentoHtml;
+    }
+  } catch (err) {
+    console.error('Error generando preview de observación:', err);
+  }
+}
+
+// Regenerar preview al cambiar los textos
+['obsInputTitulo', 'obsTextareaClausula', 'obsTextareaArgumento', 'obsTextareaPeticion'].forEach(id => {
+  document.getElementById(id)?.addEventListener('blur', actualizarPreviewObservacion);
+});
+
+// Copiar texto del memorial
+document.getElementById('btnCopyObsDoc')?.addEventListener('click', () => {
+  const container = document.getElementById('obsDocPreviewContainer');
+  if (!container) return;
+  const text = container.innerText || container.textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('📋 Escrito formal copiado al portapapeles');
+  }).catch(() => {
+    showToast('No se pudo copiar');
+  });
+});
+
+// Descargar Memorial en PDF
+document.getElementById('btnDownloadObsPdf')?.addEventListener('click', async () => {
+  const titulo = document.getElementById('obsInputTitulo')?.value || 'Observaciones';
+  const clausulaImpugnada = document.getElementById('obsTextareaClausula')?.value;
+  const argumentoJuridico = document.getElementById('obsTextareaArgumento')?.value;
+  const peticionConcreta = document.getElementById('obsTextareaPeticion')?.value;
+
+  const targetEmpresa = userCompanies.find(c => c.es_propia) || userCompanies[0];
+  const empresaId = targetEmpresa?.id || null;
+
+  const btn = document.getElementById('btnDownloadObsPdf');
+  const orig = btn ? btn.innerHTML : '';
+  if (btn) btn.innerHTML = '⏳ Generando PDF...';
+
+  try {
+    const res = await fetch('/api/pliego/observaciones/descargar-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        procesoId: currentObsProcesoId,
+        empresaId,
+        titulo,
+        clausulaImpugnada,
+        argumentoJuridico,
+        peticionConcreta
+      })
+    });
+
+    if (!res.ok) throw new Error('Error compilando memorial PDF');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Observacion_${(currentObsProcesoId || 'Pliego').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+    showToast('⚖️ Memorial formal de observaciones descargado exitosamente');
+  } catch (err) {
+    showToast('Error al descargar PDF: ' + err.message);
+  } finally {
+    if (btn) btn.innerHTML = orig;
+  }
+});
+
+// Guardar observación en base de datos
+document.getElementById('btnGuardarObsDb')?.addEventListener('click', async () => {
+  const titulo = document.getElementById('obsInputTitulo')?.value || 'Observación al Pliego';
+  const clausulaImpugnada = document.getElementById('obsTextareaClausula')?.value;
+  const argumentoJuridico = document.getElementById('obsTextareaArgumento')?.value;
+  const peticionConcreta = document.getElementById('obsTextareaPeticion')?.value;
+  const docHtml = document.getElementById('obsDocPreviewContainer')?.innerHTML || '';
+
+  const targetEmpresa = userCompanies.find(c => c.es_propia) || userCompanies[0];
+  const empresaId = targetEmpresa?.id || null;
+
+  try {
+    const res = await fetch('/api/pliego/observaciones/guardar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        procesoId: currentObsProcesoId,
+        empresaId,
+        tipoObservacion: 'BORRADOR',
+        titulo,
+        clausulaImpugnada,
+        argumentoJuridico,
+        peticionConcreta,
+        documentoGenerado: docHtml
+      })
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast('💾 Observación guardada en el historial del proceso');
+    }
+  } catch (err) {
+    showToast('Error guardando observación: ' + err.message);
+  }
+});
+
+// Cerrar modal observaciones
+document.getElementById('btnCloseObservationsModal')?.addEventListener('click', () => {
+  document.getElementById('observationsModal')?.classList.remove('open');
+});
+document.getElementById('btnCloseObsModalBtn')?.addEventListener('click', () => {
+  document.getElementById('observationsModal')?.classList.remove('open');
+});
+document.getElementById('observationsModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'observationsModal') {
+    document.getElementById('observationsModal')?.classList.remove('open');
+  }
+});
+
 // ==================== INICIALIZACIÓN ====================
 window.addEventListener('DOMContentLoaded', () => {
   checkUserSession();

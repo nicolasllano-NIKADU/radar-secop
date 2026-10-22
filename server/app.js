@@ -22,6 +22,8 @@ const competitiveIntelligence = require('./competitiveIntelligence');
 const predictiveEngine = require('./predictiveEngine');
 const pliegoAuditor = require('./pliegoAuditor');
 const bidDocumentGenerator = require('./bidDocumentGenerator');
+const scoringEngine = require('./scoringEngine');
+const pliegoObservationsEngine = require('./pliegoObservationsEngine');
 const initDb = require('./initDb');
 
 const app = express();
@@ -949,6 +951,217 @@ app.all('/api/licitacion/descargar-pdf', async (req, res) => {
     res.send(pdfBuffer);
   } catch (err) {
     console.error('Error generando paquete PDF:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== MÓDULO: ESTRATEGIA DE PONDERACIÓN (100 PUNTOS) Y OBSERVACIONES AL PLIEGO ====================
+
+// 1. Simulación de Ponderación Oficial y Desempates (Ley 2069/2020)
+app.post('/api/estrategia/puntaje/simular', async (req, res) => {
+  try {
+    const {
+      procesoId,
+      empresaId,
+      precioOferta,
+      acreditaIndustriaNacional,
+      esServicio,
+      acreditaPersonalDiscapacidad,
+      esEmpresaMujeres,
+      calidadTecnicaPuntos,
+      ponderacionConfig
+    } = req.body;
+
+    if (!procesoId) {
+      return res.status(400).json({ success: false, error: 'procesoId es requerido' });
+    }
+
+    const resultado = await scoringEngine.calcularPuntajeLicitacion({
+      procesoId,
+      empresaId: empresaId || null,
+      precioOferta,
+      acreditaIndustriaNacional: acreditaIndustriaNacional !== false,
+      esServicio: !!esServicio,
+      acreditaPersonalDiscapacidad: !!acreditaPersonalDiscapacidad,
+      esEmpresaMujeres: !!esEmpresaMujeres,
+      calidadTecnicaPuntos: calidadTecnicaPuntos !== undefined ? parseFloat(calidadTecnicaPuntos) : 15,
+      ponderacionConfig
+    });
+
+    res.json({ success: true, data: resultado });
+  } catch (err) {
+    console.error('Error simulando puntaje licitatorio:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/estrategia/puntaje/guardar', async (req, res) => {
+  try {
+    const guardado = await scoringEngine.guardarEstrategiaPuntaje(req.body);
+    res.json({ success: true, data: guardado });
+  } catch (err) {
+    console.error('Error guardando estrategia de puntaje:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/estrategia/puntaje/:procesoId', async (req, res) => {
+  try {
+    const { empresaId } = req.query;
+    const est = await scoringEngine.getEstrategiaPuntaje(req.params.procesoId, empresaId);
+    res.json({ success: true, data: est });
+  } catch (err) {
+    console.error('Error obteniendo estrategia de puntaje:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 2. Detección y Generación de Observaciones al Pliego Borrador / Definitivo
+app.post('/api/pliego/observaciones/analizar', async (req, res) => {
+  try {
+    const { procesoId, matrizBrechas } = req.body;
+    let proceso = req.body.proceso;
+
+    if (!proceso && procesoId) {
+      const dbPostgres = require('./dbPostgres');
+      const r = await dbPostgres.query('SELECT * FROM oportunidades WHERE id = $1', [procesoId]);
+      proceso = r.rows[0] || { id: procesoId, referencia: procesoId, entidad: 'Entidad Estatal' };
+    }
+
+    const impugnaciones = pliegoObservationsEngine.detectarClausulasImpugnables({
+      proceso: proceso || { id: procesoId, referencia: procesoId },
+      matrizBrechas: matrizBrechas || []
+    });
+
+    res.json({ success: true, data: impugnaciones });
+  } catch (err) {
+    console.error('Error analizando observaciones al pliego:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/pliego/observaciones/generar', async (req, res) => {
+  try {
+    const { procesoId, empresaId, titulo, clausulaImpugnada, argumentoJuridico, peticionConcreta, ciudad } = req.body;
+
+    let proceso = req.body.proceso;
+    if (!proceso && procesoId) {
+      const dbPostgres = require('./dbPostgres');
+      const r = await dbPostgres.query('SELECT * FROM oportunidades WHERE id = $1', [procesoId]);
+      proceso = r.rows[0] || { id: procesoId, referencia: procesoId, entidad: 'Entidad Estatal', objeto: 'Contratación estatal' };
+    }
+
+    let oferente = req.body.oferente;
+    if (!oferente) {
+      if (empresaId) {
+        oferente = await companyManager.getCompanyById(parseInt(empresaId, 10));
+      } else {
+        const all = await companyManager.getAllCompanies();
+        oferente = all.find(c => c.es_propia) || all[0];
+      }
+    }
+
+    if (!oferente) {
+      return res.status(400).json({ success: false, error: 'Se requiere una empresa registrada' });
+    }
+
+    const documentoHtml = pliegoObservationsEngine.generarDocumentoObservacionHtml({
+      proceso,
+      oferente,
+      titulo,
+      clausulaImpugnada,
+      argumentoJuridico,
+      peticionConcreta,
+      ciudad: ciudad || 'Bogotá D.C.'
+    });
+
+    res.json({
+      success: true,
+      data: {
+        proceso,
+        oferente,
+        titulo,
+        documentoHtml
+      }
+    });
+  } catch (err) {
+    console.error('Error generando documento de observaciones:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.all('/api/pliego/observaciones/descargar-pdf', async (req, res) => {
+  try {
+    const params = req.method === 'POST' ? req.body : req.query;
+    const { procesoId, empresaId, titulo, clausulaImpugnada, argumentoJuridico, peticionConcreta, ciudad } = params;
+
+    let proceso = params.proceso;
+    if (!proceso && procesoId) {
+      const dbPostgres = require('./dbPostgres');
+      const r = await dbPostgres.query('SELECT * FROM oportunidades WHERE id = $1', [procesoId]);
+      proceso = r.rows[0] || { id: procesoId, referencia: procesoId, entidad: 'Entidad Estatal' };
+    }
+
+    let oferente = params.oferente;
+    if (!oferente) {
+      if (empresaId) {
+        oferente = await companyManager.getCompanyById(parseInt(empresaId, 10));
+      } else {
+        const all = await companyManager.getAllCompanies();
+        oferente = all.find(c => c.es_propia) || all[0];
+      }
+    }
+
+    if (!proceso || !oferente) {
+      return res.status(400).json({ success: false, error: 'Datos de proceso u oferente insuficientes' });
+    }
+
+    const pdfBuffer = await pliegoObservationsEngine.generarDocumentoObservacionPdf({
+      proceso,
+      oferente,
+      titulo: titulo || 'Observaciones al Pliego',
+      clausulaImpugnada: clausulaImpugnada || 'Cláusula observada en el pliego',
+      argumentoJuridico: argumentoJuridico || 'Fundamento legal en Ley 80/1993 y Ley 1150/2007',
+      peticionConcreta: peticionConcreta || 'Solicitud de modificación al pliego',
+      ciudad: ciudad || 'Bogotá D.C.'
+    });
+
+    const safeRef = (proceso.referencia || 'Observacion').replace(/[^a-zA-Z0-9_-]/g, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Observacion_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error descargando PDF de observaciones:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/pliego/observaciones/guardar', async (req, res) => {
+  try {
+    const { procesoId, empresaId, tipoObservacion, titulo, clausulaImpugnada, argumentoJuridico, peticionConcreta, documentoGenerado } = req.body;
+    const guardada = await pliegoObservationsEngine.guardarObservacion({
+      procesoId,
+      empresaId,
+      tipoObservacion,
+      titulo,
+      clausulaImpugnada,
+      argumentoJuridico,
+      peticionConcreta,
+      documentoGenerado
+    });
+    res.json({ success: true, data: guardada });
+  } catch (err) {
+    console.error('Error guardando observación en historial:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/pliego/observaciones/historial/:procesoId', async (req, res) => {
+  try {
+    const historial = await pliegoObservationsEngine.listarObservaciones(req.params.procesoId);
+    res.json({ success: true, count: historial.length, data: historial });
+  } catch (err) {
+    console.error('Error listando observaciones de proceso:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
