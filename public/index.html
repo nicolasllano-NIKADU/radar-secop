@@ -1116,6 +1116,15 @@
           </svg>
           <span>⚖️ Observaciones Pliego</span>
         </button>
+        <button id="modalBtnEvaluationChallenge" class="btn-action" style="flex: 1; min-width: 140px; justify-content: center; background: rgba(225, 29, 72, 0.15); border: 1px solid #e11d48; color: #fda4af;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/>
+            <line x1="13" y1="19" x2="19" y2="13"/>
+            <line x1="16" y1="16" x2="20" y2="20"/>
+            <line x1="19" y1="21" x2="21" y2="19"/>
+          </svg>
+          <span>⚔️ Impugnar / Subsanar</span>
+        </button>
         <button id="modalNotifyBtn" class="btn-action btn-action-tele" style="flex: 1; min-width: 140px; justify-content: center;">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <line x1="22" y1="2" x2="11" y2="13"/>
@@ -1940,6 +1949,143 @@
             ⬇️ Descargar Memorial PDF (SECOP II)
           </button>
           <button id="btnCloseObsModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Traslado del Informe de Evaluación, Impugnaciones y Subsanaciones -->
+  <div id="evaluationChallengeModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 940px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="entity-badge" style="background: #e11d48; color: #fff; font-weight: 800;">INFORME DE EVALUACIÓN</div>
+          <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-warm);">Impugnación de Competidores & Subsanaciones Documentales</span>
+        </div>
+        <button id="btnCloseEvalChallengeModal" class="btn-close-modal" aria-label="Cerrar modal">✕</button>
+      </div>
+
+      <div style="margin-top: 8px; border-bottom: 1px solid var(--hairline); padding-bottom: 10px;">
+        <h4 id="evalProcesoRef" style="font-size: 1.05rem; color: var(--champagne); margin-bottom: 2px;">Proceso: --</h4>
+        <div id="evalProcesoMeta" style="font-size: 0.78rem; color: var(--text-faint);">Entidad • Término Legal de Traslado (Ley 1882/2018)</div>
+      </div>
+
+      <!-- Pestañas de Acción -->
+      <div style="margin-top: 10px; display: flex; gap: 8px; border-bottom: 1px solid var(--hairline); padding-bottom: 6px;">
+        <button id="tabEvalBtnImpugnar" class="btn-action" style="font-size: 0.78rem; padding: 6px 14px; background: rgba(225, 29, 72, 0.2); border: 1px solid #e11d48; color: #fda4af; font-weight: 700;">
+          ⚔️ Impugnar Competidor (Causales de Rechazo)
+        </button>
+        <button id="tabEvalBtnSubsanar" class="btn-action" style="font-size: 0.78rem; padding: 6px 14px; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-warm);">
+          🛡️ Subsanar Nuestra Oferta (Defensa Propia)
+        </button>
+        <button id="tabEvalBtnHistorial" class="btn-action" style="font-size: 0.78rem; padding: 6px 14px; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-warm);">
+          📋 Historial de Memoriales
+        </button>
+      </div>
+
+      <!-- Contenedor Pestaña 1: Impugnar Competidor -->
+      <div id="evalTabContainerImpugnar" style="margin-top: 12px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
+          <div>
+            <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Razón Social o Nombre del Competidor a Impugnar:</label>
+            <input type="text" id="evalCompetidorNombre" placeholder="Ej. CONSORCIO VIAL BOGOTA 2026" style="width: 100%; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--champagne); padding: 5px 8px; font-size: 0.78rem; border-radius: 4px;">
+          </div>
+          <div>
+            <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 2px;">NIT del Competidor (Opcional):</label>
+            <input type="text" id="evalCompetidorNit" placeholder="Ej. 901.234.567-8" style="width: 100%; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--champagne); padding: 5px 8px; font-size: 0.78rem; border-radius: 4px;">
+          </div>
+        </div>
+
+        <div>
+          <label style="font-size: 0.72rem; font-weight: 700; color: #fda4af; display: block; margin-bottom: 2px;">Causal Legal de Rechazo Obligatorio (ANCP-CCE):</label>
+          <select id="evalCausalSelect" style="width: 100%; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--champagne); padding: 6px 10px; font-size: 0.78rem; border-radius: 4px;"></select>
+        </div>
+
+        <div>
+          <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Hechos y Antecedentes (Descripción Fáctica de la Causal):</label>
+          <textarea id="evalHechosTextarea" rows="2" style="width: 100%; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--champagne); padding: 5px 8px; font-size: 0.78rem; border-radius: 4px; resize: vertical;"></textarea>
+        </div>
+
+        <div>
+          <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Fundamentos Jurídicos y Doctrina Vinculante ANCP-CCE:</label>
+          <textarea id="evalFundamentoTextarea" rows="3" style="width: 100%; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--champagne); padding: 5px 8px; font-size: 0.78rem; border-radius: 4px; resize: vertical;"></textarea>
+        </div>
+
+        <div>
+          <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Petición Concreta (Solicitud de Rechazo y Descalificación):</label>
+          <textarea id="evalPeticionTextarea" rows="2" style="width: 100%; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--champagne); padding: 5px 8px; font-size: 0.78rem; border-radius: 4px; resize: vertical;"></textarea>
+        </div>
+      </div>
+
+      <!-- Contenedor Pestaña 2: Subsanar Nuestra Oferta -->
+      <div id="evalTabContainerSubsanar" style="margin-top: 12px; display: none; flex-direction: column; gap: 10px;">
+        <div>
+          <label style="font-size: 0.72rem; font-weight: 700; color: #38bdf8; display: block; margin-bottom: 2px;">Fundamento de Subsanabilidad o Reorganización Documental:</label>
+          <select id="evalSubsanarCausalSelect" style="width: 100%; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--champagne); padding: 6px 10px; font-size: 0.78rem; border-radius: 4px;"></select>
+        </div>
+
+        <div>
+          <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Requerimiento de la Entidad / Hechos de la Subsanación:</label>
+          <textarea id="evalSubsanarHechosTextarea" rows="2" style="width: 100%; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--champagne); padding: 5px 8px; font-size: 0.78rem; border-radius: 4px; resize: vertical;"></textarea>
+        </div>
+
+        <div>
+          <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Sustento Legal (Prevalencia del Derecho Sustancial - Art. 228 C.P. y Ley 1882/2018):</label>
+          <textarea id="evalSubsanarFundamentoTextarea" rows="3" style="width: 100%; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--champagne); padding: 5px 8px; font-size: 0.78rem; border-radius: 4px; resize: vertical;"></textarea>
+        </div>
+
+        <div>
+          <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Petición Concreta (Solicitud de Habilitación Plena):</label>
+          <textarea id="evalSubsanarPeticionTextarea" rows="2" style="width: 100%; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--champagne); padding: 5px 8px; font-size: 0.78rem; border-radius: 4px; resize: vertical;"></textarea>
+        </div>
+      </div>
+
+      <!-- Contenedor Pestaña 3: Historial -->
+      <div id="evalTabContainerHistorial" style="margin-top: 12px; display: none; max-height: 250px; overflow-y: auto;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem;">
+          <thead>
+            <tr style="background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--hairline); color: var(--text-faint);">
+              <th style="padding: 6px 8px;">Tipo</th>
+              <th style="padding: 6px 8px;">Título / Causal</th>
+              <th style="padding: 6px 8px;">Competidor</th>
+              <th style="padding: 6px 8px;">Fecha</th>
+              <th style="padding: 6px 8px; text-align: center;">Estado</th>
+            </tr>
+          </thead>
+          <tbody id="evalHistorialTbody">
+            <tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--text-faint);">Cargando historial...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Preview del Memorial Formal -->
+      <div id="evalPreviewWrapper" style="margin-top: 12px;">
+        <div style="font-size: 0.78rem; font-weight: 700; color: var(--champagne); margin-bottom: 4px; display: flex; justify-content: space-between;">
+          <span>📄 Vista Previa del Memorial Jurídico para SECOP II</span>
+          <button id="btnActualizarEvalPreview" class="btn-action" style="padding: 2px 8px; font-size: 0.7rem; background: var(--lacquer-surface); border: 1px solid var(--hairline);">🔄 Refrescar</button>
+        </div>
+        <div id="evalDocPreviewContainer" style="background: #ffffff; color: #0f172a; border-radius: 6px; padding: 20px; max-height: 220px; overflow-y: auto; font-family: 'Times New Roman', Times, serif; font-size: 10pt; line-height: 1.45; box-shadow: inset 0 2px 6px rgba(0,0,0,0.2);">
+          <div style="text-align: center; color: #64748b; padding: 30px;">Cargando vista previa del memorial...</div>
+        </div>
+      </div>
+
+      <!-- Footer Actions -->
+      <div style="margin-top: 14px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; border-top: 1px solid var(--hairline); padding-top: 12px;">
+        <div style="display: flex; gap: 8px;">
+          <button id="btnCopyEvalDoc" class="btn-action" style="font-size: 0.8rem; padding: 6px 12px; background: rgba(0, 229, 255, 0.12); border: 1px solid var(--tech-cyan); color: var(--tech-cyan);">
+            📋 Copiar Texto
+          </button>
+          <button id="btnGuardarEvalDb" class="btn-action" style="font-size: 0.8rem; padding: 6px 12px; background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #6ee7b7;">
+            💾 Guardar en Historial
+          </button>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button id="btnDownloadEvalPdf" class="btn-action btn-action-primary" style="font-size: 0.82rem; padding: 7px 18px; background: #e11d48; color: #fff; font-weight: 700; border: none; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.35);">
+            ⬇️ Descargar Memorial PDF (SECOP II)
+          </button>
+          <button id="btnCloseEvalChallengeModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
             Cerrar
           </button>
         </div>

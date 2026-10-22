@@ -4417,6 +4417,382 @@ document.getElementById('observationsModal')?.addEventListener('click', (e) => {
   }
 });
 
+// ==================== MÓDULO 11: TRASLADO DEL INFORME DE EVALUACIÓN Y SUBSANACIONES CRUZADAS ====================
+
+let currentEvalProcesoId = null;
+let currentEvalCausalesList = [];
+let currentEvalActiveTab = 'impugnar'; // 'impugnar', 'subsanar', 'historial'
+
+// Abrir modal desde detailModal
+document.getElementById('modalBtnEvaluationChallenge')?.addEventListener('click', () => {
+  if (!activeModalId) return;
+  abrirModalEvaluacion(activeModalId);
+});
+
+async function abrirModalEvaluacion(procesoId) {
+  const opp = oportunidades.find(o => o.id === procesoId);
+  if (!opp) return;
+
+  currentEvalProcesoId = procesoId;
+
+  const refEl = document.getElementById('evalProcesoRef');
+  const metaEl = document.getElementById('evalProcesoMeta');
+  if (refEl) refEl.textContent = `Proceso: ${opp.referencia || opp.id} — ${opp.nombre || opp.objeto}`;
+  if (metaEl) metaEl.textContent = `${opp.entidad} • Término Legal de Traslado (Ley 1882/2018)`;
+
+  // Abrir modal
+  document.getElementById('evaluationChallengeModal')?.classList.add('open');
+
+  // Cargar catálogo de causales legales si no existe
+  if (currentEvalCausalesList.length === 0) {
+    try {
+      const res = await fetch('/api/evaluacion/causales-catalogo');
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        currentEvalCausalesList = json.data;
+      }
+    } catch (err) {
+      console.error('Error cargando catálogo de causales:', err);
+    }
+  }
+
+  // Poblar selectores
+  poblarSelectoresEvaluacion();
+
+  // Reset tab a impugnar
+  switchEvalTab('impugnar');
+}
+
+function poblarSelectoresEvaluacion() {
+  const selectImpugnar = document.getElementById('evalCausalSelect');
+  const selectSubsanar = document.getElementById('evalSubsanarCausalSelect');
+
+  const impugnaciones = currentEvalCausalesList.filter(c => c.tipoAccion === 'IMPUGNACION_COMPETIDOR');
+  const subsanaciones = currentEvalCausalesList.filter(c => c.tipoAccion === 'DEFENSA_SUBSANACION');
+
+  if (selectImpugnar) {
+    selectImpugnar.innerHTML = impugnaciones.map(c => `
+      <option value="${c.codigo}">${c.causalRechazo ? '⛔ [RECHAZO OBLIGATORIO] ' : '📉 '}${c.titulo}</option>
+    `).join('') + `<option value="CUSTOM">✏️ Causal de Rechazo Personalizada</option>`;
+  }
+
+  if (selectSubsanar) {
+    selectSubsanar.innerHTML = subsanaciones.map(c => `
+      <option value="${c.codigo}">🛡️ ${c.titulo}</option>
+    `).join('') + `<option value="CUSTOM">✏️ Subsanación General Personalizada</option>`;
+  }
+
+  // Cargar datos de la primera causal en inputs
+  seleccionarCausalImpugnar(impugnaciones[0]?.codigo);
+  seleccionarCausalSubsanar(subsanaciones[0]?.codigo);
+}
+
+function switchEvalTab(tabName) {
+  currentEvalActiveTab = tabName;
+
+  const btnImpugnar = document.getElementById('tabEvalBtnImpugnar');
+  const btnSubsanar = document.getElementById('tabEvalBtnSubsanar');
+  const btnHistorial = document.getElementById('tabEvalBtnHistorial');
+
+  const containerImpugnar = document.getElementById('evalTabContainerImpugnar');
+  const containerSubsanar = document.getElementById('evalTabContainerSubsanar');
+  const containerHistorial = document.getElementById('evalTabContainerHistorial');
+  const previewWrapper = document.getElementById('evalPreviewWrapper');
+
+  const defaultStyle = 'font-size: 0.78rem; padding: 6px 14px; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-warm);';
+  const activeStyleImpugnar = 'font-size: 0.78rem; padding: 6px 14px; background: rgba(225, 29, 72, 0.2); border: 1px solid #e11d48; color: #fda4af; font-weight: 700;';
+  const activeStyleSubsanar = 'font-size: 0.78rem; padding: 6px 14px; background: rgba(56, 189, 248, 0.2); border: 1px solid #38bdf8; color: #7dd3fc; font-weight: 700;';
+  const activeStyleHistorial = 'font-size: 0.78rem; padding: 6px 14px; background: rgba(168, 85, 247, 0.2); border: 1px solid #a855f7; color: #d8b4fe; font-weight: 700;';
+
+  if (btnImpugnar) btnImpugnar.style.cssText = tabName === 'impugnar' ? activeStyleImpugnar : defaultStyle;
+  if (btnSubsanar) btnSubsanar.style.cssText = tabName === 'subsanar' ? activeStyleSubsanar : defaultStyle;
+  if (btnHistorial) btnHistorial.style.cssText = tabName === 'historial' ? activeStyleHistorial : defaultStyle;
+
+  if (containerImpugnar) containerImpugnar.style.display = tabName === 'impugnar' ? 'flex' : 'none';
+  if (containerSubsanar) containerSubsanar.style.display = tabName === 'subsanar' ? 'flex' : 'none';
+  if (containerHistorial) containerHistorial.style.display = tabName === 'historial' ? 'block' : 'none';
+
+  if (previewWrapper) previewWrapper.style.display = tabName === 'historial' ? 'none' : 'block';
+
+  if (tabName === 'historial') {
+    cargarHistorialEvaluacion(currentEvalProcesoId);
+  } else {
+    actualizarPreviewEvaluacion();
+  }
+}
+
+// Tab listeners
+document.getElementById('tabEvalBtnImpugnar')?.addEventListener('click', () => switchEvalTab('impugnar'));
+document.getElementById('tabEvalBtnSubsanar')?.addEventListener('click', () => switchEvalTab('subsanar'));
+document.getElementById('tabEvalBtnHistorial')?.addEventListener('click', () => switchEvalTab('historial'));
+
+function seleccionarCausalImpugnar(codigo) {
+  const item = currentEvalCausalesList.find(c => c.codigo === codigo);
+  if (!item || codigo === 'CUSTOM') {
+    document.getElementById('evalHechosTextarea').value = '1. En la evaluación preliminar publicada por la entidad, se identificó la siguiente causal de descalificación...';
+    document.getElementById('evalFundamentoTextarea').value = 'Conforme a los principios de selección objetiva e igualdad (Ley 80 de 1993 y Ley 1150 de 2007)...';
+    document.getElementById('evalPeticionTextarea').value = 'Solicitamos rechazar la oferta del competidor.';
+  } else {
+    document.getElementById('evalHechosTextarea').value = `1. Constatada la propuesta radicada en SECOP II por el oferente objeto de impugnación, se evidenció que: ${item.resumen}\n2. Dicha situación vulnera de manera frontal los requisitos no subsanables de los pliegos de condiciones y de la ley de contratación pública.`;
+    document.getElementById('evalFundamentoTextarea').value = item.argumentoEstandar;
+    document.getElementById('evalPeticionTextarea').value = item.peticionEstandar;
+  }
+  actualizarPreviewEvaluacion();
+}
+
+function seleccionarCausalSubsanar(codigo) {
+  const item = currentEvalCausalesList.find(c => c.codigo === codigo);
+  if (!item || codigo === 'CUSTOM') {
+    document.getElementById('evalSubsanarHechosTextarea').value = '1. En respuesta al requerimiento de subsanación formulado en el informe de evaluación...';
+    document.getElementById('evalSubsanarFundamentoTextarea').value = 'El principio de prevalencia del derecho sustancial sobre el formal (Art. 228 C.P. y Ley 1882 de 2018)...';
+    document.getElementById('evalSubsanarPeticionTextarea').value = 'Tener por subsanado el requerimiento y habilitar nuestra propuesta.';
+  } else {
+    document.getElementById('evalSubsanarHechosTextarea').value = `1. En el informe preliminar de evaluación se requirió la aclaración del siguiente componente: ${item.resumen}\n2. En los términos del artículo 5 de la Ley 1882 de 2018, procedemos a allegar la subsanación correspondiente sin modificar ni mejorar la oferta económica.`;
+    document.getElementById('evalSubsanarFundamentoTextarea').value = item.argumentoEstandar;
+    document.getElementById('evalSubsanarPeticionTextarea').value = item.peticionEstandar;
+  }
+  actualizarPreviewEvaluacion();
+}
+
+document.getElementById('evalCausalSelect')?.addEventListener('change', (e) => seleccionarCausalImpugnar(e.target.value));
+document.getElementById('evalSubsanarCausalSelect')?.addEventListener('change', (e) => seleccionarCausalSubsanar(e.target.value));
+
+async function actualizarPreviewEvaluacion() {
+  const container = document.getElementById('evalDocPreviewContainer');
+  if (!currentEvalProcesoId) return;
+
+  const targetEmpresa = userCompanies.find(c => c.es_propia) || userCompanies[0];
+  const empresaId = targetEmpresa?.id || null;
+
+  let payload = {
+    procesoId: currentEvalProcesoId,
+    empresaId,
+    tipoAccion: currentEvalActiveTab === 'impugnar' ? 'IMPUGNACION_COMPETIDOR' : 'DEFENSA_SUBSANACION'
+  };
+
+  if (currentEvalActiveTab === 'impugnar') {
+    const causalCod = document.getElementById('evalCausalSelect')?.value;
+    const causalItem = currentEvalCausalesList.find(c => c.codigo === causalCod);
+    payload.competidor = {
+      nombre: document.getElementById('evalCompetidorNombre')?.value || 'CONSORCIO COMPETIDOR',
+      nit: document.getElementById('evalCompetidorNit')?.value || ''
+    };
+    payload.causalCodigo = causalCod;
+    payload.titulo = causalItem?.titulo || 'Impugnación al Informe de Evaluación';
+    payload.descripcionHechos = document.getElementById('evalHechosTextarea')?.value;
+    payload.fundamentoJuridico = document.getElementById('evalFundamentoTextarea')?.value;
+    payload.peticionConcreta = document.getElementById('evalPeticionTextarea')?.value;
+  } else {
+    const causalCod = document.getElementById('evalSubsanarCausalSelect')?.value;
+    const causalItem = currentEvalCausalesList.find(c => c.codigo === causalCod);
+    payload.competidor = null;
+    payload.causalCodigo = causalCod;
+    payload.titulo = causalItem?.titulo || 'Subsanación Documental';
+    payload.descripcionHechos = document.getElementById('evalSubsanarHechosTextarea')?.value;
+    payload.fundamentoJuridico = document.getElementById('evalSubsanarFundamentoTextarea')?.value;
+    payload.peticionConcreta = document.getElementById('evalSubsanarPeticionTextarea')?.value;
+  }
+
+  try {
+    const res = await fetch('/api/evaluacion/generar-memorial', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const json = await res.json();
+    if (json.success && json.data?.documentoHtml) {
+      if (container) container.innerHTML = json.data.documentoHtml;
+    }
+  } catch (err) {
+    console.error('Error generando preview de evaluación:', err);
+  }
+}
+
+// Botón refrescar preview
+document.getElementById('btnActualizarEvalPreview')?.addEventListener('click', actualizarPreviewEvaluacion);
+
+// Event listeners de blur para auto-refrescar memorial
+['evalCompetidorNombre', 'evalCompetidorNit', 'evalHechosTextarea', 'evalFundamentoTextarea', 'evalPeticionTextarea',
+ 'evalSubsanarHechosTextarea', 'evalSubsanarFundamentoTextarea', 'evalSubsanarPeticionTextarea'].forEach(id => {
+  document.getElementById(id)?.addEventListener('blur', actualizarPreviewEvaluacion);
+});
+
+// Copiar memorial
+document.getElementById('btnCopyEvalDoc')?.addEventListener('click', () => {
+  const container = document.getElementById('evalDocPreviewContainer');
+  if (!container) return;
+  const text = container.innerText || container.textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('📋 Escrito formal copiado al portapapeles');
+  }).catch(() => {
+    showToast('No se pudo copiar');
+  });
+});
+
+// Descargar memorial en PDF
+document.getElementById('btnDownloadEvalPdf')?.addEventListener('click', async () => {
+  const btn = document.getElementById('btnDownloadEvalPdf');
+  const orig = btn ? btn.innerHTML : '';
+  if (btn) btn.innerHTML = '⏳ Compilando PDF...';
+
+  const targetEmpresa = userCompanies.find(c => c.es_propia) || userCompanies[0];
+  const empresaId = targetEmpresa?.id || null;
+  const esImpugnacion = currentEvalActiveTab === 'impugnar';
+
+  const payload = {
+    procesoId: currentEvalProcesoId,
+    empresaId,
+    tipoAccion: esImpugnacion ? 'IMPUGNACION_COMPETIDOR' : 'DEFENSA_SUBSANACION'
+  };
+
+  if (esImpugnacion) {
+    const causalCod = document.getElementById('evalCausalSelect')?.value;
+    const causalItem = currentEvalCausalesList.find(c => c.codigo === causalCod);
+    payload.competidor = {
+      nombre: document.getElementById('evalCompetidorNombre')?.value || 'CONSORCIO COMPETIDOR',
+      nit: document.getElementById('evalCompetidorNit')?.value || ''
+    };
+    payload.titulo = causalItem?.titulo || 'Impugnación de Competidor';
+    payload.descripcionHechos = document.getElementById('evalHechosTextarea')?.value;
+    payload.fundamentoJuridico = document.getElementById('evalFundamentoTextarea')?.value;
+    payload.peticionConcreta = document.getElementById('evalPeticionTextarea')?.value;
+  } else {
+    const causalCod = document.getElementById('evalSubsanarCausalSelect')?.value;
+    const causalItem = currentEvalCausalesList.find(c => c.codigo === causalCod);
+    payload.competidor = null;
+    payload.titulo = causalItem?.titulo || 'Subsanación Documental';
+    payload.descripcionHechos = document.getElementById('evalSubsanarHechosTextarea')?.value;
+    payload.fundamentoJuridico = document.getElementById('evalSubsanarFundamentoTextarea')?.value;
+    payload.peticionConcreta = document.getElementById('evalSubsanarPeticionTextarea')?.value;
+  }
+
+  try {
+    const res = await fetch('/api/evaluacion/descargar-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error('Error al compilar PDF');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const prefix = esImpugnacion ? 'Impugnacion' : 'Subsanacion';
+    a.download = `${prefix}_${(currentEvalProcesoId || 'Evaluacion').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+    showToast(`⚖️ Memorial de ${prefix} descargado exitosamente`);
+  } catch (err) {
+    showToast('Error al descargar PDF: ' + err.message);
+  } finally {
+    if (btn) btn.innerHTML = orig;
+  }
+});
+
+// Guardar en base de datos
+document.getElementById('btnGuardarEvalDb')?.addEventListener('click', async () => {
+  const targetEmpresa = userCompanies.find(c => c.es_propia) || userCompanies[0];
+  const empresaId = targetEmpresa?.id || null;
+  const esImpugnacion = currentEvalActiveTab === 'impugnar';
+  const docHtml = document.getElementById('evalDocPreviewContainer')?.innerHTML || '';
+
+  let payload = {
+    procesoId: currentEvalProcesoId,
+    empresaId,
+    tipoAccion: esImpugnacion ? 'IMPUGNACION_COMPETIDOR' : 'DEFENSA_SUBSANACION',
+    documentoGenerado: docHtml
+  };
+
+  if (esImpugnacion) {
+    const causalCod = document.getElementById('evalCausalSelect')?.value;
+    const causalItem = currentEvalCausalesList.find(c => c.codigo === causalCod);
+    payload.competidorNombre = document.getElementById('evalCompetidorNombre')?.value || 'CONSORCIO COMPETIDOR';
+    payload.competidorNit = document.getElementById('evalCompetidorNit')?.value || '';
+    payload.causalCodigo = causalCod;
+    payload.titulo = causalItem?.titulo || 'Impugnación';
+    payload.descripcionHechos = document.getElementById('evalHechosTextarea')?.value;
+    payload.fundamentoJuridico = document.getElementById('evalFundamentoTextarea')?.value;
+    payload.peticionConcreta = document.getElementById('evalPeticionTextarea')?.value;
+  } else {
+    const causalCod = document.getElementById('evalSubsanarCausalSelect')?.value;
+    const causalItem = currentEvalCausalesList.find(c => c.codigo === causalCod);
+    payload.competidorNombre = null;
+    payload.competidorNit = null;
+    payload.causalCodigo = causalCod;
+    payload.titulo = causalItem?.titulo || 'Subsanación';
+    payload.descripcionHechos = document.getElementById('evalSubsanarHechosTextarea')?.value;
+    payload.fundamentoJuridico = document.getElementById('evalSubsanarFundamentoTextarea')?.value;
+    payload.peticionConcreta = document.getElementById('evalSubsanarPeticionTextarea')?.value;
+  }
+
+  try {
+    const res = await fetch('/api/evaluacion/guardar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast('💾 Memorial guardado en el expediente de evaluación');
+    }
+  } catch (err) {
+    showToast('Error al guardar memorial: ' + err.message);
+  }
+});
+
+async function cargarHistorialEvaluacion(procesoId) {
+  const tbody = document.getElementById('evalHistorialTbody');
+  if (!tbody || !procesoId) return;
+
+  try {
+    const res = await fetch(`/api/evaluacion/historial/${encodeURIComponent(procesoId)}`);
+    const json = await res.json();
+    if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+      tbody.innerHTML = json.data.map(m => {
+        const esImpug = m.tipo_accion === 'IMPUGNACION_COMPETIDOR';
+        return `
+          <tr style="border-bottom: 1px solid var(--hairline);">
+            <td style="padding: 8px;">
+              <span style="background: ${esImpug ? '#e11d48' : '#0284c7'}; color: #fff; padding: 2px 6px; border-radius: 3px; font-weight: 700; font-size: 0.68rem;">
+                ${esImpug ? '⚔️ IMPUGNACIÓN' : '🛡️ SUBSANACIÓN'}
+              </span>
+            </td>
+            <td style="padding: 8px; color: var(--champagne); font-weight: 600;">${m.titulo}</td>
+            <td style="padding: 8px; color: var(--text-warm);">${m.competidor_nombre || 'Nuestra Empresa'}</td>
+            <td style="padding: 8px; color: var(--text-faint);">${new Date(m.creado_en).toLocaleDateString('es-CO')}</td>
+            <td style="padding: 8px; text-align: center;">
+              <span style="background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 3px; font-size: 0.7rem; color: var(--text-warm);">
+                ${m.estado}
+              </span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    } else {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 25px; color: var(--text-faint);">No se han radicado memoriales aún para este proceso.</td></tr>';
+    }
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--danger);">Error cargando historial: ${err.message}</td></tr>`;
+  }
+}
+
+// Cerrar modal
+document.getElementById('btnCloseEvalChallengeModal')?.addEventListener('click', () => {
+  document.getElementById('evaluationChallengeModal')?.classList.remove('open');
+});
+document.getElementById('btnCloseEvalChallengeModalBtn')?.addEventListener('click', () => {
+  document.getElementById('evaluationChallengeModal')?.classList.remove('open');
+});
+document.getElementById('evaluationChallengeModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'evaluationChallengeModal') {
+    document.getElementById('evaluationChallengeModal')?.classList.remove('open');
+  }
+});
+
 // ==================== INICIALIZACIÓN ====================
 window.addEventListener('DOMContentLoaded', () => {
   checkUserSession();

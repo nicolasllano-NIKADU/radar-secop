@@ -24,6 +24,7 @@ const pliegoAuditor = require('./pliegoAuditor');
 const bidDocumentGenerator = require('./bidDocumentGenerator');
 const scoringEngine = require('./scoringEngine');
 const pliegoObservationsEngine = require('./pliegoObservationsEngine');
+const evaluationChallengeEngine = require('./evaluationChallengeEngine');
 const initDb = require('./initDb');
 
 const app = express();
@@ -1162,6 +1163,157 @@ app.get('/api/pliego/observaciones/historial/:procesoId', async (req, res) => {
     res.json({ success: true, count: historial.length, data: historial });
   } catch (err) {
     console.error('Error listando observaciones de proceso:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== MÓDULO: TRASLADO DEL INFORME DE EVALUACIÓN Y SUBSANACIONES CRUZADAS ====================
+
+app.get('/api/evaluacion/causales-catalogo', (req, res) => {
+  try {
+    const catalogo = evaluationChallengeEngine.getCatalogCausales();
+    res.json({ success: true, count: catalogo.length, data: catalogo });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/evaluacion/generar-memorial', async (req, res) => {
+  try {
+    const { tipoAccion, procesoId, empresaId, competidor, causalCodigo, titulo, descripcionHechos, fundamentoJuridico, peticionConcreta, ciudad } = req.body;
+
+    let proceso = req.body.proceso;
+    if (!proceso && procesoId) {
+      const dbPostgres = require('./dbPostgres');
+      const r = await dbPostgres.query('SELECT * FROM oportunidades WHERE id = $1', [procesoId]);
+      proceso = r.rows[0] || { id: procesoId, referencia: procesoId, entidad: 'Entidad Estatal', objeto: 'Contratación pública' };
+    }
+
+    let oferente = req.body.oferente;
+    if (!oferente) {
+      if (empresaId) {
+        oferente = await companyManager.getCompanyById(parseInt(empresaId, 10));
+      } else {
+        const all = await companyManager.getAllCompanies();
+        oferente = all.find(c => c.es_propia) || all[0];
+      }
+    }
+
+    if (!proceso || !oferente) {
+      return res.status(400).json({ success: false, error: 'Datos de proceso u oferente insuficientes' });
+    }
+
+    const documentoHtml = evaluationChallengeEngine.generarMemorialEvaluacionHtml({
+      tipoAccion: tipoAccion || 'IMPUGNACION_COMPETIDOR',
+      proceso,
+      oferente,
+      competidor,
+      causalCodigo,
+      titulo: titulo || 'Observaciones al Informe de Evaluación',
+      descripcionHechos: descripcionHechos || 'Hechos identificados en la evaluación preliminar.',
+      fundamentoJuridico: fundamentoJuridico || 'Ley 1882 de 2018 y Ley 1150 de 2007.',
+      peticionConcreta: peticionConcreta || 'Solicitud de exclusión del proponente.',
+      ciudad: ciudad || 'Bogotá D.C.'
+    });
+
+    res.json({
+      success: true,
+      data: {
+        proceso,
+        oferente,
+        competidor,
+        tipoAccion,
+        documentoHtml
+      }
+    });
+  } catch (err) {
+    console.error('Error generando memorial de evaluación:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.all('/api/evaluacion/descargar-pdf', async (req, res) => {
+  try {
+    const params = req.method === 'POST' ? req.body : req.query;
+    const { tipoAccion, procesoId, empresaId, titulo, descripcionHechos, fundamentoJuridico, peticionConcreta, ciudad } = params;
+    let competidor = params.competidor;
+    if (typeof competidor === 'string') {
+      try { competidor = JSON.parse(competidor); } catch(e){}
+    }
+
+    let proceso = params.proceso;
+    if (!proceso && procesoId) {
+      const dbPostgres = require('./dbPostgres');
+      const r = await dbPostgres.query('SELECT * FROM oportunidades WHERE id = $1', [procesoId]);
+      proceso = r.rows[0] || { id: procesoId, referencia: procesoId, entidad: 'Entidad Estatal' };
+    }
+
+    let oferente = params.oferente;
+    if (!oferente) {
+      if (empresaId) {
+        oferente = await companyManager.getCompanyById(parseInt(empresaId, 10));
+      } else {
+        const all = await companyManager.getAllCompanies();
+        oferente = all.find(c => c.es_propia) || all[0];
+      }
+    }
+
+    if (!proceso || !oferente) {
+      return res.status(400).json({ success: false, error: 'Datos de proceso u oferente insuficientes' });
+    }
+
+    const pdfBuffer = await evaluationChallengeEngine.generarMemorialEvaluacionPdf({
+      tipoAccion: tipoAccion || 'IMPUGNACION_COMPETIDOR',
+      proceso,
+      oferente,
+      competidor,
+      titulo: titulo || 'Observaciones al Informe de Evaluación',
+      descripcionHechos: descripcionHechos || 'Hechos observados en la evaluación.',
+      fundamentoJuridico: fundamentoJuridico || 'Estatuto General de Contratación Pública.',
+      peticionConcreta: peticionConcreta || 'Solicitud de exclusión o habilitación.',
+      ciudad: ciudad || 'Bogotá D.C.'
+    });
+
+    const prefix = tipoAccion === 'DEFENSA_SUBSANACION' ? 'Subsanacion' : 'Impugnacion';
+    const safeRef = (proceso.referencia || 'Evaluacion').replace(/[^a-zA-Z0-9_-]/g, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${prefix}_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error descargando PDF de evaluación:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/evaluacion/guardar', async (req, res) => {
+  try {
+    const { procesoId, empresaId, tipoAccion, competidorNombre, competidorNit, causalCodigo, titulo, descripcionHechos, fundamentoJuridico, peticionConcreta, documentoGenerado } = req.body;
+    const guardada = await evaluationChallengeEngine.guardarMemorial({
+      procesoId,
+      empresaId,
+      tipoAccion,
+      competidorNombre,
+      competidorNit,
+      causalCodigo,
+      titulo,
+      descripcionHechos,
+      fundamentoJuridico,
+      peticionConcreta,
+      documentoGenerado
+    });
+    res.json({ success: true, data: guardada });
+  } catch (err) {
+    console.error('Error guardando memorial en historial:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/evaluacion/historial/:procesoId', async (req, res) => {
+  try {
+    const historial = await evaluationChallengeEngine.listarMemoriales(req.params.procesoId);
+    res.json({ success: true, count: historial.length, data: historial });
+  } catch (err) {
+    console.error('Error listando memoriales de evaluación:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

@@ -12,7 +12,8 @@ const SCHEMAS = [
   'schema_auth.sql',
   'schema_competencia.sql',
   'schema_predictivo.sql',
-  'schema_observaciones_puntaje.sql'
+  'schema_observaciones_puntaje.sql',
+  'schema_evaluacion_impugnacion.sql'
 ];
 
 async function runAllMigrations() {
