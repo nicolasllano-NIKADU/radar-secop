@@ -163,6 +163,30 @@ class Scanner {
       score = Math.max(score, 75);
     }
 
+    // IA Generativa y Modelos Fundacionales
+    if (combined.includes('ia generativa') || combined.includes('generative ai') || combined.includes('modelo de lenguaje') || combined.includes('llm')) {
+      if (!matched.includes('ia generativa')) matched.push('ia generativa');
+      score = Math.max(score, 90);
+    }
+
+    // Analítica Predictiva y Big Data
+    if (combined.includes('analitica predictiva') || combined.includes('ciencia de datos') || combined.includes('big data') || combined.includes('analitica avanzada')) {
+      if (!matched.includes('analitica predictiva')) matched.push('analitica predictiva');
+      score = Math.max(score, 80);
+    }
+
+    // Interoperabilidad y Transformación Digital
+    if (combined.includes('interoperabilidad') || combined.includes('transformacion digital') || combined.includes('gobierno digital')) {
+      if (!matched.includes('interoperabilidad')) matched.push('interoperabilidad');
+      score = Math.max(score, 75);
+    }
+
+    // Ciberseguridad y Cloud
+    if (combined.includes('ciberseguridad') || combined.includes('seguridad informatica') || combined.includes('infraestructura en la nube') || combined.includes('cloud')) {
+      if (!matched.includes('ciberseguridad')) matched.push('ciberseguridad');
+      score = Math.max(score, 70);
+    }
+
     // Palabras de alta relevancia del config
     for (const kw of cfg.keywords.high) {
       const normKw = this.normalizeText(kw);
@@ -307,8 +331,8 @@ class Scanner {
       likeConditions = `(${likeConditions})`;
     }
 
-    // Filtrar estrictamente: solo procesos Publicados o Abiertos, NO adjudicados y sin contratos de prestación de servicios individuales (OPS)
-    let whereClause = `${likeConditions} and estado_del_procedimiento in ('Publicado', 'Abierto') and adjudicado != 'Si' and ${opsFilter.OPS_SOQL_EXCLUSIONS}`;
+    // Filtrar estrictamente: procesos en fases activas y competitivas, NO adjudicados y sin contratos de prestación de servicios individuales (OPS)
+    let whereClause = `${likeConditions} and estado_del_procedimiento in ('Publicado', 'Abierto', 'Presentación de observaciones', 'Presentación de ofertas', 'En Selección') and adjudicado != 'Si' and ${opsFilter.OPS_SOQL_EXCLUSIONS}`;
 
     const fromDate = sinceDate || this.getScanSinceDate();
     whereClause += ` and (fecha_de_publicacion_del >= '${fromDate}' or fecha_de_ultima_publicaci >= '${fromDate}')`;

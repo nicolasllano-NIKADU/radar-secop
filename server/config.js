@@ -36,29 +36,50 @@ module.exports = {
           'inteligencia artificial', 'agente de ia', 'agentes de ia', 'agente inteligente',
           'agentes inteligentes', 'ia generativa', 'machine learning', 'aprendizaje automatico',
           'rpa', 'automatizacion de procesos', 'automatizaciones', 'modelo de lenguaje',
-          'llm', 'chatbot', 'bot conversacional', 'asistente virtual',
+          'llm', 'chatbot', 'bot conversacional', 'asistente virtual', 'agente autonomo',
           'desarrollos a la medida', 'desarrollo a la medida', 'software a la medida',
-          'desarrollo de software', 'fabrica de software',
+          'desarrollo de software', 'fabrica de software', 'desarrollo full stack',
           'desarrollo de aplicaciones', 'aplicaciones moviles', 'aplicacion movil',
-          'aplicacion', 'aplicaciones', 'software', 'app', 'apps'
+          'aplicacion', 'aplicaciones', 'software', 'app', 'apps',
+          'vision artificial', 'procesamiento de lenguaje natural', 'nlp',
+          'analitica predictiva', 'ciencia de datos', 'interoperabilidad'
         ],
         medium: [
-          'vision artificial', 'procesamiento de lenguaje natural', 'nlp',
-          'analitica avanzada', 'ciencia de datos', 'automatizacion',
-          'mineria de datos', 'transformacion digital', 'sistemas de informacion',
-          'arquitectura de software', 'desarrollo web', 'aplicacion web', 'aplicaciones web'
+          'analitica avanzada', 'automatizacion', 'mineria de datos', 'transformacion digital',
+          'sistemas de informacion', 'arquitectura de software', 'desarrollo web',
+          'aplicacion web', 'aplicaciones web', 'ciberseguridad', 'seguridad informatica',
+          'infraestructura en la nube', 'cloud', 'migracion cloud', 'business intelligence',
+          'power bi', 'tableros de control', 'firma digital', 'firma electronica',
+          'gestion documental electronica', 'sgdea', 'datos abiertos', 'api rest'
         ]
       },
-      unspscCodes: ['43230000', '81110000', '81111500', '80101500', '43211500'],
+      unspscCodes: [
+        '43230000', // Software
+        '81110000', // Servicios de sistemas de computación y TI
+        '81111500', // Ingeniería y mantenimiento de software
+        '81111800', // Servicios de administración y soporte de sistemas
+        '80101500', // Consultoría de gestión empresarial y tecnología
+        '43211500', // Computadores y servidores
+        '81161700', // Servicios de telecomunicaciones e internet
+        '80161500', // Servicios de soporte de gestión y tecnología
+        '81112200'  // Servicios de mantenimiento y soporte de software
+      ],
       soqlTerms: [
-        'inteligencia artificial', 'machine learning', 'automatiz', 'agente',
-        'chatbot', 'rpa', 'software', 'desarrollo a la medida',
-        'desarrollos a la medida', 'aplicacion', 'aplicaciones', 'a la medida'
+        'inteligencia artificial', 'machine learning', 'ia generativa', 'automatiz',
+        'agente', 'chatbot', 'rpa', 'software', 'desarrollo a la medida',
+        'desarrollos a la medida', 'fabrica de software', 'aplicacion', 'aplicaciones',
+        'a la medida', 'analitica', 'transformacion digital', 'interoperabilidad',
+        'ciberseguridad', 'cloud'
       ],
       negativeTerms: [
         'agente de transito', 'agentes de transito', 'agente vial', 'agentes viales',
         'regulacion del transito', 'regulador de transito', 'seguridad vial',
-        'tienda escolar', 'servicios funerarios', 'vigilancia privada'
+        'tienda escolar', 'servicios funerarios', 'vigilancia privada',
+        'agente educativo', 'agente psicosocial', 'agente de salud', 'agentes comunitarios',
+        'agente de policia', 'agente aduanero', 'agente de viajes', 'higienista oral',
+        'enfermeria', 'auxiliar de enfermeria', 'odontologia', 'farmaceutico',
+        'medicamentos', 'carpas', 'sillas plasticas', 'alimentos', 'transporte escolar',
+        'limpieza y aseo', 'reactivos quimicos', 'material de construccion vial'
       ]
     },
 
