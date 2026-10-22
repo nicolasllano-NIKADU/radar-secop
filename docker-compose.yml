@@ -41,6 +41,8 @@ services:
       PGPASSWORD: ${PGPASSWORD:-secop_secure_password_2026}
       PGDATABASE: ${PGDATABASE:-radar_secop}
       JWT_SECRET: ${JWT_SECRET:-radar_secop_jwt_prod_key_change_in_env_2026}
+      CRON_SCHEDULE: "${CRON_SCHEDULE:-0 * * * *}"
+      SOCRATA_APP_TOKEN: ${SOCRATA_APP_TOKEN:-}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}

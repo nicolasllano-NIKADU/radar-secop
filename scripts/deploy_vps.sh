@@ -72,8 +72,14 @@ ufw allow 443/udp > /dev/null 2>&1 || true
 ufw --force enable > /dev/null 2>&1 || true
 echo -e "${COLOR_GREEN}✓ Puertos 22, 80 y 443 habilitados.${COLOR_RESET}"
 
+# Si es una actualización en un repo ya clonado, obtener los últimos cambios
+if [ -d .git ]; then
+  echo -e "${COLOR_CYAN}🔄 Actualizando repositorio con los últimos cambios de GitHub...${COLOR_RESET}"
+  git pull origin main || true
+fi
+
 # 6. Levantar contenedores con Docker Compose
-echo -e "${COLOR_CYAN}[5/6] Construyendo e iniciando contenedores...${COLOR_RESET}"
+echo -e "${COLOR_CYAN}[5/6] Construyendo e iniciando contenedores con Docker Compose...${COLOR_RESET}"
 docker compose down || true
 docker compose up -d --build
 

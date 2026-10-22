@@ -23,6 +23,9 @@ COPY server/ ./server/
 COPY public/ ./public/
 COPY scripts/ ./scripts/
 
+# Crear directorio de descargas y temporales con permisos de usuario node
+RUN mkdir -p /app/downloads && chown -R node:node /app/downloads
+
 # Configurar variables de entorno por defecto
 ENV NODE_ENV=production \
     PORT=3000
