@@ -623,19 +623,23 @@
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
         <div>
           <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--champagne); margin-bottom: 4px;">Ponderación Económica & Pliegos Tipo (CCE)</h2>
-          <p style="font-size: 0.8rem; color: var(--text-muted);">Simulador Monte Carlo (Concepto C-382/2020 CCE) y optimizador estocástico de oferta en 5 métodos oficiales</p>
+          <p style="font-size: 0.8rem; color: var(--text-muted);">Simulador Monte Carlo (Concepto C-382/2020 CCE), modelado estocástico de TRM en 6 fórmulas oficiales y Zona Óptima de Adjudicación (ZOA)</p>
         </div>
-        <div style="display: flex; gap: 8px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button id="btnRunMontecarlo" class="btn-action btn-action-primary" style="padding: 8px 16px; font-size: 0.82rem; gap: 6px;">
-            <span>🎲 Correr Simulación Monte Carlo</span>
+            <span>🎲 Correr Simulación Monte Carlo (10.000 iteraciones)</span>
+          </button>
+          <button id="btnDownloadEconPdf" class="btn-action" style="padding: 8px 14px; font-size: 0.82rem; gap: 6px; background: rgba(212, 175, 55, 0.15); border: 1px solid var(--gold); color: var(--gold); display: none;">
+            <span>📄 Descargar Dictamen Técnico PDF</span>
           </button>
         </div>
       </div>
 
       <!-- Formulario de Configuración de la Licitación -->
       <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 16px; border-radius: var(--radius-md); margin-bottom: 16px;">
-        <div style="font-size: 0.82rem; font-weight: 700; color: var(--champagne); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
-          <span>⚙️ Parámetros de la Convocatoria</span>
+        <div style="font-size: 0.82rem; font-weight: 700; color: var(--champagne); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+          <span>⚙️ Parámetros de la Convocatoria y Modelado Estocástico</span>
+          <span style="font-size: 0.72rem; color: var(--tech-cyan);">Ley 1882/2018 • Concepto C-382/2020 ANCP-CCE</span>
         </div>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
           <div>
@@ -663,9 +667,35 @@
             <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Perfil del Mercado:</label>
             <select id="econPerfil" style="width: 100%; padding: 8px; font-size: 0.82rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">
               <option value="MODERADO" selected>Moderado (90% - 99% PO)</option>
-              <option value="AGRESIVO">Agresivo / Guerra Precios (86% - 95% PO)</option>
-              <option value="CONSERVADOR">Conservador (94% - 100% PO)</option>
+              <option value="AGRESIVO">Agresivo / Guerra Precios (85% - 95% PO)</option>
+              <option value="CONSERVADOR">Conservador (93% - 100% PO)</option>
             </select>
+          </div>
+          <div>
+            <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Iteraciones Monte Carlo:</label>
+            <select id="econIteraciones" style="width: 100%; padding: 8px; font-size: 0.82rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">
+              <option value="5000">5.000 iteraciones (Rápido)</option>
+              <option value="10000" selected>10.000 iteraciones (Estándar Pliegos Tipo)</option>
+              <option value="15000">15.000 iteraciones (Máxima Precisión)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Barra Interactiva de Sensibilidad TRM -->
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--hairline); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+          <div style="flex: 1; min-width: 280px;">
+            <div style="font-size: 0.75rem; font-weight: 700; color: var(--champagne); display: flex; align-items: center; gap: 6px;">
+              <span>💱 Simulador Interactivo de TRM (Últimos 2 Decimales):</span>
+              <span id="trmDecimalDisplay" style="color: var(--tech-cyan); font-weight: 900; font-family: monospace;">.42</span>
+              <span id="trmMetodoActivoBadge" style="background: rgba(0, 229, 255, 0.15); border: 1px solid var(--tech-cyan); color: var(--tech-cyan); font-size: 0.7rem; padding: 2px 8px; border-radius: 4px;">M3: Media Ponderada con PO</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; margin-top: 6px;">
+              <input type="range" id="trmSlider" min="0" max="99" value="42" style="flex: 1; cursor: pointer; accent-color: var(--gold);" />
+              <input type="text" id="trmInputDirect" value="4185.42" placeholder="TRM (Ej: 4185.42)" style="width: 110px; padding: 4px 8px; font-size: 0.78rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm); text-align: center;" />
+            </div>
+          </div>
+          <div style="font-size: 0.72rem; color: var(--text-muted); max-width: 380px;">
+            Al mover el control deslizante o ingresar la TRM, observa qué fórmula se activará en el acto de adjudicación según el Concepto C-382/2020 CCE.
           </div>
         </div>
       </div>

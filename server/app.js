@@ -497,9 +497,10 @@ app.post('/api/economico/montecarlo', (req, res) => {
       presupuesto_oficial,
       competidores_estimados = 6,
       puntaje_maximo = 60,
-      iteraciones = 5000,
+      iteraciones = 10000,
       perfil_competencia = 'MODERADO',
-      oferta_usuario = null
+      oferta_usuario = null,
+      trm_fija = null
     } = req.body;
 
     const po = parseFloat(presupuesto_oficial);
@@ -508,14 +509,113 @@ app.post('/api/economico/montecarlo', (req, res) => {
     const resultado = economicEngine.simularMontecarlo(po, {
       competidoresEstimados: parseInt(competidores_estimados, 10) || 6,
       puntajeMax: parseFloat(puntaje_maximo) || 60,
-      iteraciones: Math.min(10000, Math.max(1000, parseInt(iteraciones, 10) || 5000)),
+      iteraciones: Math.min(20000, Math.max(1000, parseInt(iteraciones, 10) || 10000)),
       perfilCompetencia: perfil_competencia,
-      ofertaUsuario: oferta_usuario ? parseFloat(oferta_usuario) : null
+      ofertaUsuario: oferta_usuario ? parseFloat(oferta_usuario) : null,
+      trmFija: trm_fija !== null && trm_fija !== undefined ? trm_fija : null
     });
 
     res.json({ success: true, data: resultado });
   } catch (err) {
     console.error('Error en simulación Montecarlo:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/economico/sensibilidad-trm', (req, res) => {
+  try {
+    const { presupuesto_oficial, ofertas = [], trm_input = '00', puntaje_maximo = 60 } = req.body;
+    const po = parseFloat(presupuesto_oficial);
+    if (!po || po <= 0) return res.status(400).json({ success: false, error: 'Presupuesto oficial inválido' });
+
+    const resultado = economicEngine.evaluarPorTrmEspecifica(
+      po,
+      ofertas,
+      trm_input,
+      parseFloat(puntaje_maximo) || 60
+    );
+
+    res.json({ success: true, data: resultado });
+  } catch (err) {
+    console.error('Error en sensibilidad TRM:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/economico/informe-pdf', async (req, res) => {
+  try {
+    const { simulacion_data, proceso_info = {} } = req.body;
+    if (!simulacion_data || !simulacion_data.presupuesto_oficial) {
+      return res.status(400).json({ success: false, error: 'Datos de simulación inválidos' });
+    }
+
+    const pdfBuffer = await economicEngine.generarInformeSimulacionEconomicaPdf(simulacion_data, proceso_info);
+    const safeRef = (proceso_info.referencia || 'SIM_CCE').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Dictamen_Economico_TRM_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF de simulación económica:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/economico/informe-pdf/:id', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const simId = parseInt(req.params.id, 10);
+    const q = await dbPostgres.query('SELECT * FROM simulaciones_economicas WHERE id = $1', [simId]);
+    if (q.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Simulación no encontrada' });
+    }
+
+    const row = q.rows[0];
+    const po = parseFloat(row.presupuesto_oficial);
+    const puntajeMax = parseFloat(row.puntaje_maximo || 60);
+
+    // Reconstruir estructura de simulación para el renderizador
+    const simulacionData = {
+      presupuesto_oficial: po,
+      puntaje_maximo: puntajeMax,
+      iteraciones_montecarlo: 10000,
+      perfil_competencia: 'MODERADO',
+      competidores_simulados: row.competidores_estimados || 6,
+      recomendacion_estrategica: {
+        porcentaje_optimo: parseFloat(row.porcentaje_optimo_po),
+        precio_optimo_cop: parseFloat(row.precio_optimo_sugerido),
+        esperanza_puntaje_max: parseFloat(row.esperanza_puntaje),
+        eficiencia_esperada: Number(((parseFloat(row.esperanza_puntaje) / puntajeMax) * 100).toFixed(1)),
+        zona_optima_adjudicacion_zoa: row.distribucion_simulada || {
+          min_pct: parseFloat(row.porcentaje_optimo_po),
+          max_pct: parseFloat(row.porcentaje_optimo_po),
+          min_cop: parseFloat(row.precio_optimo_sugerido),
+          max_cop: parseFloat(row.precio_optimo_sugerido)
+        },
+        desglose_metodos_en_optimo: row.desglose_metodos || {}
+      },
+      umbral_precio_artificialmente_bajo: {
+        porcentaje_po: 88.0,
+        valor_cop: Math.round(po * 0.88),
+        fundamento_legal: 'Decreto 1082 de 2015 Art. 2.2.1.1.2.2.4 y Concepto C-382/2020 CCE'
+      },
+      curva_rendimiento: []
+    };
+
+    const procesoInfo = {
+      referencia: row.proceso_referencia || `SIM-${row.id}`,
+      entidad: row.entidad || 'Entidad Estatal Licitante',
+      proponente: 'Proponente Consultante'
+    };
+
+    const pdfBuffer = await economicEngine.generarInformeSimulacionEconomicaPdf(simulacionData, procesoInfo);
+    const safeRef = (procesoInfo.referencia).replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Dictamen_Economico_TRM_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF desde historial:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

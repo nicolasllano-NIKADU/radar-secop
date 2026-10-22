@@ -2153,6 +2153,60 @@ document.getElementById('btnRunComplianceAudit')?.addEventListener('click', runC
 // ==================== MÓDULO DE PONDERACIÓN ECONÓMICA Y PLIEGOS TIPO (CCE) ====================
 let lastSimulationResult = null;
 
+// Mapa de los 6 Métodos de Pliegos Tipo y Rangos de TRM (Concepto C-382/2020)
+const METODOS_TRM_CCE = [
+  { min: 0, max: 16, cod: 'M1', nombre: 'Media Aritmética Simple', rango: '.00 a .16', key: 'media_aritmetica' },
+  { min: 17, max: 33, cod: 'M2', nombre: 'Media con Extremos (kσ)', rango: '.17 a .33', key: 'media_extremos' },
+  { min: 34, max: 50, cod: 'M3', nombre: 'Media Ponderada con PO', rango: '.34 a .50', key: 'media_ponderada' },
+  { min: 51, max: 67, cod: 'M4', nombre: 'Mediana de Propuestas', rango: '.51 a .67', key: 'mediana' },
+  { min: 68, max: 84, cod: 'M5', nombre: 'Media Geométrica', rango: '.68 a .84', key: 'media_geometrica' },
+  { min: 85, max: 99, cod: 'M6', nombre: 'Menor Valor Hábil', rango: '.85 a .99', key: 'menor_valor' }
+];
+
+function resolverMetodoTrmLocal(decimales) {
+  const d = Math.abs(parseInt(decimales, 10)) % 100;
+  return METODOS_TRM_CCE.find(m => d >= m.min && d <= m.max) || METODOS_TRM_CCE[0];
+}
+
+// Sincronización del simulador interactivo de TRM
+function updateTrmInteractiveBadge(decVal) {
+  const decPadded = String(decVal).padStart(2, '0');
+  const disp = document.getElementById('trmDecimalDisplay');
+  const badge = document.getElementById('trmMetodoActivoBadge');
+  if (disp) disp.textContent = `.${decPadded}`;
+  const m = resolverMetodoTrmLocal(decVal);
+  if (badge && m) {
+    badge.textContent = `${m.cod}: ${m.nombre} (${m.rango})`;
+  }
+}
+
+document.getElementById('trmSlider')?.addEventListener('input', (e) => {
+  const val = parseInt(e.target.value, 10) || 0;
+  const decPadded = String(val).padStart(2, '0');
+  const trmInput = document.getElementById('trmInputDirect');
+  if (trmInput) {
+    const base = trmInput.value.split('.')[0] || '4185';
+    trmInput.value = `${base}.${decPadded}`;
+  }
+  updateTrmInteractiveBadge(val);
+});
+
+document.getElementById('trmInputDirect')?.addEventListener('input', (e) => {
+  const str = e.target.value.trim().replace(',', '.');
+  let dec = 0;
+  if (str.includes('.')) {
+    const part = str.split('.')[1] || '00';
+    dec = parseInt(part.substring(0, 2).padEnd(2, '0'), 10);
+  } else {
+    dec = Math.abs(parseInt(str, 10)) % 100;
+  }
+  if (!isNaN(dec)) {
+    const slider = document.getElementById('trmSlider');
+    if (slider) slider.value = dec;
+    updateTrmInteractiveBadge(dec);
+  }
+});
+
 async function runMonteCarloSimulation() {
   const container = document.getElementById('econResultsArea');
   if (!container) return;
@@ -2162,6 +2216,7 @@ async function runMonteCarloSimulation() {
   const puntajeMax = parseFloat(document.getElementById('econPuntajeMax')?.value || 60);
   const competidores = parseInt(document.getElementById('econCompetidores')?.value || 6, 10);
   const perfil = document.getElementById('econPerfil')?.value || 'MODERADO';
+  const iteraciones = parseInt(document.getElementById('econIteraciones')?.value || 10000, 10);
 
   if (!po || po <= 0) {
     showToast('Ingresa un Presupuesto Oficial (PO) válido en COP');
@@ -2171,8 +2226,8 @@ async function runMonteCarloSimulation() {
   container.innerHTML = `
     <div style="text-align: center; padding: 40px; color: var(--champagne); display: flex; flex-direction: column; align-items: center; gap: 12px;">
       <div style="font-size: 1.5rem;">🎲</div>
-      <b>Ejecutando 5.000 iteraciones estocásticas de Monte Carlo...</b>
-      <span style="font-size: 0.78rem; color: var(--text-faint);">Evaluando curvas de TRM, dispersión de competidores y 5 fórmulas oficiales de Pliegos Tipo ANCP-CCE</span>
+      <b>Ejecutando ${iteraciones.toLocaleString('es-CO')} iteraciones estocásticas de Monte Carlo...</b>
+      <span style="font-size: 0.78rem; color: var(--text-faint);">Evaluando los 6 métodos oficiales de Pliegos Tipo ANCP-CCE y distribución estocástica de TRM (Concepto C-382/2020)</span>
     </div>
   `;
 
@@ -2184,7 +2239,7 @@ async function runMonteCarloSimulation() {
         presupuesto_oficial: po,
         competidores_estimados: competidores,
         puntaje_maximo: puntajeMax,
-        iteraciones: 5000,
+        iteraciones: iteraciones,
         perfil_competencia: perfil
       })
     });
@@ -2199,6 +2254,12 @@ async function runMonteCarloSimulation() {
     lastSimulationResult = data;
     const rec = data.recomendacion_estrategica;
     const desglose = rec.desglose_metodos_en_optimo || {};
+    const zoa = rec.zona_optima_adjudicacion_zoa || rec.rango_seguro_recomendado || {};
+    const umbralBajo = data.umbral_precio_artificialmente_bajo || { valor_cop: Math.round(po * 0.88), porcentaje_po: 88.0 };
+
+    // Mostrar botón de descarga de PDF
+    const btnPdf = document.getElementById('btnDownloadEconPdf');
+    if (btnPdf) btnPdf.style.display = 'inline-flex';
 
     container.innerHTML = `
       <!-- Tarjeta Hero del Precio Óptimo -->
@@ -2210,7 +2271,7 @@ async function runMonteCarloSimulation() {
               ${formatCOP(rec.precio_optimo_cop)} COP
             </div>
             <div style="font-size: 0.8rem; color: var(--text-warm);">
-              Equivale al <b>${rec.porcentaje_optimo}%</b> del Presupuesto Oficial ($ ${po.toLocaleString('es-CO')} COP)
+              Equivale exactamente al <b>${rec.porcentaje_optimo}%</b> del Presupuesto Oficial ($ ${po.toLocaleString('es-CO')} COP)
             </div>
           </div>
           <div style="text-align: right;">
@@ -2218,86 +2279,95 @@ async function runMonteCarloSimulation() {
               ${rec.esperanza_puntaje_max} / ${data.puntaje_maximo} pts
             </div>
             <span style="font-size: 0.75rem; color: var(--text-faint);">Esperanza Matemática E[Puntaje] (${rec.eficiencia_esperada}% de efectividad)</span>
-            <div style="margin-top: 6px;">
+            <div style="margin-top: 8px; display: flex; gap: 6px; justify-content: flex-end;">
               <button id="btnSaveEconStrategy" class="btn-action" style="background: rgba(0, 230, 118, 0.15); border: 1px solid var(--success); color: var(--success); padding: 4px 12px; font-size: 0.75rem;">
                 💾 Guardar Estrategia
+              </button>
+              <button id="btnPdfInCard" class="btn-action" style="background: rgba(212, 175, 55, 0.15); border: 1px solid var(--gold); color: var(--gold); padding: 4px 12px; font-size: 0.75rem;">
+                📄 Dictamen PDF
               </button>
             </div>
           </div>
         </div>
 
-        <!-- Rango Seguro y Alertas -->
+        <!-- Parámetros Clave: ZOA, Umbral Bajo y Concepto CCE -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 14px;">
           <div style="background: var(--lacquer-deep); padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
-            <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Rango Seguro Recomendado (≥ 96% Eficiencia)</div>
+            <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Zona Óptima de Adjudicación (ZOA)</div>
             <div style="font-size: 0.95rem; font-weight: 700; color: var(--champagne); margin-top: 2px;">
-              ${rec.rango_seguro_recomendado.min_pct}% a ${rec.rango_seguro_recomendado.max_pct}% PO
+              ${zoa.min_pct}% a ${zoa.max_pct}% PO
             </div>
             <div style="font-size: 0.72rem; color: var(--text-muted);">
-              ${formatCOP(rec.rango_seguro_recomendado.min_cop)} - ${formatCOP(rec.rango_seguro_recomendado.max_cop)}
+              ${formatCOP(zoa.min_cop)} - ${formatCOP(zoa.max_cop)}
             </div>
           </div>
 
           <div style="background: var(--lacquer-deep); padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
             <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Umbral Precio Artificialmente Bajo</div>
             <div style="font-size: 0.95rem; font-weight: 700; color: var(--danger); margin-top: 2px;">
-              &lt; 88.0% PO ($ ${Math.round(po * 0.88).toLocaleString('es-CO')})
+              &lt; ${umbralBajo.porcentaje_po}% PO (${formatCOP(umbralBajo.valor_cop)})
             </div>
             <div style="font-size: 0.72rem; color: var(--text-muted);">
-              Protección automática bajo Decreto 1082/2015
+              Decreto 1082/2015 Art. 2.2.1.1.2.2.4
             </div>
           </div>
 
           <div style="background: var(--lacquer-deep); padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
-            <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Aleatoriedad Normativa CCE</div>
+            <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Aleatoriedad Normativa TRM</div>
             <div style="font-size: 0.95rem; font-weight: 700; color: var(--tech-cyan); margin-top: 2px;">
-              Concepto C-382 de 2020
+              Concepto C-382 de 2020 CCE
             </div>
             <div style="font-size: 0.72rem; color: var(--text-muted);">
-              Mapeo de decimales de TRM oficial al cierre
+              6 Fórmulas Oficiales • U[00, 99]
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Desempeño del Precio Óptimo en los 5 Métodos Oficiales -->
+      <!-- Desempeño del Precio Óptimo en los 6 Métodos Oficiales -->
       <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 16px; border-radius: var(--radius-md);">
         <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--champagne); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
-          <span>⚖️ Desempeño en cada Método de Pliegos Tipo (si saliera seleccionado por TRM)</span>
+          <span>⚖️ Desempeño en las 6 Fórmulas Oficiales de Pliegos Tipo ANCP-CCE</span>
         </h4>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; font-size: 0.78rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; font-size: 0.78rem;">
           <div style="background: var(--lacquer-deep); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
-            <div style="color: var(--text-faint);">1. Media Aritmética:</div>
-            <div style="font-size: 1.1rem; font-weight: 800; color: var(--champagne);">${desglose.media_aritmetica || '--'} pts</div>
-            <div style="font-size: 0.7rem; color: var(--text-muted);">TRM .00 a .19</div>
+            <div style="color: var(--text-faint); font-weight: 700;">M1. Media Aritmética</div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: var(--champagne); margin-top: 4px;">${desglose.media_aritmetica !== undefined ? desglose.media_aritmetica : '--'} pts</div>
+            <div style="font-size: 0.7rem; color: var(--tech-cyan);">TRM .00 a .16</div>
           </div>
           <div style="background: var(--lacquer-deep); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
-            <div style="color: var(--text-faint);">2. Media con Presupuesto:</div>
-            <div style="font-size: 1.1rem; font-weight: 800; color: var(--champagne);">${desglose.media_modificada || '--'} pts</div>
-            <div style="font-size: 0.7rem; color: var(--text-muted);">TRM .20 a .39</div>
+            <div style="color: var(--text-faint); font-weight: 700;">M2. Media con Extremos (kσ)</div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: var(--champagne); margin-top: 4px;">${desglose.media_extremos !== undefined ? desglose.media_extremos : '--'} pts</div>
+            <div style="font-size: 0.7rem; color: var(--tech-cyan);">TRM .17 a .33</div>
           </div>
           <div style="background: var(--lacquer-deep); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
-            <div style="color: var(--text-faint);">3. Media Geométrica:</div>
-            <div style="font-size: 1.1rem; font-weight: 800; color: var(--champagne);">${desglose.media_geometrica || '--'} pts</div>
-            <div style="font-size: 0.7rem; color: var(--text-muted);">TRM .40 a .59</div>
+            <div style="color: var(--text-faint); font-weight: 700;">M3. Media Ponderada con PO</div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: var(--champagne); margin-top: 4px;">${desglose.media_ponderada !== undefined ? desglose.media_ponderada : (desglose.media_modificada || '--')} pts</div>
+            <div style="font-size: 0.7rem; color: var(--tech-cyan);">TRM .34 a .50</div>
           </div>
           <div style="background: var(--lacquer-deep); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
-            <div style="color: var(--text-faint);">4. Mediana:</div>
-            <div style="font-size: 1.1rem; font-weight: 800; color: var(--champagne);">${desglose.mediana || '--'} pts</div>
-            <div style="font-size: 0.7rem; color: var(--text-muted);">TRM .60 a .79</div>
+            <div style="color: var(--text-faint); font-weight: 700;">M4. Mediana Hábil</div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: var(--champagne); margin-top: 4px;">${desglose.mediana !== undefined ? desglose.mediana : '--'} pts</div>
+            <div style="font-size: 0.7rem; color: var(--tech-cyan);">TRM .51 a .67</div>
           </div>
           <div style="background: var(--lacquer-deep); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
-            <div style="color: var(--text-faint);">5. Menor Valor Hábil:</div>
-            <div style="font-size: 1.1rem; font-weight: 800; color: var(--champagne);">${desglose.menor_valor || '--'} pts</div>
-            <div style="font-size: 0.7rem; color: var(--text-muted);">TRM .80 a .99</div>
+            <div style="color: var(--text-faint); font-weight: 700;">M5. Media Geométrica</div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: var(--champagne); margin-top: 4px;">${desglose.media_geometrica !== undefined ? desglose.media_geometrica : '--'} pts</div>
+            <div style="font-size: 0.7rem; color: var(--tech-cyan);">TRM .68 a .84</div>
+          </div>
+          <div style="background: var(--lacquer-deep); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
+            <div style="color: var(--text-faint); font-weight: 700;">M6. Menor Valor Hábil</div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: var(--champagne); margin-top: 4px;">${desglose.menor_valor !== undefined ? desglose.menor_valor : '--'} pts</div>
+            <div style="font-size: 0.7rem; color: var(--tech-cyan);">TRM .85 a .99</div>
           </div>
         </div>
       </div>
 
       <!-- Curva de Sensibilidad Estocástica (Barrido de Precios) -->
       <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 16px; border-radius: var(--radius-md);">
-        <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--champagne); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
-          <span>📈 Curva de Sensibilidad del Puntaje Esperado</span>
+        <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--champagne); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+          <span>📈 Curva de Sensibilidad del Puntaje Esperado y Tasa de Victoria (#1)</span>
+          <span style="font-size: 0.72rem; color: var(--text-faint);">${data.iteraciones_montecarlo.toLocaleString('es-CO')} iteraciones</span>
         </h4>
         <div style="display: flex; flex-direction: column; gap: 6px; font-size: 0.76rem;">
           ${data.curva_rendimiento.filter((_, idx) => idx % 2 === 0).map(c => {
@@ -2306,15 +2376,16 @@ async function runMonteCarloSimulation() {
             const barColor = isOpt ? 'var(--gold)' : (c.alerta_riesgo_precio_bajo ? 'var(--danger)' : 'var(--tech-cyan)');
 
             return `
-              <div style="display: flex; align-items: center; gap: 10px; padding: 4px 6px; border-radius: 4px; background: ${isOpt ? 'rgba(212, 175, 55, 0.15)' : 'transparent'};">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 4px; background: ${isOpt ? 'rgba(212, 175, 55, 0.15)' : 'transparent'};">
                 <span style="width: 50px; font-weight: ${isOpt ? '800' : '400'}; color: ${isOpt ? 'var(--champagne)' : 'var(--text-warm)'};">${c.porcentaje_po}%</span>
                 <span style="width: 130px; font-size: 0.72rem; color: var(--text-faint);">${formatCOP(c.precio_cop)}</span>
                 <div style="flex: 1; background: var(--lacquer-deep); height: 10px; border-radius: 5px; overflow: hidden; position: relative;">
                   <div style="background: ${barColor}; width: ${pctBar}%; height: 100%;"></div>
                 </div>
-                <span style="width: 60px; text-align: right; font-weight: 700; color: ${isOpt ? 'var(--champagne)' : 'var(--text-primary)'};">${c.esperanza_puntaje} pts</span>
+                <span style="width: 65px; text-align: right; font-weight: 700; color: ${isOpt ? 'var(--champagne)' : 'var(--text-primary)'};">${c.esperanza_puntaje} pts</span>
+                <span style="width: 80px; text-align: right; font-size: 0.7rem; color: var(--text-muted);">${c.probabilidad_victoria || 0}% Win</span>
                 ${isOpt ? '<span style="color: var(--gold); font-size: 0.7rem; font-weight: 800;">⭐ ÓPTIMO</span>' : ''}
-                ${c.alerta_riesgo_precio_bajo ? '<span style="color: var(--danger); font-size: 0.65rem;">⚠️ RIESGO</span>' : ''}
+                ${c.alerta_riesgo_precio_bajo ? '<span style="color: var(--danger); font-size: 0.65rem;">⚠️ BAJO</span>' : ''}
               </div>
             `;
           }).join('')}
@@ -2340,12 +2411,12 @@ async function runMonteCarloSimulation() {
             porcentaje_optimo_po: rec.porcentaje_optimo,
             esperanza_puntaje: rec.esperanza_puntaje_max,
             desglose_metodos: desglose,
-            distribucion_simulada: rec.rango_seguro_recomendado
+            distribucion_simulada: zoa
           })
         });
         const jsonSave = await resSave.json();
         if (jsonSave.success) {
-          showToast('Estrategia económica guardada en base de datos');
+          showToast('Estrategia económica guardada con éxito en la base de datos');
         } else {
           showToast(`Error al guardar: ${jsonSave.error}`);
         }
@@ -2353,6 +2424,47 @@ async function runMonteCarloSimulation() {
         showToast('Error de conexión al guardar');
       }
     });
+
+    // Conectar botones de PDF (en barra superior y dentro de la tarjeta)
+    const triggerPdfDownload = async () => {
+      if (!lastSimulationResult) return;
+      showToast('Generando Dictamen Técnico Oficial en PDF...');
+      try {
+        const lider = userCompanies.find(c => c.es_propia) || userCompanies[0];
+        const resPdf = await fetch('/api/economico/informe-pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            simulacion_data: lastSimulationResult,
+            proceso_info: {
+              referencia: ref,
+              entidad: 'Entidad Contratante Estatal',
+              proponente: lider ? lider.razon_social : 'Proponente Licitante'
+            }
+          })
+        });
+
+        if (!resPdf.ok) {
+          throw new Error('Error en el servidor al generar PDF');
+        }
+
+        const blob = await resPdf.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Dictamen_Economico_TRM_${ref.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+        showToast('Dictamen Técnico descargado con éxito');
+      } catch (e) {
+        showToast(`Error al descargar PDF: ${e.message}`);
+      }
+    };
+
+    document.getElementById('btnDownloadEconPdf')?.addEventListener('click', triggerPdfDownload);
+    document.getElementById('btnPdfInCard')?.addEventListener('click', triggerPdfDownload);
 
   } catch (err) {
     container.innerHTML = `<div style="color: var(--danger); padding: 20px;">Error al ejecutar simulación: ${err.message}</div>`;
