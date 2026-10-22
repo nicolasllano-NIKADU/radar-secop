@@ -33,9 +33,16 @@
         <div class="brand-subtitle" id="brandSubtitle">Radar SECOP Colombia</div>
       </div>
     </div>
-    <div class="status-pill" id="scannerStatusPill" title="Escaneo automático ejecutándose cada hora">
-      <div class="pulsing-dot"></div>
-      <span id="scannerStatusText">Cada 1h</span>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <div class="status-pill" id="scannerStatusPill" title="Escaneo automático ejecutándose cada hora">
+        <div class="pulsing-dot"></div>
+        <span id="scannerStatusText">Cada 1h</span>
+      </div>
+      <div id="userAuthBadgeContainer">
+        <button id="btnOpenAuthModal" class="btn-action" style="padding: 4px 10px; font-size: 0.75rem; background: rgba(0, 229, 255, 0.12); border: 1px solid var(--tech-cyan); color: var(--tech-cyan); border-radius: var(--radius-sm); gap: 5px;">
+          <span>🔐 Iniciar Sesión</span>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -1158,6 +1165,81 @@
           <button type="button" id="btnCancelNewPipe" class="btn-action" style="flex: 1; background: var(--lacquer-surface);">Cancelar</button>
           <button type="submit" class="btn-action btn-action-primary" style="flex: 1;">Incorporar</button>
         </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de Autenticación SaaS y Multi-Tenancy -->
+  <div id="authModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 460px;">
+      <div class="modal-header">
+        <div style="display: flex; gap: 10px;">
+          <button id="authTabLogin" class="tab-btn active" style="background: none; border: none; font-size: 0.95rem; font-weight: 800; color: var(--champagne); cursor: pointer; padding: 4px 8px; border-bottom: 2px solid var(--champagne);">
+            Iniciar Sesión
+          </button>
+          <button id="authTabRegister" class="tab-btn" style="background: none; border: none; font-size: 0.95rem; font-weight: 700; color: var(--text-faint); cursor: pointer; padding: 4px 8px;">
+            Crear Cuenta SaaS
+          </button>
+        </div>
+        <button id="btnCloseAuthModal" class="btn-close-modal">✕</button>
+      </div>
+
+      <!-- Formulario Login -->
+      <form id="formLogin" style="display: flex; flex-direction: column; gap: 12px; margin-top: 14px;">
+        <div>
+          <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Correo Electrónico:</label>
+          <input type="email" id="loginEmail" required class="cfg-input" placeholder="usuario@empresa.com" style="width: 100%;">
+        </div>
+        <div>
+          <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Contraseña:</label>
+          <input type="password" id="loginPassword" required class="cfg-input" placeholder="••••••••" style="width: 100%;">
+        </div>
+        <button type="submit" class="btn-action btn-action-primary" style="margin-top: 8px; justify-content: center; padding: 10px;">
+          Ingresar al Ecosistema
+        </button>
+      </form>
+
+      <!-- Formulario Registro -->
+      <form id="formRegister" style="display: none; flex-direction: column; gap: 10px; margin-top: 14px;">
+        <div>
+          <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Nombre Completo:</label>
+          <input type="text" id="regNombre" required class="cfg-input" placeholder="Ing. María Rodríguez" style="width: 100%;">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Correo Electrónico:</label>
+            <input type="email" id="regEmail" required class="cfg-input" placeholder="maria@empresa.com" style="width: 100%;">
+          </div>
+          <div>
+            <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Contraseña:</label>
+            <input type="password" id="regPassword" required minlength="6" class="cfg-input" placeholder="Min. 6 caracteres" style="width: 100%;">
+          </div>
+        </div>
+        <div>
+          <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Rol Profesional:</label>
+          <select id="regRol" class="cfg-input" style="width: 100%;">
+            <option value="LICITADOR" selected>Licitador / Comercial</option>
+            <option value="JURIDICO">Abogado / Jurídico</option>
+            <option value="FINANCIERO">Financiero / Contable</option>
+            <option value="ADMIN">Director / Administrador</option>
+          </select>
+        </div>
+        <div style="border-top: 1px solid var(--hairline); padding-top: 8px;">
+          <span style="font-size: 0.75rem; font-weight: 700; color: var(--champagne); display: block; margin-bottom: 6px;">🏢 Empresa Principal (Proponente)</span>
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 8px;">
+            <div>
+              <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Razón Social:</label>
+              <input type="text" id="regEmpresa" required class="cfg-input" placeholder="INGENIERÍA SAS" style="width: 100%;">
+            </div>
+            <div>
+              <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">NIT:</label>
+              <input type="text" id="regNit" required class="cfg-input" placeholder="900123456-7" style="width: 100%;">
+            </div>
+          </div>
+        </div>
+        <button type="submit" class="btn-action btn-action-primary" style="margin-top: 8px; justify-content: center; padding: 10px;">
+          Crear Cuenta y Empresa
+        </button>
       </form>
     </div>
   </div>

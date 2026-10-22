@@ -2624,8 +2624,182 @@ document.getElementById('newPipelineForm')?.addEventListener('submit', async (e)
   }
 });
 
+// ==================== MÓDULO DE AUTENTICACIÓN SAAS Y MULTI-TENANCY ====================
+// Interceptor global para inyectar token JWT automáticamente
+const originalFetch = window.fetch;
+window.fetch = function(url, options = {}) {
+  options.headers = options.headers || {};
+  const token = localStorage.getItem('radar_secop_token');
+  if (token) {
+    if (options.headers instanceof Headers) {
+      if (!options.headers.has('Authorization')) options.headers.set('Authorization', `Bearer ${token}`);
+    } else {
+      if (!options.headers['Authorization'] && !options.headers['authorization']) {
+        options.headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+  }
+  return originalFetch(url, options);
+};
+
+let currentUser = null;
+
+function renderUserAuthUI() {
+  const container = document.getElementById('userAuthBadgeContainer');
+  if (!container) return;
+
+  if (currentUser) {
+    let roleBadgeColor = '#38bdf8';
+    if (currentUser.rol === 'ADMIN') roleBadgeColor = 'var(--gold)';
+    else if (currentUser.rol === 'JURIDICO') roleBadgeColor = '#a855f7';
+    else if (currentUser.rol === 'FINANCIERO') roleBadgeColor = 'var(--success)';
+
+    container.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 8px; background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 3px 10px; border-radius: var(--radius-sm); font-size: 0.75rem;">
+        <span style="font-weight: 700; color: var(--champagne);">👤 ${currentUser.nombre.split(' ')[0]}</span>
+        <span style="font-size: 0.65rem; font-weight: 800; background: rgba(255,255,255,0.08); color: ${roleBadgeColor}; padding: 1px 5px; border-radius: 3px;">${currentUser.rol}</span>
+        <button id="btnLogout" style="background: none; border: none; color: var(--text-faint); cursor: pointer; padding: 0 4px; font-size: 0.85rem;" title="Cerrar sesión">✕</button>
+      </div>
+    `;
+
+    document.getElementById('btnLogout')?.addEventListener('click', () => {
+      localStorage.removeItem('radar_secop_token');
+      currentUser = null;
+      renderUserAuthUI();
+      showToast('Sesión cerrada correctamente');
+    });
+  } else {
+    container.innerHTML = `
+      <button id="btnOpenAuthModal" class="btn-action" style="padding: 4px 10px; font-size: 0.75rem; background: rgba(0, 229, 255, 0.12); border: 1px solid var(--tech-cyan); color: var(--tech-cyan); border-radius: var(--radius-sm); gap: 5px;">
+        <span>🔐 Iniciar Sesión</span>
+      </button>
+    `;
+
+    document.getElementById('btnOpenAuthModal')?.addEventListener('click', () => {
+      document.getElementById('authModal')?.classList.add('open');
+    });
+  }
+}
+
+async function checkUserSession() {
+  const token = localStorage.getItem('radar_secop_token');
+  if (!token) {
+    currentUser = null;
+    renderUserAuthUI();
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/auth/me');
+    const json = await res.json();
+    if (json.success && json.data) {
+      currentUser = json.data.usuario;
+      renderUserAuthUI();
+    } else {
+      localStorage.removeItem('radar_secop_token');
+      currentUser = null;
+      renderUserAuthUI();
+    }
+  } catch (err) {
+    currentUser = null;
+    renderUserAuthUI();
+  }
+}
+
+// Tabs dentro del modal Auth
+document.getElementById('authTabLogin')?.addEventListener('click', () => {
+  document.getElementById('authTabLogin').classList.add('active');
+  document.getElementById('authTabLogin').style.color = 'var(--champagne)';
+  document.getElementById('authTabLogin').style.borderBottom = '2px solid var(--champagne)';
+  document.getElementById('authTabRegister').classList.remove('active');
+  document.getElementById('authTabRegister').style.color = 'var(--text-faint)';
+  document.getElementById('authTabRegister').style.borderBottom = 'none';
+  document.getElementById('formLogin').style.display = 'flex';
+  document.getElementById('formRegister').style.display = 'none';
+});
+
+document.getElementById('authTabRegister')?.addEventListener('click', () => {
+  document.getElementById('authTabRegister').classList.add('active');
+  document.getElementById('authTabRegister').style.color = 'var(--champagne)';
+  document.getElementById('authTabRegister').style.borderBottom = '2px solid var(--champagne)';
+  document.getElementById('authTabLogin').classList.remove('active');
+  document.getElementById('authTabLogin').style.color = 'var(--text-faint)';
+  document.getElementById('authTabLogin').style.borderBottom = 'none';
+  document.getElementById('formRegister').style.display = 'flex';
+  document.getElementById('formLogin').style.display = 'none';
+});
+
+document.getElementById('btnCloseAuthModal')?.addEventListener('click', () => {
+  document.getElementById('authModal')?.classList.remove('open');
+});
+
+// Submit Formulario Login
+document.getElementById('formLogin')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('loginEmail')?.value.trim();
+  const password = document.getElementById('loginPassword')?.value;
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    const json = await res.json();
+    if (json.success && json.data) {
+      localStorage.setItem('radar_secop_token', json.data.token);
+      currentUser = json.data.usuario;
+      document.getElementById('authModal')?.classList.remove('open');
+      renderUserAuthUI();
+      showToast(`¡Bienvenido de nuevo, ${currentUser.nombre.split(' ')[0]}!`);
+      loadCompanies();
+      loadPipeline();
+    } else {
+      showToast(`Error: ${json.error || 'Credenciales incorrectas'}`);
+    }
+  } catch (err) {
+    showToast('Error de conexión');
+  }
+});
+
+// Submit Formulario Registro
+document.getElementById('formRegister')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const nombre = document.getElementById('regNombre')?.value.trim();
+  const email = document.getElementById('regEmail')?.value.trim();
+  const password = document.getElementById('regPassword')?.value;
+  const rol = document.getElementById('regRol')?.value;
+  const razon_social = document.getElementById('regEmpresa')?.value.trim();
+  const nit = document.getElementById('regNit')?.value.trim();
+
+  try {
+    const res = await fetch('/api/auth/registro', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre, email, password, rol, razon_social, nit })
+    });
+
+    const json = await res.json();
+    if (json.success && json.data) {
+      localStorage.setItem('radar_secop_token', json.data.token);
+      currentUser = json.data.usuario;
+      document.getElementById('authModal')?.classList.remove('open');
+      renderUserAuthUI();
+      showToast(`¡Cuenta SaaS y empresa creadas exitosamente!`);
+      loadCompanies();
+      loadPipeline();
+    } else {
+      showToast(`Error: ${json.error}`);
+    }
+  } catch (err) {
+    showToast('Error de conexión');
+  }
+});
+
 // ==================== INICIALIZACIÓN ====================
 window.addEventListener('DOMContentLoaded', () => {
+  checkUserSession();
   const savedProfileBtn = document.querySelector(`.company-btn[data-profile="${currentProfile}"]`);
   if (savedProfileBtn) {
     document.querySelectorAll('.company-btn').forEach(b => b.classList.remove('active'));

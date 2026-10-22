@@ -17,11 +17,13 @@ const complianceEngine = require('./complianceEngine');
 const reportGenerator = require('./reportGenerator');
 const economicEngine = require('./economicEngine');
 const pipelineManager = require('./pipelineManager');
+const authManager = require('./authManager');
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use(authManager.authMiddleware());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Módulo 1: Identidad Empresarial, RUP y Simulaciones Plurales
@@ -625,6 +627,53 @@ app.delete('/api/pipeline/:id', async (req, res) => {
   } catch (err) {
     console.error('Error eliminando proceso de pipeline:', err.message);
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 17. Módulo de Autenticación SaaS y Multi-Tenancy (JWT + Bcrypt + RBAC)
+app.get('/api/auth/roles', (req, res) => {
+  res.json({ success: true, data: authManager.ROLES });
+});
+
+app.post('/api/auth/registro', async (req, res) => {
+  try {
+    const result = await authManager.register(req.body);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Error en registro:', err.message);
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const result = await authManager.login(req.body);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Error en login:', err.message);
+    res.status(401).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/auth/me', authManager.requireAuth(), async (req, res) => {
+  try {
+    const profile = await authManager.getProfile(req.user.id);
+    if (!profile) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+    res.json({ success: true, data: profile });
+  } catch (err) {
+    console.error('Error en perfil:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/auth/cambiar-empresa', authManager.requireAuth(), async (req, res) => {
+  try {
+    const { empresa_id } = req.body;
+    const result = await authManager.switchCompany(req.user.id, empresa_id);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Error cambiando empresa:', err.message);
+    res.status(400).json({ success: false, error: err.message });
   }
 });
 
