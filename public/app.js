@@ -1647,6 +1647,215 @@ document.querySelectorAll('#paaMonthFilters .filter-pill').forEach(btn => {
   });
 });
 
+// ==================== MÓDULO GESTIÓN CONTRACTUAL & PÓLIZAS ====================
+async function loadContracts() {
+  const container = document.getElementById('contractsList');
+  if (!container) return;
+
+  const lider = userCompanies.find(c => c.es_propia) || userCompanies[0];
+  const empresaId = lider ? lider.id : 1;
+
+  container.innerHTML = '<div style="text-align: center; padding: 30px; color: var(--text-faint);">Consultando contratos en ejecución...</div>';
+
+  try {
+    const res = await fetch(`/api/contratos?empresa_id=${empresaId}`);
+    const json = await res.json();
+
+    if (!json.success || !json.data || json.data.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state" style="padding: 40px; text-align: center;">
+          <p style="color: var(--text-faint); margin-bottom: 12px;">No tienes contratos adjudicados en seguimiento.</p>
+          <button onclick="document.getElementById('newContractModal').classList.add('active')" class="btn-action btn-action-primary" style="margin: 0 auto;">
+            + Registrar Primer Contrato Adjudicado
+          </button>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = json.data.map(c => {
+      const valor = parseFloat(c.valor_adjudicado) || 0;
+      const adicion = parseFloat(c.valor_adicionado) || 0;
+      const topeAdicion = valor * 0.50;
+      const pctAdicionado = topeAdicion > 0 ? (adicion / topeAdicion) * 100 : 0;
+
+      let badgeRiesgo = '<span style="color: var(--success); font-weight: 700; font-size: 0.72rem;">✅ Pólizas al Día</span>';
+      if (parseInt(c.polizas_en_riesgo, 10) > 0) {
+        badgeRiesgo = '<span style="color: var(--danger); font-weight: 800; font-size: 0.72rem; background: rgba(255,23,68,0.15); padding: 2px 6px; border-radius: 4px;">⚠️ Póliza por Vencer (≤15d)</span>';
+      }
+
+      return `
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 16px; border-radius: var(--radius-md); display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+              <span class="entity-badge" style="font-size: 0.72rem;">${c.entidad_contratante}</span>
+              <span style="font-size: 0.72rem; color: var(--text-faint); margin-left: 6px;">Contrato: <b>${c.numero_contrato}</b></span>
+            </div>
+            <div>${badgeRiesgo}</div>
+          </div>
+
+          <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-warm); margin: 0; line-height: 1.4;">
+            ${c.objeto_contractual}
+          </h3>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; background: var(--lacquer-deep); padding: 10px; border-radius: var(--radius-sm); font-size: 0.75rem;">
+            <div>
+              <span style="color: var(--text-faint); display: block;">Valor Adjudicado:</span>
+              <b style="color: var(--champagne); font-size: 0.9rem;">${formatCOP(valor)}</b>
+            </div>
+            <div>
+              <span style="color: var(--text-faint); display: block;">Tope Legal Adición (50%):</span>
+              <b style="color: var(--text-warm);">${formatCOP(topeAdicion)}</b>
+              <div style="font-size: 0.68rem; color: ${pctAdicionado > 80 ? 'var(--danger)' : 'var(--text-faint)'};">Usado: ${pctAdicionado.toFixed(1)}%</div>
+            </div>
+            <div>
+              <span style="color: var(--text-faint); display: block;">Vencimiento Previsto:</span>
+              <b style="color: var(--tech-cyan);">${c.fecha_terminacion_estimada || 'Por calcular'}</b>
+              <div style="font-size: 0.68rem; color: var(--text-faint);">Plazo: ${c.plazo_dias} días</div>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;">
+            <button onclick="gestionarPolizasModal(${c.id})" class="btn-action" style="font-size: 0.75rem; padding: 6px 12px; background: var(--lacquer-deep); border: 1px solid var(--gold); color: var(--champagne);">
+              🛡️ Ver Pólizas & Amparos (${c.total_polizas || 0})
+            </button>
+            <button onclick="adicionarContratoPrompt(${c.id}, ${valor}, ${topeAdicion - adicion})" class="btn-action btn-action-primary" style="font-size: 0.75rem; padding: 6px 12px;">
+              + Adición / Prórroga
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    container.innerHTML = `<div style="color: var(--danger); padding: 20px; text-align: center;">Error: ${err.message}</div>`;
+  }
+}
+
+// Modal nuevo contrato
+document.getElementById('btnNewContractModal')?.addEventListener('click', () => {
+  document.getElementById('newContractModal')?.classList.add('active');
+});
+
+document.getElementById('btnCloseNewContractModal')?.addEventListener('click', () => {
+  document.getElementById('newContractModal')?.classList.remove('active');
+});
+
+document.getElementById('btnCancelNewContract')?.addEventListener('click', () => {
+  document.getElementById('newContractModal')?.classList.remove('active');
+});
+
+document.getElementById('formNewContract')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const lider = userCompanies.find(c => c.es_propia) || userCompanies[0];
+  const empresaId = lider ? lider.id : 1;
+
+  const data = {
+    numero_contrato: document.getElementById('ctrNumero').value.trim(),
+    referencia_proceso: document.getElementById('ctrRef').value.trim(),
+    entidad_contratante: document.getElementById('ctrEntidad').value.trim(),
+    objeto_contractual: document.getElementById('ctrObjeto').value.trim(),
+    valor_adjudicado: parseFloat(document.getElementById('ctrValor').value) || 0,
+    plazo_dias: parseInt(document.getElementById('ctrPlazo').value, 10) || 30,
+    fecha_suscripcion: document.getElementById('ctrFechaSuscripcion').value || null,
+    supervisor_nombre: document.getElementById('ctrSupervisor').value.trim()
+  };
+
+  showToast('Registrando contrato en ejecución...');
+
+  try {
+    const res = await fetch('/api/contratos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ empresa_id: empresaId, ...data })
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast('Contrato guardado exitosamente');
+      document.getElementById('newContractModal')?.classList.remove('active');
+      document.getElementById('formNewContract')?.reset();
+      loadContracts();
+    } else {
+      showToast(`Error: ${json.error}`);
+    }
+  } catch (err) {
+    showToast(`Error: ${err.message}`);
+  }
+});
+
+window.adicionarContratoPrompt = async function(contratoId, valorBase, saldoAdicionDisponible) {
+  const montoStr = prompt(`Ingresa el valor a adicionar en COP (Máximo disponible legal: $${saldoAdicionDisponible.toLocaleString('es-CO')}):`);
+  if (!montoStr) return;
+
+  const monto = parseFloat(montoStr.replace(/[^0-9]/g, ''));
+  if (isNaN(monto) || monto <= 0) {
+    showToast('Valor de adición inválido');
+    return;
+  }
+
+  const justificacion = prompt('Justificación técnica de la adición contractual:') || 'Ampliación de metas físicas y financieras del objeto contractual';
+
+  try {
+    const res = await fetch(`/api/contratos/${contratoId}/modificaciones`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tipo_modificacion: 'ADICION_PRESUPUESTAL',
+        valor_adicion: monto,
+        poliza_modificada_aprobada: true,
+        justificacion
+      })
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast('Adición contractual registrada conforme a Ley 80/1993');
+      loadContracts();
+    } else {
+      showToast(`Error: ${json.error}`);
+    }
+  } catch (e) {
+    showToast(`Error: ${e.message}`);
+  }
+};
+
+window.gestionarPolizasModal = async function(contratoId) {
+  try {
+    const res = await fetch(`/api/contratos/${contratoId}`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+
+    const polizas = json.data.polizas || [];
+    if (polizas.length === 0) {
+      const crear = confirm('Este contrato no tiene pólizas registradas aún. ¿Deseas agregar la Garantía Única de Cumplimiento ahora?');
+      if (crear) {
+        const aseguradora = prompt('Nombre de la Compañía Aseguradora (ej: Seguros del Estado, Suramericana):') || 'Seguros del Estado';
+        const numPoliza = prompt('Número de Póliza:') || 'POL-2026-999';
+        const valorAsegurado = json.data.contrato.valor_adjudicado * 0.10;
+
+        await fetch(`/api/contratos/${contratoId}/polizas`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            aseguradora,
+            numero_poliza: numPoliza,
+            tipo_amparo: 'CUMPLIMIENTO',
+            valor_asegurado: valorAsegurado,
+            fecha_inicio_vigencia: json.data.contrato.fecha_suscripcion || new Date().toISOString().slice(0, 10),
+            fecha_fin_vigencia: json.data.contrato.fecha_terminacion_estimada || new Date(Date.now() + 180*86400000).toISOString().slice(0, 10)
+          })
+        });
+        showToast('Póliza de Cumplimiento agregada');
+        loadContracts();
+      }
+      return;
+    }
+
+    const reporte = polizas.map(p => `• [${p.tipo_amparo}] No. ${p.numero_poliza} (${p.aseguradora}) - Vigencia hasta: ${p.fecha_fin_vigencia} -> Estado: ${p.semaforo_vencimiento.texto}`).join('\n');
+    alert(`TABLERO DE VIGENCIAS DE PÓLIZAS:\n\n${reporte}`);
+  } catch (err) {
+    showToast(`Error: ${err.message}`);
+  }
+};
+
 // ==================== INICIALIZACIÓN ====================
 window.addEventListener('DOMContentLoaded', () => {
   const savedProfileBtn = document.querySelector(`.company-btn[data-profile="${currentProfile}"]`);
@@ -1660,4 +1869,5 @@ window.addEventListener('DOMContentLoaded', () => {
   loadOportunidades();
   loadCompanies();
   loadPAAOpportunities();
+  loadContracts();
 });

@@ -12,6 +12,7 @@ const documentManager = require('./documentManager');
 const paaManager = require('./paaManager');
 const companyManager = require('./companyManager');
 const subsanabilidadEngine = require('./subsanabilidadEngine');
+const contractManager = require('./contractManager');
 
 const app = express();
 
@@ -279,6 +280,61 @@ app.post('/api/subsanabilidad/diagnosticar', (req, res) => {
   try {
     const diagnostico = subsanabilidadEngine.diagnoseCompliance(req.body);
     res.json({ success: true, data: diagnostico });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// 12. Módulo de Gestión Contractual Post-Adjudicación y Pólizas
+app.get('/api/contratos', async (req, res) => {
+  try {
+    const user = await companyManager.getOrCreateDefaultUser();
+    const companies = await companyManager.getCompaniesByUser(user.id);
+    const empresaId = req.query.empresa_id ? parseInt(req.query.empresa_id, 10) : (companies[0]?.id || 1);
+
+    const contratos = await contractManager.getContractsByCompany(empresaId);
+    res.json({ success: true, count: contratos.length, data: contratos });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/contratos', async (req, res) => {
+  try {
+    const user = await companyManager.getOrCreateDefaultUser();
+    const companies = await companyManager.getCompaniesByUser(user.id);
+    const empresaId = req.body.empresa_id ? parseInt(req.body.empresa_id, 10) : (companies[0]?.id || 1);
+
+    const contrato = await contractManager.createContract(empresaId, req.body);
+    res.json({ success: true, data: contrato });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/contratos/:id', async (req, res) => {
+  try {
+    const detalle = await contractManager.getContractDetail(parseInt(req.params.id, 10));
+    if (!detalle) return res.status(404).json({ success: false, error: 'Contrato no encontrado' });
+    res.json({ success: true, data: detalle });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/contratos/:id/polizas', async (req, res) => {
+  try {
+    const poliza = await contractManager.addPolicy(parseInt(req.params.id, 10), req.body);
+    res.json({ success: true, data: poliza });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/contratos/:id/modificaciones', async (req, res) => {
+  try {
+    const mod = await contractManager.addModification(parseInt(req.params.id, 10), req.body);
+    res.json({ success: true, data: mod });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
   }

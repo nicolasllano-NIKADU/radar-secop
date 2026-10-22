@@ -462,6 +462,24 @@
       </div>
     </section>
 
+    <!-- ================= VISTA 6: GESTIÓN CONTRACTUAL & PÓLIZAS ================= -->
+    <section id="view-contracts" class="view-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div>
+          <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--champagne); margin-bottom: 4px;">Contratos en Ejecución & Pólizas</h2>
+          <p style="font-size: 0.8rem; color: var(--text-muted);">Supervisión de plazos, semáforo de vigencias de pólizas y control del tope legal del 50% de adición</p>
+        </div>
+        <button id="btnNewContractModal" class="btn-action btn-action-primary" style="padding: 8px 14px; font-size: 0.82rem;">
+          + Registrar Contrato Adjudicado
+        </button>
+      </div>
+
+      <!-- Lista de Contratos -->
+      <div id="contractsList" style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="text-align: center; padding: 40px; color: var(--text-faint);">Cargando contratos en ejecución...</div>
+      </div>
+    </section>
+
   </main>
 
   <!-- Barra de Navegación Inferior (Mobile First Ergonomics) -->
@@ -511,6 +529,15 @@
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
       </svg>
       <span>Subsanabilidad</span>
+    </button>
+    <button class="nav-item" data-target="view-contracts">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+      </svg>
+      <span>Contratos</span>
     </button>
     <button class="nav-item" data-target="view-sources">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -771,6 +798,76 @@
       <div id="expContractsList" style="display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto;">
         <div style="text-align: center; padding: 20px; color: var(--text-faint);">Cargando contratos...</div>
       </div>
+    </div>
+  </div>
+
+  <!-- Modal Nuevo Contrato Adjudicado -->
+  <div id="newContractModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="entity-badge" style="background: var(--success); color: #000;">CONTRATO</div>
+          <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-warm);">Seguimiento Post-Adjudicación</span>
+        </div>
+        <button id="btnCloseNewContractModal" class="btn-close-modal" aria-label="Cerrar modal">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--champagne); margin-bottom: 12px;">Registrar Contrato Ganado</h3>
+
+      <form id="formNewContract" style="display: flex; flex-direction: column; gap: 10px; font-size: 0.8rem;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Número de Contrato</label>
+            <input type="text" id="ctrNumero" required class="cfg-input" placeholder="Ej: CT-2026-045" style="width: 100%;">
+          </div>
+          <div>
+            <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Referencia SECOP</label>
+            <input type="text" id="ctrRef" class="cfg-input" placeholder="Ej: CO1.PEXP.123456" style="width: 100%;">
+          </div>
+        </div>
+
+        <div>
+          <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Entidad Contratante</label>
+          <input type="text" id="ctrEntidad" required class="cfg-input" placeholder="Ej: ALCALDÍA MAYOR DE BOGOTÁ" style="width: 100%;">
+        </div>
+
+        <div>
+          <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Objeto Contractual</label>
+          <textarea id="ctrObjeto" required class="cfg-input" rows="2" placeholder="Descripción del objeto del contrato" style="width: 100%;"></textarea>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Valor Adjudicado ($ COP)</label>
+            <input type="number" id="ctrValor" required class="cfg-input" placeholder="150000000" style="width: 100%;">
+          </div>
+          <div>
+            <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Plazo de Ejecución (Días)</label>
+            <input type="number" id="ctrPlazo" required class="cfg-input" value="180" style="width: 100%;">
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Fecha de Suscripción</label>
+            <input type="date" id="ctrFechaSuscripcion" class="cfg-input" style="width: 100%;">
+          </div>
+          <div>
+            <label style="color: var(--text-muted); display: block; margin-bottom: 4px;">Supervisor / Interventor</label>
+            <input type="text" id="ctrSupervisor" class="cfg-input" placeholder="Nombre del Supervisor" style="width: 100%;">
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-top: 6px;">
+          <button type="button" id="btnCancelNewContract" class="btn-action" style="flex: 1; background: var(--lacquer-surface);">Cancelar</button>
+          <button type="submit" class="btn-action btn-action-primary" style="flex: 1;">Guardar Contrato</button>
+        </div>
+      </form>
     </div>
   </div>
 
