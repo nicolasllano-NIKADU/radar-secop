@@ -642,6 +642,7 @@ document.querySelectorAll('.nav-item').forEach(btn => {
     if (targetId === 'view-sources') loadSources();
     if (targetId === 'view-config') loadTelegramConfig();
     if (targetId === 'view-competitors') initCompetitorsView();
+    if (targetId === 'view-predictive') initPredictiveView();
   });
 });
 
@@ -3230,6 +3231,317 @@ document.getElementById('modalBtnAnalyzeCompetitors')?.addEventListener('click',
   document.getElementById('view-competitors')?.classList.add('active');
 
   ejecutarAnalisisCompetencia(true);
+});
+
+// ==================== MÓDULO: ALERTAS PREDICTIVAS DE PRÓRROGAS Y VENCIMIENTOS ====================
+let lastPredictiveData = null;
+
+function initPredictiveView() {
+  if (!lastPredictiveData) {
+    ejecutarEscaneoPredictivo(false);
+  }
+}
+
+async function ejecutarEscaneoPredictivo(forceRefresh = false) {
+  const dias = document.getElementById('predDiasSelect')?.value || '90';
+  const entidad = document.getElementById('predEntidadInput')?.value.trim() || '';
+  const palabraClave = document.getElementById('predPalabraInput')?.value.trim() || '';
+  const minValor = document.getElementById('predMinValorSelect')?.value || '50000000';
+
+  const container = document.getElementById('predContentArea');
+  const kpisContainer = document.getElementById('predKpisContainer');
+
+  if (container) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 50px; background: var(--lacquer-surface); border: 1px solid var(--hairline); border-radius: var(--radius-md);">
+        <div style="font-size: 1.8rem; margin-bottom: 8px;">⏳ 📡</div>
+        <div style="font-size: 0.95rem; font-weight: 700; color: var(--tech-cyan);">Escanenado contratos en ejecución próximos a vencer...</div>
+        <div style="font-size: 0.78rem; color: var(--text-faint); margin-top: 4px;">Identificando oportunidades tempranas y contratos no prorrogables en SECOP II.</div>
+      </div>
+    `;
+  }
+
+  try {
+    const params = new URLSearchParams({
+      perfil: currentProfile || 'NIKADU_IA',
+      entidad,
+      palabra_clave: palabraClave,
+      dias,
+      min_valor: minValor,
+      force_refresh: forceRefresh ? 'true' : 'false'
+    });
+
+    const res = await fetch(`/api/predictivo/vencimientos?${params.toString()}`);
+    const json = await res.json();
+
+    if (!json.success || !json.data) {
+      throw new Error(json.error || 'Error al obtener datos');
+    }
+
+    const data = json.data;
+    lastPredictiveData = data;
+
+    // Renderizar KPIs
+    if (kpisContainer) {
+      kpisContainer.style.display = 'grid';
+      document.getElementById('predKpiTotal').textContent = data.totalContratos;
+      document.getElementById('predKpiHorizonte').textContent = `Próximos ${dias} días (${data.source === 'CACHE_POSTGRES' ? '⚡ Caché' : '🌐 SECOP II'})`;
+      document.getElementById('predKpiMonto').textContent = `$ ${Math.round(data.montoTotal).toLocaleString('es-CO')} COP`;
+
+      const noProrrogablesCount = data.contratos.filter(c => !c.esProrrogable || c.diasAdicionados >= 120).length;
+      document.getElementById('predKpiNoProrrogables').textContent = noProrrogablesCount;
+      document.getElementById('predKpiEntidadesCount').textContent = data.resumenEntidades?.length || 0;
+    }
+
+    renderResultadosPredictivo(data);
+  } catch (err) {
+    console.error('Error en escaneo predictivo:', err);
+    if (container) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: var(--danger); background: var(--lacquer-surface); border: 1px solid var(--hairline); border-radius: var(--radius-md);">
+          ❌ Error al escanear vencimientos: ${err.message}. Verifica los criterios de búsqueda e intenta de nuevo.
+        </div>
+      `;
+    }
+  }
+}
+
+function renderResultadosPredictivo(data) {
+  const container = document.getElementById('predContentArea');
+  if (!container) return;
+
+  const contratos = data.contratos || [];
+  if (contratos.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: var(--text-faint); background: var(--lacquer-surface); border: 1px dashed var(--hairline); border-radius: var(--radius-md);">
+        No se detectaron contratos por vencer con los filtros aplicados. Prueba ampliando el horizonte temporal a 180 días o reduciendo la cuantía mínima.
+      </div>
+    `;
+    return;
+  }
+
+  let html = `
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+  `;
+
+  contratos.forEach((c, idx) => {
+    const urg = c.urgencia;
+    const cert = c.certezaNuevaLicitacion;
+    const diasBadge = c.diasRestantes <= 0 ?
+      `<span style="background: rgba(244, 63, 94, 0.2); color: #f43f5e; border: 1px solid #f43f5e; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 0.72rem;">🚨 VENCIDO (${Math.abs(c.diasRestantes)}d)</span>` :
+      `<span style="background: ${urg.color}20; color: ${urg.color}; border: 1px solid ${urg.color}; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 0.72rem;">⏳ VENCE EN ${c.diasRestantes} DÍAS</span>`;
+
+    const prorrogableBadge = c.esProrrogable ?
+      `<span style="font-size: 0.7rem; color: #f59e0b; background: rgba(245, 158, 11, 0.1); padding: 1px 6px; border-radius: 4px;">Prorrogable (Adic: ${c.diasAdicionados}d)</span>` :
+      `<span style="font-size: 0.7rem; color: var(--danger); background: rgba(239, 68, 68, 0.15); padding: 1px 6px; border-radius: 4px; font-weight: 700;">🚫 NO PRORROGABLE (Nueva Licitación)</span>`;
+
+    html += `
+      <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 16px; border-radius: var(--radius-md); display: flex; flex-direction: column; gap: 10px; transition: transform 0.15s ease;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px;">
+          <div style="flex: 1; min-width: 280px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+              ${diasBadge}
+              ${prorrogableBadge}
+              <span style="font-size: 0.7rem; color: var(--text-faint);">${c.departamento}</span>
+            </div>
+            <h3 style="font-size: 0.95rem; font-weight: 800; color: var(--champagne); line-height: 1.3;">${c.entidad}</h3>
+          </div>
+
+          <div style="text-align: right;">
+            <div style="font-size: 1.15rem; font-weight: 800; color: var(--tech-cyan);" class="tabular-nums">$ ${Math.round(c.valor).toLocaleString('es-CO')} COP</div>
+            <div style="font-size: 0.72rem; color: var(--text-faint);">Vencimiento: <b style="color: var(--text-warm);">${c.fechaFin}</b></div>
+          </div>
+        </div>
+
+        <div style="font-size: 0.8rem; color: var(--text-warm); line-height: 1.4; background: var(--lacquer-deep); padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
+          <b>Objeto:</b> ${c.objeto}
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 0.75rem;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="color: var(--text-faint);">Titular actual:</span>
+            <span style="color: var(--champagne); font-weight: 700;">${c.proveedorActual}</span>
+            <span style="color: var(--text-faint);">(NIT: ${c.nitProveedor})</span>
+          </div>
+
+          <div style="color: var(--text-muted); font-size: 0.72rem;">
+            💡 <i>${cert.razon}</i>
+          </div>
+        </div>
+
+        <!-- Acciones Estratégicas -->
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid var(--hairline); padding-top: 10px; margin-top: 2px;">
+          <button onclick="incorporarVencimientoAlPipeline('${c.idContrato}', '${encodeURIComponent(c.entidad)}', '${encodeURIComponent(c.objeto)}', ${c.valor}, '${c.fechaFin}', '${encodeURIComponent(c.proveedorActual)}', '${c.nitProveedor}')" class="btn-action" style="padding: 6px 12px; font-size: 0.76rem; background: rgba(168, 85, 247, 0.15); border: 1px solid #a855f7; color: #d8b4fe; font-weight: 700;">
+            📌 Incorporar al Pipeline
+          </button>
+          <button onclick="analizarTitularDesdeVencimiento('${encodeURIComponent(c.entidad)}', '${c.nitProveedor}')" class="btn-action" style="padding: 6px 12px; font-size: 0.76rem; background: rgba(16, 185, 129, 0.12); border: 1px solid #10b981; color: #6ee7b7;">
+            👥 Analizar Titular / Entidad
+          </button>
+          <button onclick="seguirVencimiento('${c.idContrato}', '${encodeURIComponent(c.entidad)}', '${encodeURIComponent(c.objeto)}', ${c.valor}, '${c.fechaFin}', '${encodeURIComponent(c.proveedorActual)}', '${c.nitProveedor}', ${c.esProrrogable}, ${c.diasAdicionados}, '${c.url || ''}')" class="btn-action" style="padding: 6px 12px; font-size: 0.76rem; background: rgba(56, 189, 248, 0.12); border: 1px solid #38bdf8; color: #38bdf8;">
+            ⭐ Seguir Vencimiento
+          </button>
+          ${c.url ? `<a href="${c.url}" target="_blank" class="btn-action" style="padding: 6px 12px; font-size: 0.76rem; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--hairline); color: var(--text-warm); text-decoration: none;">🔗 Ver Contrato SECOP II ↗</a>` : ''}
+        </div>
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
+// Incorporar un contrato por vencer al Pipeline Kanban
+async function incorporarVencimientoAlPipeline(idContrato, entidadEncoded, objetoEncoded, valor, fechaFin, provActualEncoded, nitProv) {
+  const entidad = decodeURIComponent(entidadEncoded);
+  const objeto = decodeURIComponent(objetoEncoded);
+  const proveedorActual = decodeURIComponent(provActualEncoded);
+
+  try {
+    const res = await fetch('/api/predictivo/incorporar-pipeline', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        idContrato,
+        entidad,
+        objeto,
+        valor,
+        fechaFin,
+        proveedorActual,
+        nitProveedor: nitProv
+      })
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast('📌 ¡Oportunidad temprana incorporada exitosamente al Pipeline Kanban!');
+      loadPipeline();
+    } else {
+      showToast(`Error: ${json.error}`);
+    }
+  } catch (err) {
+    showToast('Error de red al incorporar al pipeline');
+  }
+}
+
+// Analizar titular y entidad en Inteligencia Competitiva
+function analizarTitularDesdeVencimiento(entidadEncoded, nitProveedor) {
+  const entidad = decodeURIComponent(entidadEncoded);
+  const compEntidadInput = document.getElementById('compEntidadInput');
+  const compPalabraInput = document.getElementById('compPalabraInput');
+
+  if (compEntidadInput) compEntidadInput.value = entidad;
+  if (compPalabraInput) compPalabraInput.value = '';
+
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+  document.querySelector('.nav-item[data-target="view-competitors"]')?.classList.add('active');
+  document.getElementById('view-competitors')?.classList.add('active');
+
+  ejecutarAnalisisCompetencia(true);
+}
+
+// Guardar vencimiento en seguimiento
+async function seguirVencimiento(idContrato, entidadEncoded, objetoEncoded, valor, fechaFin, provActualEncoded, nitProv, esProrrogable, diasAdicionados, urlSecop) {
+  const entidad = decodeURIComponent(entidadEncoded);
+  const objeto = decodeURIComponent(objetoEncoded);
+  const proveedorActual = decodeURIComponent(provActualEncoded);
+
+  try {
+    const res = await fetch('/api/predictivo/seguimiento', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        idContrato,
+        entidad,
+        objeto,
+        valorContrato: valor,
+        fechaFin,
+        proveedorActual,
+        nitProveedor: nitProv,
+        esProrrogable,
+        diasAdicionados,
+        urlSecop,
+        notas: 'Guardado desde Radar Predictivo'
+      })
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast('⭐ Vencimiento agregado al radar de seguimiento');
+    } else {
+      showToast(`Error: ${json.error}`);
+    }
+  } catch (err) {
+    showToast('Error de red al guardar seguimiento');
+  }
+}
+
+// Modal de Vencimientos en Seguimiento
+async function abrirModalPredWatchlist() {
+  const modal = document.getElementById('predWatchlistModal');
+  const body = document.getElementById('predWatchlistModalBody');
+  if (!modal || !body) return;
+
+  modal.classList.add('open');
+  body.innerHTML = `<div style="text-align: center; padding: 30px; color: var(--tech-cyan);">⏳ Cargando vencimientos en seguimiento...</div>`;
+
+  try {
+    const res = await fetch('/api/predictivo/seguimiento');
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'Error al listar seguimiento');
+
+    const list = json.data || [];
+    if (list.length === 0) {
+      body.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: var(--text-faint);">
+          Aún no tienes vencimientos en seguimiento. Haz clic en "⭐ Seguir Vencimiento" en cualquier tarjeta para monitorear contratos por expirar.
+        </div>
+      `;
+      return;
+    }
+
+    let html = `<div style="display: flex; flex-direction: column; gap: 8px;">`;
+    list.forEach(c => {
+      html += `
+        <div style="background: var(--lacquer-deep); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+          <div>
+            <div style="font-size: 0.88rem; font-weight: 700; color: var(--champagne);">${c.entidad}</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.3;">${c.objeto.slice(0, 100)}...</div>
+            <div style="font-size: 0.72rem; color: var(--text-faint); margin-top: 4px;">
+              Vence: <b style="color: var(--tech-cyan);">${c.fecha_fin.slice(0, 10)}</b> | Valor: <b style="color: var(--text-warm);">$ ${Math.round(c.valor_contrato).toLocaleString('es-CO')} COP</b> | Titular: ${c.proveedor_actual}
+            </div>
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <button onclick="eliminarSeguimientoVencimiento('${c.id}')" class="btn-action" style="padding: 4px 8px; font-size: 0.72rem; background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #f87171;">
+              🗑️
+            </button>
+          </div>
+        </div>
+      `;
+    });
+    html += `</div>`;
+    body.innerHTML = html;
+  } catch (err) {
+    body.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--danger);">Error: ${err.message}</div>`;
+  }
+}
+
+async function eliminarSeguimientoVencimiento(id) {
+  try {
+    const res = await fetch(`/api/predictivo/seguimiento/${id}`, { method: 'DELETE' });
+    const json = await res.json();
+    if (json.success && json.deleted) {
+      showToast('Vencimiento removido del radar');
+      abrirModalPredWatchlist();
+    }
+  } catch (err) {
+    showToast('Error al eliminar');
+  }
+}
+
+// Event Listeners para Predictivo
+document.getElementById('btnEjecutarPredictivo')?.addEventListener('click', () => ejecutarEscaneoPredictivo(true));
+document.getElementById('btnVerSeguimientoVencimientos')?.addEventListener('click', abrirModalPredWatchlist);
+document.getElementById('btnClosePredWatchlistModal')?.addEventListener('click', () => {
+  document.getElementById('predWatchlistModal')?.classList.remove('open');
 });
 
 // ==================== INICIALIZACIÓN ====================

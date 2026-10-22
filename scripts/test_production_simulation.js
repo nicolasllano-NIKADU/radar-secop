@@ -210,7 +210,7 @@ async function runProductionSimulation() {
     console.log('  ✓ Generación binaria de PDF y Excel validada al 100%.\n');
 
     // 11. Inteligencia Competitiva & Precios Históricos (Socrata jbjy-vk9h)
-    console.log('[11/12] 👥 Verificando Inteligencia Competitiva y Precios Adjudicados (Socrata jbjy-vk9h)...');
+    console.log('[11/13] 👥 Verificando Inteligencia Competitiva y Precios Adjudicados (Socrata jbjy-vk9h)...');
     const compIntelRes = await request('/api/competencia/analizar?palabra_clave=SOFTWARE&limit=10');
     console.log('  Status Competencia:', compIntelRes.status);
     console.log('  Contratos Analizados:', compIntelRes.data?.data?.totalContratos);
@@ -221,8 +221,19 @@ async function runProductionSimulation() {
     }
     console.log('  ✓ Motor de Inteligencia Competitiva y Caché PostgreSQL 100% operativo.\n');
 
-    // 12. Interfaz Web & PWA
-    console.log('[12/12] 🌐 Verificando Entrega de PWA e index.html...');
+    // 12. Alertas Predictivas de Vencimientos y Prórrogas (Oportunidades Tempranas)
+    console.log('[12/13] ⏳ Verificando Alertas Predictivas de Vencimientos y Prórrogas...');
+    const predRes = await request('/api/predictivo/vencimientos?perfil=NIKADU_IA&dias=90&limit=10');
+    console.log('  Status Predictivo:', predRes.status);
+    console.log('  Contratos por Vencer:', predRes.data?.data?.totalContratos);
+    console.log('  Monto Próximo a Liberarse:', predRes.data?.data?.montoTotal);
+    if (!predRes.data?.success || !predRes.data?.data?.contratos) {
+      throw new Error('Fallo en alertas predictivas de vencimientos');
+    }
+    console.log('  ✓ Motor Predictivo de Vencimientos y Pipeline Sync 100% operativo.\n');
+
+    // 13. Interfaz Web & PWA
+    console.log('[13/13] 🌐 Verificando Entrega de PWA e index.html...');
     const htmlRes = await request('/');
     console.log('  PWA Status:', htmlRes.status);
     if (!htmlRes.text.includes('Radar SECOP')) {
@@ -231,7 +242,7 @@ async function runProductionSimulation() {
     console.log('  ✓ PWA SPA y recursos estáticos respondiendo perfectamente.\n');
 
     console.log('===============================================================');
-    console.log('🎉 PRUEBA DE PRODUCCIÓN EXITOSA: 12 DE 12 MÓDULOS OPERATIVOS');
+    console.log('🎉 PRUEBA DE PRODUCCIÓN EXITOSA: 13 DE 13 MÓDULOS OPERATIVOS');
     console.log('===============================================================');
     
     server.close(() => {

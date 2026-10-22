@@ -708,6 +708,95 @@
       </div>
     </section>
 
+    <!-- ================= VISTA 11: ALERTAS PREDICTIVAS DE PRÓRROGAS Y VENCIMIENTOS ================= -->
+    <section id="view-predictive" class="view-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--champagne); margin-bottom: 4px;">⏳ Radar Predictivo de Vencimientos & Prórrogas</h2>
+          <p style="font-size: 0.8rem; color: var(--text-muted);">Anticípate 30, 60 y 90 días a las nuevas licitaciones detectando contratos por expirar y titulares no prorrogables</p>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button id="btnVerSeguimientoVencimientos" class="btn-action" style="padding: 8px 14px; font-size: 0.82rem; background: rgba(56, 189, 248, 0.12); border: 1px solid #38bdf8; color: #38bdf8; gap: 6px;">
+            <span>⭐ Vencimientos en Seguimiento</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Barra de Filtros y Configuración del Radar Predictivo -->
+      <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 16px; border-radius: var(--radius-md); margin-bottom: 16px;">
+        <div style="font-size: 0.82rem; font-weight: 700; color: var(--champagne); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+          <span>🎯 Parámetros de Anticipación Licitatoria</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+          <div>
+            <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Horizonte Temporal de Vencimiento:</label>
+            <select id="predDiasSelect" style="width: 100%; padding: 8px; font-size: 0.82rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">
+              <option value="30">Próximos 30 días (Crítico / Inminente)</option>
+              <option value="60">Próximos 60 días (Ventana Estratégica)</option>
+              <option value="90" selected>Próximos 90 días (Recomendado)</option>
+              <option value="180">Próximos 180 días (Semestre Completo)</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Entidad Específica:</label>
+            <input type="text" id="predEntidadInput" placeholder="Ej: ALCALDÍA, MINISTERIO, SENA..." style="width: 100%; padding: 8px; font-size: 0.82rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Palabra Clave (Objeto / Sector):</label>
+            <input type="text" id="predPalabraInput" placeholder="Ej: SOFTWARE, NUBE, MANTENIMIENTO..." style="width: 100%; padding: 8px; font-size: 0.82rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.72rem; color: var(--text-faint); display: block; margin-bottom: 4px;">Cuantía Mínima (COP):</label>
+            <select id="predMinValorSelect" style="width: 100%; padding: 8px; font-size: 0.82rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">
+              <option value="20000000">Desde $ 20M COP</option>
+              <option value="50000000" selected>Desde $ 50M COP</option>
+              <option value="100000000">Desde $ 100M COP</option>
+              <option value="500000000">Desde $ 500M COP</option>
+            </select>
+          </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px;">
+          <button id="btnEjecutarPredictivo" class="btn-action btn-action-primary" style="padding: 8px 18px; font-size: 0.82rem; gap: 6px;">
+            <span>📡 Escanear Contratos por Vencer</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Resumen Ejecutivo de Presupuesto en Juego -->
+      <div id="predKpisContainer" style="display: none; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px;">
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm);">
+          <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Contratos por Expirar</div>
+          <div id="predKpiTotal" style="font-size: 1.3rem; font-weight: 800; color: var(--champagne); margin-top: 2px;" class="tabular-nums">0</div>
+          <div style="font-size: 0.7rem; color: var(--text-muted);" id="predKpiHorizonte">Próximos 90 días</div>
+        </div>
+
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm);">
+          <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Presupuesto en Juego</div>
+          <div id="predKpiMonto" style="font-size: 1.3rem; font-weight: 800; color: var(--tech-cyan); margin-top: 2px;" class="tabular-nums">$ 0 COP</div>
+          <div style="font-size: 0.7rem; color: var(--text-muted);">Suma de contratos vigentes por expirar</div>
+        </div>
+
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm);">
+          <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Certeza de Nueva Licitación</div>
+          <div id="predKpiNoProrrogables" style="font-size: 1.3rem; font-weight: 800; color: var(--danger); margin-top: 2px;" class="tabular-nums">0</div>
+          <div style="font-size: 0.7rem; color: var(--text-muted);">Contratos no prorrogables o tope agotado</div>
+        </div>
+
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm);">
+          <div style="font-size: 0.7rem; color: var(--text-faint); text-transform: uppercase;">Entidades Clave</div>
+          <div id="predKpiEntidadesCount" style="font-size: 1.3rem; font-weight: 800; color: var(--success); margin-top: 2px;" class="tabular-nums">0</div>
+          <div style="font-size: 0.7rem; color: var(--text-muted);">Entidades con mayor presupuesto por renovar</div>
+        </div>
+      </div>
+
+      <!-- Contenedor de Resultados del Radar Predictivo -->
+      <div id="predContentArea" style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="text-align: center; padding: 40px; color: var(--text-faint); background: var(--lacquer-surface); border: 1px dashed var(--hairline); border-radius: var(--radius-md);">
+          Haz clic en "Escanear Contratos por Vencer" para descubrir qué contratos públicos expirarán en los próximos meses y preparar tu propuesta con meses de anticipación.
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <!-- Barra de Navegación Inferior (Mobile First Ergonomics) -->
@@ -798,6 +887,13 @@
         <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
       </svg>
       <span>Competencia</span>
+    </button>
+    <button class="nav-item" data-target="view-predictive">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <circle cx="12" cy="12" r="10"/>
+        <polyline points="12 6 12 12 16 14"/>
+      </svg>
+      <span>Vencimientos</span>
     </button>
     <button class="nav-item" data-target="view-sources">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -1391,6 +1487,22 @@
       </div>
       <div id="watchlistModalBody" style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px; max-height: 500px; overflow-y: auto;">
         <div style="text-align: center; padding: 30px; color: var(--text-faint);">Cargando lista de seguimiento...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Vencimientos en Seguimiento -->
+  <div id="predWatchlistModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 650px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="entity-badge" style="background: #38bdf8; color: #000;">PREDICTIVO</div>
+          <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-warm);">Vencimientos en Seguimiento Comercial</span>
+        </div>
+        <button id="btnClosePredWatchlistModal" class="btn-close-modal" aria-label="Cerrar modal">✕</button>
+      </div>
+      <div id="predWatchlistModalBody" style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px; max-height: 500px; overflow-y: auto;">
+        <div style="text-align: center; padding: 30px; color: var(--text-faint);">Cargando vencimientos guardados...</div>
       </div>
     </div>
   </div>

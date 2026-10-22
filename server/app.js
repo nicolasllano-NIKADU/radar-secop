@@ -19,6 +19,7 @@ const economicEngine = require('./economicEngine');
 const pipelineManager = require('./pipelineManager');
 const authManager = require('./authManager');
 const competitiveIntelligence = require('./competitiveIntelligence');
+const predictiveEngine = require('./predictiveEngine');
 const initDb = require('./initDb');
 
 const app = express();
@@ -739,6 +740,71 @@ app.delete('/api/competencia/seguimiento/:id', async (req, res) => {
     res.json({ success: true, deleted });
   } catch (err) {
     console.error('Error eliminando seguimiento:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== MÓDULO: ALERTAS PREDICTIVAS DE PRÓRROGAS Y VENCIMIENTOS ====================
+
+app.get('/api/predictivo/vencimientos', async (req, res) => {
+  try {
+    const { perfil, entidad, palabra_clave, dias, min_valor, limit, force_refresh } = req.query;
+    const data = await predictiveEngine.obtenerVencimientos({
+      perfil: perfil || 'NIKADU_IA',
+      entidad: entidad || '',
+      palabraClave: palabra_clave || '',
+      diasHorizonte: dias ? parseInt(dias, 10) : 90,
+      minValor: min_valor ? parseFloat(min_valor) : 20000000,
+      limit: limit ? parseInt(limit, 10) : 100,
+      forceRefresh: force_refresh === 'true' || force_refresh === '1'
+    });
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('Error obteniendo vencimientos predictivos:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/predictivo/incorporar-pipeline', async (req, res) => {
+  try {
+    const userId = req.user?.id || null;
+    const lead = await predictiveEngine.incorporarAlPipeline(userId, req.body);
+    res.json({ success: true, data: lead });
+  } catch (err) {
+    console.error('Error incorporando vencimiento al pipeline:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/predictivo/seguimiento', async (req, res) => {
+  try {
+    const userId = req.user?.id || null;
+    const data = await predictiveEngine.listarSeguimiento(userId);
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('Error listando seguimiento de vencimientos:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/predictivo/seguimiento', async (req, res) => {
+  try {
+    const userId = req.user?.id || null;
+    const data = await predictiveEngine.agregarSeguimiento(userId, req.body);
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('Error agregando vencimiento a seguimiento:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/predictivo/seguimiento/:id', async (req, res) => {
+  try {
+    const userId = req.user?.id || null;
+    const deleted = await predictiveEngine.eliminarSeguimiento(userId, req.params.id);
+    res.json({ success: true, deleted });
+  } catch (err) {
+    console.error('Error eliminando seguimiento de vencimiento:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
