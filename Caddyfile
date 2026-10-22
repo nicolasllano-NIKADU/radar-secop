@@ -1,0 +1,23 @@
+{
+    email {$ACME_EMAIL:admin@licitando.co}
+}
+
+{$DOMAIN::80} {
+    encode gzip zstd
+
+    # Cabeceras de Seguridad OWASP
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    }
+
+    # Proxy inverso hacia el servicio web Node.js
+    reverse_proxy app:3000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}

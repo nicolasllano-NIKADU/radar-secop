@@ -18,6 +18,7 @@ const reportGenerator = require('./reportGenerator');
 const economicEngine = require('./economicEngine');
 const pipelineManager = require('./pipelineManager');
 const authManager = require('./authManager');
+const initDb = require('./initDb');
 
 const app = express();
 
@@ -677,6 +678,28 @@ app.post('/api/auth/cambiar-empresa', authManager.requireAuth(), async (req, res
   }
 });
 
+// Healthcheck oficial para Docker, Kubernetes y monitores de uptime
+app.get('/api/health', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    await dbPostgres.query('SELECT 1');
+    res.json({
+      status: 'UP',
+      servicio: 'Radar SECOP B2B SaaS',
+      timestamp: new Date().toISOString(),
+      database: 'PostgreSQL 18 CONNECTED',
+      uptime: Math.round(process.uptime())
+    });
+  } catch (err) {
+    res.status(503).json({
+      status: 'DEGRADED',
+      servicio: 'Radar SECOP B2B SaaS',
+      database: err.message,
+      uptime: Math.round(process.uptime())
+    });
+  }
+});
+
 // Fallback PWA para cualquier ruta web (compatible con Express 5)
 app.use((req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
@@ -690,6 +713,9 @@ const server = app.listen(config.port, async () => {
   console.log(`🌐 Servidor Web & PWA: http://localhost:${config.port}`);
   console.log(`⏰ Escaneo programado: cada hora cron [${config.cronSchedule}]`);
   console.log(`=======================================================`);
+
+  // Asegurar migraciones automáticas idempotentes
+  initDb.runAllMigrations().catch(err => console.warn('Aviso: Inicialización de DB diferida:', err.message));
 
   // Configurar tarea cron cada hora
   cron.schedule(config.cronSchedule, () => {
