@@ -485,8 +485,77 @@ function openDetailModal(id) {
     .map(kw => `<span class="kw-pill" style="font-size: 0.78rem; padding: 4px 10px;">${kw}</span>`)
     .join('');
 
+  // Reset y preparación de la sección de documentos
+  const docBadge = document.getElementById('modalDocCountBadge');
+  const docsContainer = document.getElementById('modalDocsContainer');
+  if (docBadge) docBadge.style.display = 'none';
+  if (docsContainer) {
+    docsContainer.innerHTML = `<span style="color: var(--text-faint);">Haz clic en "Consultar Pliegos" para traer los archivos oficiales vinculados.</span>`;
+  }
+
   document.getElementById('detailModal').classList.add('open');
 }
+
+// Cargar documentos del pliego en el modal bajo demanda
+document.getElementById('btnLoadModalDocs')?.addEventListener('click', async () => {
+  const item = oportunidades.find(o => o.id === activeModalId);
+  if (!item) return;
+
+  const docsContainer = document.getElementById('modalDocsContainer');
+  const docBadge = document.getElementById('modalDocCountBadge');
+  if (!docsContainer) return;
+
+  // Extraer el id_del_portafolio si existe en el objeto o en la URL
+  let portafolioId = item.id_del_portafolio || item.referencia;
+  if (item.url && item.url.includes('idProceso=')) {
+    const match = item.url.match(/idProceso=([^&]+)/);
+    if (match) portafolioId = match[1];
+  }
+
+  docsContainer.innerHTML = `<span style="color: var(--champagne); display: flex; align-items: center; gap: 6px;">⏳ Consultando catálogo de pliegos y anexos en SECOP II...</span>`;
+
+  try {
+    const res = await fetch(`/api/documentos/${encodeURIComponent(portafolioId)}`);
+    const json = await res.json();
+
+    if (!json.success || !json.data || json.data.length === 0) {
+      docsContainer.innerHTML = `<span style="color: var(--text-muted);">No se encontraron anexos directos en el repositorio Socrata para este portafolio (${portafolioId}). Puedes revisarlos directamente en el enlace de SECOP II.</span>`;
+      return;
+    }
+
+    if (docBadge) {
+      docBadge.textContent = `${json.data.length} docs`;
+      docBadge.style.display = 'inline-block';
+    }
+
+    docsContainer.innerHTML = json.data.map(doc => {
+      const ext = (doc.extension || 'pdf').toUpperCase();
+      let iconColor = 'var(--tech-cyan)';
+      if (ext === 'PDF') iconColor = '#ff6b6b';
+      else if (ext === 'ZIP' || ext === 'RAR') iconColor = '#feca57';
+      else if (ext === 'XLSX' || ext === 'XLS') iconColor = '#1dd1a1';
+
+      return `
+        <div style="display: flex; align-items: center; justify-content: space-between; background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 8px 12px; border-radius: var(--radius-sm); gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+            <span style="font-size: 0.7rem; font-weight: 800; background: ${iconColor}; color: #000; padding: 2px 5px; border-radius: 3px;">${ext}</span>
+            <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              <div style="font-weight: 600; color: var(--text-warm); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis;" title="${doc.nombre_archivo}">${doc.nombre_archivo}</div>
+              <div style="font-size: 0.7rem; color: var(--text-faint);">${doc.tamano_legible || 'N/A'} • ${doc.fecha_carga || 'Fecha N/A'}</div>
+            </div>
+          </div>
+          <a href="${doc.url_descarga}" target="_blank" rel="noopener noreferrer" class="btn-action" style="padding: 4px 10px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--gold); color: var(--champagne); text-decoration: none; white-space: nowrap;">
+            ⬇️ Descargar
+          </a>
+        </div>
+      `;
+    }).join('');
+
+    showToast(`Se encontraron ${json.data.length} pliegos y anexos`);
+  } catch (err) {
+    docsContainer.innerHTML = `<span style="color: #ff6b6b;">Error al consultar pliegos: ${err.message}</span>`;
+  }
+});
 
 document.getElementById('btnCloseModal').addEventListener('click', () => {
   document.getElementById('detailModal').classList.remove('open');

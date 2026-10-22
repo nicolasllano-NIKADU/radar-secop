@@ -8,6 +8,7 @@ const scanner = require('./scanner');
 const notifier = require('./notifier');
 const sourcesCatalog = require('./sources');
 const companyRoutes = require('./routes/companyRoutes');
+const documentManager = require('./documentManager');
 
 const app = express();
 
@@ -212,6 +213,18 @@ app.post('/api/oportunidades/:id/notificar', async (req, res) => {
     const result = await notifier.notifyOportunidad(item);
     res.json(result);
   } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 9. Módulo de Descarga y Gestión de Pliegos y Documentos (Socrata dmgg-8hin & nbae-kzan)
+app.get('/api/documentos/:portafolioId', async (req, res) => {
+  try {
+    const { portafolioId } = req.params;
+    const docs = await documentManager.getDocumentsByPortafolio(portafolioId);
+    res.json({ success: true, count: docs.length, data: docs });
+  } catch (err) {
+    console.error(`⚠️ Error consultando documentos para ${req.params.portafolioId}:`, err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

@@ -4,6 +4,7 @@ const notifier = require('./notifier');
 const fondoEmprender = require('./fondoEmprender');
 const sourcesCatalog = require('./sources');
 const opsFilter = require('./opsFilter');
+const dynamicMatcher = require('./dynamicMatcher');
 
 class Scanner {
   constructor() {
@@ -489,6 +490,15 @@ class Scanner {
 
       // 2. Escanear SECOP II para CERABELA (solo lo nuevo publicado tras la fecha de última consulta)
       const cerabelaRes = await this.scanSECOPIIForProfile('CERABELA', 60, sinceDate, notifyTelegram);
+
+      // 2.5 Escaneo dinámico multi-empresa y scoring personalizado en PostgreSQL
+      let dynamicRes = { success: true, processed: 0 };
+      try {
+        console.log('🏢 [Multi-Tenant] Ejecutando DynamicMatcher para todas las empresas activas...');
+        dynamicRes = await dynamicMatcher.scanForActiveCompanies({ notifyTelegram });
+      } catch (dynErr) {
+        console.warn('⚠️ Nota sobre DynamicMatcher:', dynErr.message);
+      }
 
       // 3. Escanear Fondo Emprender en fondoemprender.com (solo convocatorias vigentes)
       let feRes = { nuevos: 0, total: 0 };
