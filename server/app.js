@@ -29,6 +29,7 @@ const winRateAnalyticsEngine = require('./winRateAnalyticsEngine');
 const riskMatrixEngine = require('./riskMatrixEngine');
 const pluralAgreementEngine = require('./pluralAgreementEngine');
 const preflightAuditEngine = require('./preflightAuditEngine');
+const adendasEngine = require('./adendasEngine');
 const initDb = require('./initDb');
 
 const app = express();
@@ -1596,6 +1597,98 @@ app.get('/api/preflight/descargar-pdf/:procesoId', async (req, res) => {
     res.send(pdfBuffer);
   } catch (err) {
     console.error('Error generando PDF de certificado pre-flight:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== MÓDULO: ASISTENTE DE ADENDAS Y CRONOGRAMA DINÁMICO (SECOP II) ====================
+
+app.post('/api/adendas/evaluar', (req, res) => {
+  try {
+    const { proceso, numeroAdenda, fechaExpedicion, tipoModificacion, fechaCierreAnterior, fechaCierreNueva, descripcionCambios } = req.body;
+    if (!proceso) {
+      return res.status(400).json({ success: false, error: 'Faltan datos del proceso para evaluar la adenda.' });
+    }
+
+    const adendaEvaluada = adendasEngine.evaluarImpactoAdenda({
+      proceso,
+      numeroAdenda,
+      fechaExpedicion,
+      tipoModificacion,
+      fechaCierreAnterior,
+      fechaCierreNueva,
+      descripcionCambios
+    });
+
+    res.json({ success: true, adenda: adendaEvaluada });
+  } catch (err) {
+    console.error('Error evaluando adenda:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/adendas/registrar', async (req, res) => {
+  try {
+    const { adendaData } = req.body;
+    if (!adendaData || !adendaData.proceso_id) {
+      return res.status(400).json({ success: false, error: 'Faltan datos requeridos de la adenda.' });
+    }
+
+    const guardada = await adendasEngine.registrarAdenda(adendaData);
+    res.json({ success: true, ...guardada });
+  } catch (err) {
+    console.error('Error registrando adenda:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/adendas/:procesoId', async (req, res) => {
+  try {
+    const adendas = await adendasEngine.getAdendasPorProceso(req.params.procesoId);
+    res.json({ success: true, count: adendas.length, data: adendas });
+  } catch (err) {
+    console.error('Error listando adendas del proceso:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/adendas/:id/estado', async (req, res) => {
+  try {
+    const { estadoGestion } = req.body;
+    const actualizada = await adendasEngine.actualizarEstadoAdenda(req.params.id, estadoGestion || 'ACCION_APLICADA');
+    res.json({ success: true, ...actualizada });
+  } catch (err) {
+    console.error('Error actualizando estado de adenda:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/adendas/:id', async (req, res) => {
+  try {
+    await adendasEngine.eliminarAdenda(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error eliminando adenda:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/adendas/descargar-pdf/:procesoId', async (req, res) => {
+  try {
+    const adendas = await adendasEngine.getAdendasPorProceso(req.params.procesoId);
+    const opp = db.getOpportunityById(req.params.procesoId) || {
+      referencia: req.params.procesoId,
+      entidad: adendas[0]?.entidad_nombre || 'Entidad Estatal'
+    };
+
+    const pdfBuffer = await adendasEngine.generarReporteAdendasPdf(opp, adendas);
+    const filename = `Matriz_Adendas_SECOP_${(opp.referencia || 'PROCESO').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF de adendas:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

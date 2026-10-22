@@ -6128,6 +6128,365 @@ document.getElementById('preflightAuditModal')?.addEventListener('click', (e) =>
   }
 });
 
+// ==================== MÓDULO: ASISTENTE DE ADENDAS Y CRONOGRAMA DINÁMICO (SECOP II) ====================
+
+let currentAdendasProcesoId = null;
+let currentAdendasList = [];
+
+// Abrir modal desde detailModal
+document.getElementById('modalBtnAdendas')?.addEventListener('click', () => {
+  if (!activeModalId) return;
+  abrirModalAdendas(activeModalId);
+});
+
+async function abrirModalAdendas(procesoId) {
+  const opp = oportunidades.find(o => o.id === procesoId);
+  if (!opp) return;
+
+  currentAdendasProcesoId = procesoId;
+
+  const refEl = document.getElementById('adendasProcesoRef');
+  const metaEl = document.getElementById('adendasProcesoMeta');
+  if (refEl) refEl.textContent = `Proceso: ${opp.referencia || opp.id} — ${opp.nombre || opp.objeto}`;
+  if (metaEl) {
+    const cierreStr = opp.fecha_cierre ? new Date(opp.fecha_cierre).toLocaleString('es-CO') : 'No fijada';
+    metaEl.textContent = `${opp.entidad} • Fecha Cierre Actual: ${cierreStr} • Régimen Ley 1882/2018`;
+  }
+
+  // Prellenar fecha de cierre anterior en el form
+  const inputCierreAnt = document.getElementById('newAdendaCierreAnt');
+  if (inputCierreAnt && opp.fecha_cierre) {
+    try {
+      const d = new Date(opp.fecha_cierre);
+      inputCierreAnt.value = d.toISOString().slice(0, 16);
+    } catch (_) {}
+  }
+
+  const inputExp = document.getElementById('newAdendaFechaExp');
+  if (inputExp) {
+    inputExp.value = new Date().toISOString().slice(0, 16);
+  }
+
+  // Abrir modal
+  document.getElementById('adendasModal')?.classList.add('open');
+
+  cargarAdendasProceso(procesoId);
+}
+
+async function cargarAdendasProceso(procesoId) {
+  const timeline = document.getElementById('adendasTimelineContainer');
+  if (timeline) {
+    timeline.innerHTML = '<div style="text-align: center; color: var(--text-faint); padding: 25px;">Cargando adendas y modificaciones registradas...</div>';
+  }
+
+  try {
+    const res = await fetch(`/api/adendas/${procesoId}`);
+    const json = await res.json();
+    if (json.success && Array.isArray(json.data)) {
+      currentAdendasList = json.data;
+      actualizarKpisAdendas();
+      renderAdendasTimeline();
+    } else {
+      if (timeline) timeline.innerHTML = '<div style="text-align: center; color: var(--text-faint); padding: 20px;">No se registraron adendas aún para este proceso.</div>';
+    }
+  } catch (err) {
+    console.error('Error cargando adendas:', err);
+    if (timeline) timeline.innerHTML = `<div style="text-align: center; color: var(--danger); padding: 20px;">Error de conexión: ${err.message}</div>`;
+  }
+}
+
+function actualizarKpisAdendas() {
+  const totalEl = document.getElementById('adendasKpiTotal');
+  const prorrogaEl = document.getElementById('adendasKpiProrroga');
+  const polizaEl = document.getElementById('adendasKpiPoliza');
+  const leyEl = document.getElementById('adendasKpiLey1882');
+
+  const total = currentAdendasList.length;
+  const sumaProrroga = currentAdendasList.reduce((acc, ad) => acc + (parseInt(ad.dias_prorroga, 10) || 0), 0);
+
+  let requierePoliza = false;
+  let fechaPolizaMax = null;
+  let hayViolacionLey1882 = false;
+
+  currentAdendasList.forEach(ad => {
+    if (ad.impacto_poliza_seriedad) {
+      requierePoliza = true;
+      if (ad.nueva_vigencia_poliza_requerida) {
+        if (!fechaPolizaMax || ad.nueva_vigencia_poliza_requerida > fechaPolizaMax) {
+          fechaPolizaMax = ad.nueva_vigencia_poliza_requerida;
+        }
+      }
+    }
+    if (ad.cumplimiento_ley_1882 === false) {
+      hayViolacionLey1882 = true;
+    }
+  });
+
+  if (totalEl) totalEl.textContent = total;
+  if (prorrogaEl) prorrogaEl.textContent = `+${sumaProrroga} Días`;
+
+  if (polizaEl) {
+    if (requierePoliza) {
+      polizaEl.textContent = `⚠️ EXTENDER (${fechaPolizaMax || '3 meses'})`;
+      polizaEl.style.color = '#ef4444';
+    } else {
+      polizaEl.textContent = 'SIN CAMBIOS ✅';
+      polizaEl.style.color = '#10b981';
+    }
+  }
+
+  if (leyEl) {
+    if (hayViolacionLey1882) {
+      leyEl.textContent = 'ALERTA PLAZO ⚠️';
+      leyEl.style.color = '#f59e0b';
+    } else {
+      leyEl.textContent = 'CONFORME ✅';
+      leyEl.style.color = '#10b981';
+    }
+  }
+}
+
+function renderAdendasTimeline() {
+  const container = document.getElementById('adendasTimelineContainer');
+  if (!container) return;
+
+  if (currentAdendasList.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; color: var(--text-faint); padding: 30px; background: var(--lacquer-surface); border: 1px dashed var(--hairline); border-radius: 6px;">
+        No hay adendas registradas para este proceso. Si la Entidad publica una modificación en SECOP II, haz clic en "Registrar Nueva Adenda" para evaluar su impacto legal en la oferta.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = currentAdendasList.map(ad => {
+    const isAlto = ad.nivel_criticidad === 'ALTO';
+    const isMedio = ad.nivel_criticidad === 'MEDIO';
+    const badgeColor = isAlto ? '#ef4444' : isMedio ? '#f59e0b' : '#38bdf8';
+    const isAplicada = ad.estado_gestion === 'ACCION_APLICADA';
+
+    return `
+      <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid ${isAlto ? 'rgba(239, 68, 68, 0.4)' : 'var(--hairline)'}; border-radius: 6px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-weight: 800; font-size: 0.85rem; color: var(--champagne);">${ad.numero_adenda}</span>
+            <span class="badge" style="font-size: 0.68rem; padding: 2px 6px; background: rgba(255,255,255,0.06);">${ad.tipo_modificacion}</span>
+            <span style="font-size: 0.68rem; padding: 2px 6px; font-weight: 800; border-radius: 3px; background: ${badgeColor}22; color: ${badgeColor}; border: 1px solid ${badgeColor};">
+              CRITICIDAD ${ad.nivel_criticidad}
+            </span>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button class="btn-toggle-adenda-estado" data-id="${ad.id}" data-estado="${isAplicada ? 'PENDIENTE_REVISION' : 'ACCION_APLICADA'}" style="font-size: 0.7rem; padding: 2px 8px; border-radius: 3px; border: 1px solid ${isAplicada ? '#10b981' : 'var(--hairline)'}; background: ${isAplicada ? 'rgba(16,185,129,0.15)' : 'transparent'}; color: ${isAplicada ? '#6ee7b7' : 'var(--text-faint)'}; cursor: pointer;">
+              ${isAplicada ? '✓ Acción Aplicada' : '⏳ Pendiente Acción'}
+            </button>
+            <button class="btn-delete-adenda" data-id="${ad.id}" style="background: transparent; border: none; color: var(--danger); cursor: pointer; font-size: 0.85rem;" title="Eliminar adenda">🗑️</button>
+          </div>
+        </div>
+
+        <!-- Diff de Cronograma si aplica -->
+        ${ad.fecha_cierre_anterior && ad.fecha_cierre_nueva ? `
+          <div style="display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.25); padding: 6px 10px; border-radius: 4px; font-size: 0.74rem;">
+            <span style="color: var(--text-faint);">📅 Cronograma de Cierre:</span>
+            <span style="text-decoration: line-through; color: #f87171;">${new Date(ad.fecha_cierre_anterior).toLocaleString('es-CO')}</span>
+            <span style="color: var(--text-faint);">➔</span>
+            <span style="font-weight: 800; color: #4ade80;">${new Date(ad.fecha_cierre_nueva).toLocaleString('es-CO')}</span>
+            <span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; font-size: 0.68rem;">+${ad.dias_prorroga} Días Prórroga</span>
+          </div>
+        ` : ''}
+
+        <!-- Descripción -->
+        <div style="font-size: 0.74rem; color: var(--text-primary); line-height: 1.35;">
+          ${ad.descripcion_cambios}
+        </div>
+
+        <!-- Badges de Impacto -->
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          ${ad.impacto_poliza_seriedad ? `
+            <span style="font-size: 0.65rem; padding: 2px 6px; background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid #ef4444; border-radius: 3px;">
+              🛡️ Requiere Extender Póliza (Vence: ${ad.nueva_vigencia_poliza_requerida || 'N/A'})
+            </span>
+          ` : ''}
+          ${ad.impacto_oferta_economica ? `
+            <span style="font-size: 0.65rem; padding: 2px 6px; background: rgba(245,158,11,0.15); color: #fde68a; border: 1px solid #f59e0b; border-radius: 3px;">
+              💰 Actualizar Formulario Económico / APUs
+            </span>
+          ` : ''}
+          ${ad.impacto_habilitantes ? `
+            <span style="font-size: 0.65rem; padding: 2px 6px; background: rgba(14,165,233,0.15); color: #7dd3fc; border: 1px solid #0ea5e9; border-radius: 3px;">
+              📊 Reevaluar Requisitos Habilitantes (RUP)
+            </span>
+          ` : ''}
+          ${ad.cumplimiento_ley_1882 === false ? `
+            <span style="font-size: 0.65rem; padding: 2px 6px; background: rgba(239,68,68,0.2); color: #fda4af; border: 1px solid #e11d48; border-radius: 3px;">
+              ⚖️ Inobservancia Regla 3 Días Hábiles (Ley 1882)
+            </span>
+          ` : ''}
+        </div>
+
+        <!-- Acciones Requeridas -->
+        <div style="background: rgba(0,0,0,0.3); border-left: 2px solid #f97316; padding: 6px 8px; border-radius: 3px; font-size: 0.7rem; color: var(--text-warm); line-height: 1.35; white-space: pre-line;">
+          ${ad.accion_requerida}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Event Listeners dinámicos
+  container.querySelectorAll('.btn-toggle-adenda-estado').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const id = e.currentTarget.dataset.id;
+      const estado = e.currentTarget.dataset.estado;
+      try {
+        await fetch(`/api/adendas/${id}/estado`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ estadoGestion: estado })
+        });
+        cargarAdendasProceso(currentAdendasProcesoId);
+      } catch (err) {
+        console.error('Error toggling estado adenda:', err);
+      }
+    });
+  });
+
+  container.querySelectorAll('.btn-delete-adenda').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const id = e.currentTarget.dataset.id;
+      if (!confirm('¿Deseas eliminar este registro de adenda?')) return;
+      try {
+        await fetch(`/api/adendas/${id}`, { method: 'DELETE' });
+        cargarAdendasProceso(currentAdendasProcesoId);
+      } catch (err) {
+        console.error('Error eliminando adenda:', err);
+      }
+    });
+  });
+}
+
+// Toggle formulario nuevo
+document.getElementById('btnToggleNewAdendaForm')?.addEventListener('click', () => {
+  const form = document.getElementById('adendaNewFormContainer');
+  if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+});
+
+document.getElementById('btnCancelAddAdenda')?.addEventListener('click', () => {
+  const form = document.getElementById('adendaNewFormContainer');
+  if (form) form.style.display = 'none';
+});
+
+// Guardar nueva adenda
+document.getElementById('btnConfirmAddAdenda')?.addEventListener('click', async () => {
+  const opp = oportunidades.find(o => o.id === currentAdendasProcesoId);
+  if (!opp) return;
+
+  const numero = document.getElementById('newAdendaNumero')?.value.trim() || `Adenda No. ${currentAdendasList.length + 1}`;
+  const tipo = document.getElementById('newAdendaTipo')?.value || 'CRONOGRAMA';
+  const fechaExp = document.getElementById('newAdendaFechaExp')?.value;
+  const cierreAnt = document.getElementById('newAdendaCierreAnt')?.value;
+  const cierreNue = document.getElementById('newAdendaCierreNue')?.value;
+  const desc = document.getElementById('newAdendaDesc')?.value.trim();
+
+  if (!desc) {
+    alert('Por favor describe los cambios contenidos en la adenda.');
+    return;
+  }
+
+  const btn = document.getElementById('btnConfirmAddAdenda');
+  const oldText = btn.innerHTML;
+  btn.innerHTML = '⏳ Evaluando...';
+  btn.disabled = true;
+
+  try {
+    // 1. Evaluar adenda
+    const evalRes = await fetch('/api/adendas/evaluar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        proceso: opp,
+        numeroAdenda: numero,
+        fechaExpedicion: fechaExp || new Date().toISOString(),
+        tipoModificacion: tipo,
+        fechaCierreAnterior: cierreAnt || null,
+        fechaCierreNueva: cierreNue || null,
+        descripcionCambios: desc
+      })
+    });
+
+    const evalJson = await evalRes.json();
+    if (!evalJson.success || !evalJson.adenda) throw new Error(evalJson.error || 'Error evaluando adenda');
+
+    // 2. Registrar en DB
+    const regRes = await fetch('/api/adendas/registrar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adendaData: evalJson.adenda })
+    });
+
+    const regJson = await regRes.json();
+    if (regJson.success) {
+      // Limpiar formulario y ocultar
+      document.getElementById('newAdendaNumero').value = '';
+      document.getElementById('newAdendaDesc').value = '';
+      document.getElementById('adendaNewFormContainer').style.display = 'none';
+
+      cargarAdendasProceso(currentAdendasProcesoId);
+    } else {
+      alert(`Error guardando adenda: ${regJson.error}`);
+    }
+  } catch (err) {
+    console.error('Error registrando adenda:', err);
+    alert(`Error de comunicación: ${err.message}`);
+  } finally {
+    btn.innerHTML = oldText;
+    btn.disabled = false;
+  }
+});
+
+// Descargar reporte PDF oficial
+document.getElementById('btnDownloadAdendasPdf')?.addEventListener('click', async () => {
+  if (!currentAdendasProcesoId) return;
+
+  const btn = document.getElementById('btnDownloadAdendasPdf');
+  const oldText = btn.innerHTML;
+  btn.innerHTML = '⏳ Generando Reporte...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(`/api/adendas/descargar-pdf/${currentAdendasProcesoId}`);
+    if (!res.ok) throw new Error('Error generando PDF de adendas');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Matriz_Adendas_SECOP_${currentAdendasProcesoId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error('Error descargando reporte de adendas:', err);
+    alert(`❌ Error descargando PDF: ${err.message}`);
+  } finally {
+    btn.innerHTML = oldText;
+    btn.disabled = false;
+  }
+});
+
+// Cerrar modal
+document.getElementById('btnCloseAdendasModal')?.addEventListener('click', () => {
+  document.getElementById('adendasModal')?.classList.remove('open');
+});
+document.getElementById('btnCloseAdendasModalBtn')?.addEventListener('click', () => {
+  document.getElementById('adendasModal')?.classList.remove('open');
+});
+document.getElementById('adendasModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'adendasModal') {
+    document.getElementById('adendasModal')?.classList.remove('open');
+  }
+});
+
 // ==================== INICIALIZACIÓN ====================
 window.addEventListener('DOMContentLoaded', () => {
   checkUserSession();
