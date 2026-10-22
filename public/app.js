@@ -7988,6 +7988,311 @@ document.getElementById('residualCapacityModal')?.addEventListener('click', (e) 
   }
 });
 
+// ==================== MÓDULO: MATRIZ DE GARANTÍAS Y PÓLIZAS CCE (DECRETO 1082/2015) ====================
+let currentGarantiasRequisitos = null;
+let currentGarantiasEvaluacion = null;
+
+// Abrir Modal de Garantías desde el detalle de la licitación
+document.getElementById('modalBtnGarantias')?.addEventListener('click', () => {
+  const opp = oportunidades.find(o => o.id === activeModalId);
+  if (!opp) return;
+
+  const metaEl = document.getElementById('garantiasModalMeta');
+  if (metaEl) {
+    metaEl.textContent = `${opp.referencia || opp.id} • ${opp.entidad || 'Entidad Contratante'} • ${formatCOP(opp.precio_base || opp.cuantia)}`;
+  }
+
+  const presInput = document.getElementById('garPresupuesto');
+  const valContratoInput = document.getElementById('garValorContrato');
+  if (presInput) presInput.value = opp.precio_base || opp.cuantia || 2000000000;
+  if (valContratoInput) valContratoInput.value = opp.precio_base || opp.cuantia || 2000000000;
+
+  // Reset de áreas dinámicas
+  const veredArea = document.getElementById('garantiasVeredictoArea');
+  if (veredArea) veredArea.style.display = 'none';
+  document.getElementById('btnDownloadGarantiasPdf').style.display = 'none';
+  document.getElementById('btnSaveGarantias').style.display = 'none';
+
+  // Cerrar modal de detalle y abrir garantías
+  document.getElementById('detailModal')?.classList.remove('open');
+  document.getElementById('garantiasModal')?.classList.add('open');
+
+  // Calcular automáticamente
+  ejecutarCalculoGarantias();
+});
+
+// Cerrar Modal Garantías
+document.getElementById('btnCloseGarantiasModalTop')?.addEventListener('click', () => {
+  document.getElementById('garantiasModal')?.classList.remove('open');
+});
+document.getElementById('btnCloseGarantiasModalBtn')?.addEventListener('click', () => {
+  document.getElementById('garantiasModal')?.classList.remove('open');
+});
+document.getElementById('garantiasModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'garantiasModal') {
+    document.getElementById('garantiasModal')?.classList.remove('open');
+  }
+});
+
+// Función para calcular requisitos reglamentarios CCE
+async function ejecutarCalculoGarantias() {
+  const po = parseFloat(document.getElementById('garPresupuesto')?.value || 0);
+  const valContrato = parseFloat(document.getElementById('garValorContrato')?.value || po);
+  const plazo = parseInt(document.getElementById('garPlazoMeses')?.value || 6, 10);
+  const anticipo = parseFloat(document.getElementById('garAnticipoPct')?.value || 0);
+  const tipo = document.getElementById('garTipoProceso')?.value || 'OBRA_PUBLICA';
+
+  if (!po || po <= 0) {
+    showToast('Ingresa un Presupuesto Oficial válido');
+    return;
+  }
+
+  const tbody = document.getElementById('garantiasTableBody');
+  if (tbody) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 20px; color: var(--champagne);">⚡ Liquidando requisitos reglamentarios Decreto 1082/2015...</td></tr>`;
+  }
+
+  try {
+    const res = await fetch('/api/garantias/calcular-requisitos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        presupuesto_oficial: po,
+        valor_contrato: valContrato,
+        plazo_meses: plazo,
+        anticipo_porcentaje: anticipo,
+        tipo_proceso: tipo
+      })
+    });
+
+    const json = await res.json();
+    if (!json.success || !json.data) throw new Error(json.error || 'No se pudieron calcular requisitos');
+
+    currentGarantiasRequisitos = json.data;
+    renderGarantiasRequisitos(json.data.amparos_requeridos);
+    showToast('Requisitos reglamentarios CCE calculados');
+  } catch (e) {
+    showToast(`Error: ${e.message}`);
+  }
+}
+
+document.getElementById('btnCalcularRequisitosGarantias')?.addEventListener('click', ejecutarCalculoGarantias);
+
+function renderGarantiasRequisitos(amparos) {
+  const tbody = document.getElementById('garantiasTableBody');
+  if (!tbody || !amparos) return;
+
+  tbody.innerHTML = amparos.map(a => `
+    <tr style="border-bottom: 1px solid var(--hairline);">
+      <td style="padding: 8px 10px;">
+        <div style="font-weight: 700; color: var(--champagne);">${a.nombre}</div>
+        <div style="font-size: 0.65rem; color: var(--text-faint);">${a.fundamento_legal}</div>
+      </td>
+      <td style="padding: 8px 10px; text-align: right; font-weight: 700; color: var(--tech-cyan);">${a.porcentaje_exigido}%</td>
+      <td style="padding: 8px 10px; text-align: right; font-weight: 800; color: var(--text-primary);">${formatCOP(a.valor_minimo_cop)}</td>
+      <td style="padding: 8px 10px; text-align: right; color: var(--text-muted);">Pendiente póliza</td>
+      <td style="padding: 8px 10px; text-align: center; color: var(--text-warm); font-size: 0.7rem;">${a.fecha_fin_requerida || '--'}</td>
+      <td style="padding: 8px 10px; text-align: center; color: var(--text-faint);">--</td>
+      <td style="padding: 8px 10px; text-align: center;">
+        <span style="font-size: 0.65rem; padding: 2px 6px; border-radius: 3px; background: rgba(234, 179, 8, 0.15); color: #fde047; font-weight: 700;">
+          POR VERIFICAR
+        </span>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// Simular Pólizas Conformes y Ejecutar Auditoría Integral
+document.getElementById('btnSimularPolizasConformes')?.addEventListener('click', async () => {
+  if (!currentGarantiasRequisitos) {
+    await ejecutarCalculoGarantias();
+  }
+  if (!currentGarantiasRequisitos) return;
+
+  const reqs = currentGarantiasRequisitos.amparos_requeridos || [];
+  // Crear pólizas idóneas que cumplen con el 100% de los requisitos
+  const polizasSimuladas = reqs.map(r => ({
+    tipo_amparo: r.codigo,
+    codigo: r.codigo,
+    nombre: r.nombre,
+    valor_asegurado: r.valor_minimo_cop,
+    fecha_fin: r.fecha_fin_requerida,
+    aseguradora: 'Seguros del Estado S.A.',
+    numero_poliza: `POL-CCE-${Math.floor(100000 + Math.random() * 900000)}`
+  }));
+
+  try {
+    const opp = oportunidades.find(o => o.id === activeModalId) || {};
+    const res = await fetch('/api/garantias/verificar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requisitos: currentGarantiasRequisitos,
+        polizas_presentadas: polizasSimuladas,
+        proponente_info: {
+          referencia: opp.referencia || opp.id || 'LP-001-2026',
+          entidad: opp.entidad || 'Entidad Contratante'
+        }
+      })
+    });
+
+    const json = await res.json();
+    if (!json.success || !json.data) throw new Error(json.error || 'Fallo en auditoría');
+
+    currentGarantiasEvaluacion = json.data;
+    const auditoria = json.data.resumen_auditoria;
+    const amparos = json.data.amparos;
+
+    // Actualizar badges en tabla
+    const tbody = document.getElementById('garantiasTableBody');
+    if (tbody) {
+      tbody.innerHTML = amparos.map(a => {
+        let stBg = 'rgba(16, 185, 129, 0.15)';
+        let stCol = 'var(--success)';
+        let stLabel = 'CONFORME';
+
+        if (a.estado === 'DEFICIT_VALOR') { stBg = 'rgba(234, 179, 8, 0.15)'; stCol = '#fde047'; stLabel = 'DÉFICIT VALOR'; }
+        else if (a.estado === 'DEFICIT_VIGENCIA') { stBg = 'rgba(234, 179, 8, 0.15)'; stCol = '#fde047'; stLabel = 'DÉFICIT PLAZO'; }
+        else if (a.estado === 'NO_PRESENTADO') { stBg = 'rgba(239, 68, 68, 0.15)'; stCol = 'var(--danger)'; stLabel = 'FALTANTE'; }
+        else if (a.estado === 'NO_APLICA') { stBg = 'rgba(255, 255, 255, 0.05)'; stCol = 'var(--text-faint)'; stLabel = 'N/A'; }
+
+        return `
+          <tr style="border-bottom: 1px solid var(--hairline);">
+            <td style="padding: 8px 10px;">
+              <div style="font-weight: 700; color: var(--champagne);">${a.nombre}</div>
+              <div style="font-size: 0.65rem; color: var(--text-faint);">${a.aseguradora || ''} ${a.numero_poliza ? '• Póliza: ' + a.numero_poliza : ''}</div>
+            </td>
+            <td style="padding: 8px 10px; text-align: right; font-weight: 700; color: var(--tech-cyan);">${a.porcentaje_exigido || '--'}%</td>
+            <td style="padding: 8px 10px; text-align: right; color: var(--text-muted);">${formatCOP(a.valor_minimo_cop)}</td>
+            <td style="padding: 8px 10px; text-align: right; font-weight: 800; color: var(--success);">${formatCOP(a.valor_presentado_cop)}</td>
+            <td style="padding: 8px 10px; text-align: center; color: var(--text-warm); font-size: 0.7rem;">${a.fecha_fin_requerida || '--'}</td>
+            <td style="padding: 8px 10px; text-align: center; color: var(--text-primary); font-size: 0.7rem;">${a.fecha_fin_presentada || '--'}</td>
+            <td style="padding: 8px 10px; text-align: center;">
+              <span style="font-size: 0.65rem; padding: 2px 6px; border-radius: 3px; background: ${stBg}; color: ${stCol}; font-weight: 700;">
+                ${stLabel}
+              </span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Renderizar Veredicto Global
+    const veredArea = document.getElementById('garantiasVeredictoArea');
+    const compPct = document.getElementById('garCompliancePct');
+    if (compPct) compPct.textContent = `Cumplimiento: ${auditoria.porcentaje_cumplimiento}%`;
+
+    if (veredArea) {
+      veredArea.style.display = 'block';
+      const isOk = auditoria.veredicto_global === 'APROBADO_CONFORME';
+
+      veredArea.innerHTML = `
+        <div style="background: ${isOk ? 'rgba(16, 185, 129, 0.12)' : 'rgba(234, 179, 8, 0.12)'}; border: 1px solid ${isOk ? 'var(--success)' : '#eab308'}; border-radius: var(--radius-sm); padding: 12px 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px;">
+            <div>
+              <span style="font-size: 0.68rem; font-weight: 800; color: ${isOk ? 'var(--success)' : '#fde047'}; text-transform: uppercase;">DICTAMEN TÉCNICO-JURÍDICO CCE:</span>
+              <div style="font-size: 1.15rem; font-weight: 800; color: var(--champagne); margin-top: 2px;">
+                ${isOk ? '✅ APROBADO CONFORME - GARANTÍAS IDÓNEAS' : '⚠️ OBSERVADO CON DÉFICIT SUBSANABLE'}
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 1.1rem; font-weight: 800; color: ${isOk ? 'var(--success)' : '#fde047'};">${auditoria.amparos_conformes} / ${auditoria.total_amparos_evaluados} Conformes</div>
+              <span style="font-size: 0.68rem; color: var(--text-faint);">Decreto 1082/2015</span>
+            </div>
+          </div>
+          <p style="font-size: 0.74rem; color: var(--text-muted); margin-top: 8px; line-height: 1.4;">
+            ${auditoria.concepto_juridico}
+          </p>
+        </div>
+      `;
+    }
+
+    // Mostrar botones de PDF y Guardar
+    document.getElementById('btnDownloadGarantiasPdf').style.display = 'inline-flex';
+    document.getElementById('btnSaveGarantias').style.display = 'inline-flex';
+    showToast('Auditoría de garantías ejecutada: 100% Conforme');
+  } catch (e) {
+    showToast(`Error al auditar pólizas: ${e.message}`);
+  }
+});
+
+// Descarga de Dictamen Oficial en PDF
+document.getElementById('btnDownloadGarantiasPdf')?.addEventListener('click', async () => {
+  if (!currentGarantiasEvaluacion) return;
+  const opp = oportunidades.find(o => o.id === activeModalId) || {};
+  showToast('Generando Dictamen Oficial de Garantías en PDF...');
+
+  try {
+    const lider = (userCompanies && userCompanies.length > 0) ? (userCompanies.find(c => c.es_propia) || userCompanies[0]) : null;
+    const res = await fetch('/api/garantias/dictamen-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        evaluacion_data: currentGarantiasEvaluacion,
+        proceso_info: {
+          referencia: opp.referencia || opp.id || 'LP-001-2026',
+          entidad: opp.entidad || 'Entidad Estatal Contratante',
+          proponente: lider ? lider.razon_social : 'Proponente Licitante'
+        }
+      })
+    });
+
+    if (!res.ok) throw new Error('Error al generar PDF de garantías');
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Dictamen_Garantias_Decreto1082_${(opp.referencia || 'LP-001').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    a.remove();
+    showToast('Dictamen Oficial de Garantías descargado con éxito');
+  } catch (e) {
+    showToast(`Error al descargar PDF: ${e.message}`);
+  }
+});
+
+// Guardar Verificación en Historial PostgreSQL
+document.getElementById('btnSaveGarantias')?.addEventListener('click', async () => {
+  if (!currentGarantiasEvaluacion) return;
+  const opp = oportunidades.find(o => o.id === activeModalId) || {};
+  const params = currentGarantiasEvaluacion.parametros;
+  const audit = currentGarantiasEvaluacion.resumen_auditoria;
+
+  try {
+    const lider = (userCompanies && userCompanies.length > 0) ? (userCompanies.find(c => c.es_propia) || userCompanies[0]) : null;
+    const res = await fetch('/api/garantias/guardar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        proceso_referencia: opp.referencia || opp.id || 'LP-001-2026',
+        entidad: opp.entidad || 'Entidad Contratante',
+        empresa_id: lider ? lider.id : null,
+        etapa: 'CONTRACTUAL',
+        presupuesto_oficial: params.presupuesto_oficial,
+        valor_oferta_contrato: params.valor_contrato,
+        plazo_ejecucion_meses: params.plazo_meses,
+        anticipo_porcentaje: params.anticipo_porcentaje,
+        smmlv_aplicable: params.smmlv_aplicable,
+        estado_global: audit.veredicto_global,
+        puntaje_cumplimiento: audit.porcentaje_cumplimiento,
+        amparos_items: currentGarantiasEvaluacion.amparos,
+        observaciones_juridicas: audit.concepto_juridico
+      })
+    });
+
+    const json = await res.json();
+    if (json.success) {
+      showToast('Verificación de garantías guardada en PostgreSQL');
+    } else {
+      showToast(`Error al guardar: ${json.error}`);
+    }
+  } catch (e) {
+    showToast('Error de conexión al guardar verificación');
+  }
+});
+
 // ==================== INICIALIZACIÓN ====================
 window.addEventListener('DOMContentLoaded', () => {
   checkUserSession();

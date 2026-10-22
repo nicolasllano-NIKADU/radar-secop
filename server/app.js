@@ -33,6 +33,7 @@ const adendasEngine = require('./adendasEngine');
 const postAdjudicacionEngine = require('./postAdjudicacionEngine');
 const residualCapacityEngine = require('./residualCapacityEngine');
 const telegramBotEngine = require('./telegramBotEngine');
+const garantiasEngine = require('./garantiasEngine');
 const initDb = require('./initDb');
 
 const app = express();
@@ -2282,6 +2283,190 @@ app.get('/api/health', async (req, res) => {
       database: err.message,
       uptime: Math.round(process.uptime())
     });
+  }
+});
+
+// 32. Módulo de Verificación de Garantías y Pólizas Obligatorias CCE (Decreto 1082/2015)
+app.get('/api/garantias/catalogo', (req, res) => {
+  res.json({ success: true, data: garantiasEngine.CATALOGO_AMPAROS });
+});
+
+app.post('/api/garantias/calcular-requisitos', (req, res) => {
+  try {
+    const { presupuesto_oficial, valor_contrato, plazo_meses, anticipo_porcentaje, tipo_proceso, fecha_base, smmlv } = req.body;
+    const po = parseFloat(presupuesto_oficial);
+    if (!po || po <= 0) return res.status(400).json({ success: false, error: 'Presupuesto oficial inválido' });
+
+    const requisitos = garantiasEngine.calcularRequisitosObligatorios({
+      presupuestoOficial: po,
+      valorContrato: parseFloat(valor_contrato) || po,
+      plazoMeses: parseInt(plazo_meses, 10) || 6,
+      anticipoPorcentaje: parseFloat(anticipo_porcentaje) || 0,
+      tipoProceso: tipo_proceso || 'OBRA_PUBLICA',
+      fechaBase: fecha_base || new Date(),
+      smmlv: parseFloat(smmlv) || garantiasEngine.SMMLV_VIGENTE
+    });
+
+    res.json({ success: true, data: requisitos });
+  } catch (err) {
+    console.error('Error calculando requisitos de garantías:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/garantias/verificar', (req, res) => {
+  try {
+    const { requisitos, polizas_presentadas = [], proponente_info = {} } = req.body;
+    if (!requisitos || !requisitos.amparos_requeridos) {
+      return res.status(400).json({ success: false, error: 'Requisitos consolidados requeridos' });
+    }
+
+    const resultado = garantiasEngine.evaluarSuficienciaGarantias(requisitos, polizas_presentadas, proponente_info);
+    res.json({ success: true, data: resultado });
+  } catch (err) {
+    console.error('Error verificando garantías:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/garantias/guardar', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const {
+      proceso_referencia,
+      entidad,
+      empresa_id,
+      etapa = 'PRECONTRACTUAL',
+      presupuesto_oficial,
+      valor_oferta_contrato,
+      plazo_ejecucion_meses = 6,
+      anticipo_porcentaje = 0,
+      smmlv_aplicable = 1423500,
+      estado_global = 'PENDIENTE',
+      puntaje_cumplimiento = 0,
+      amparos_items = [],
+      observaciones_juridicas = ''
+    } = req.body;
+
+    const q = await dbPostgres.query(`
+      INSERT INTO matriz_garantias_verificacion (
+        proceso_referencia, entidad, empresa_id, etapa, presupuesto_oficial,
+        valor_oferta_contrato, plazo_ejecucion_meses, anticipo_porcentaje,
+        smmlv_aplicable, estado_global, puntaje_cumplimiento, amparos_items,
+        observaciones_juridicas
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      RETURNING *;
+    `, [
+      proceso_referencia || 'PROC-GARANTIA',
+      entidad || 'Entidad Contratante',
+      empresa_id ? parseInt(empresa_id, 10) : null,
+      etapa,
+      parseFloat(presupuesto_oficial) || 0,
+      valor_oferta_contrato ? parseFloat(valor_oferta_contrato) : null,
+      parseInt(plazo_ejecucion_meses, 10) || 6,
+      parseFloat(anticipo_porcentaje) || 0,
+      parseFloat(smmlv_aplicable) || 1423500,
+      estado_global,
+      parseFloat(puntaje_cumplimiento) || 0,
+      JSON.stringify(amparos_items),
+      observaciones_juridicas
+    ]);
+
+    res.json({ success: true, data: q.rows[0] });
+  } catch (err) {
+    console.error('Error guardando verificación de garantías:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/garantias/historial', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const empresaId = req.query.empresa_id ? parseInt(req.query.empresa_id, 10) : null;
+    const ref = req.query.referencia || null;
+
+    let query = `SELECT * FROM matriz_garantias_verificacion`;
+    const params = [];
+
+    if (empresaId) {
+      params.push(empresaId);
+      query += ` WHERE empresa_id = $${params.length}`;
+    }
+    if (ref) {
+      params.push(ref);
+      query += params.length === 1 ? ` WHERE proceso_referencia = $1` : ` AND proceso_referencia = $2`;
+    }
+
+    query += ` ORDER BY creado_en DESC LIMIT 50`;
+    const q = await dbPostgres.query(query, params);
+    res.json({ success: true, count: q.rows.length, data: q.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/garantias/dictamen-pdf', async (req, res) => {
+  try {
+    const { evaluacion_data, proceso_info = {} } = req.body;
+    if (!evaluacion_data) {
+      return res.status(400).json({ success: false, error: 'Datos de evaluación requeridos' });
+    }
+
+    const pdfBuffer = await garantiasEngine.generarDictamenGarantiasPdf(evaluacion_data, proceso_info);
+    const safeRef = (proceso_info.referencia || 'GARANTIA_CCE').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Dictamen_Garantias_Decreto1082_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF de dictamen de garantías:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/garantias/dictamen-pdf/:id', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const id = parseInt(req.params.id, 10);
+    const q = await dbPostgres.query('SELECT * FROM matriz_garantias_verificacion WHERE id = $1', [id]);
+    if (q.rows.length === 0) return res.status(404).json({ success: false, error: 'Registro no encontrado' });
+
+    const row = q.rows[0];
+    const evaluacionData = {
+      parametros: {
+        presupuesto_oficial: parseFloat(row.presupuesto_oficial),
+        valor_contrato: parseFloat(row.valor_oferta_contrato || row.presupuesto_oficial),
+        plazo_meses: row.plazo_ejecucion_meses,
+        anticipo_porcentaje: parseFloat(row.anticipo_porcentaje),
+        monto_anticipo_cop: Math.round(parseFloat(row.valor_oferta_contrato || row.presupuesto_oficial) * (parseFloat(row.anticipo_porcentaje) / 100)),
+        smmlv_aplicable: parseFloat(row.smmlv_aplicable)
+      },
+      resumen_auditoria: {
+        total_amparos_evaluados: Array.isArray(row.amparos_items) ? row.amparos_items.length : 6,
+        amparos_conformes: Array.isArray(row.amparos_items) ? row.amparos_items.filter(a => a.estado === 'CONFORME').length : 6,
+        amparos_con_deficit: Array.isArray(row.amparos_items) ? row.amparos_items.filter(a => a.estado !== 'CONFORME' && a.estado !== 'NO_APLICA').length : 0,
+        porcentaje_cumplimiento: parseFloat(row.puntaje_cumplimiento),
+        veredicto_global: row.estado_global,
+        concepto_juridico: row.observaciones_juridicas
+      },
+      amparos: row.amparos_items || []
+    };
+
+    const procesoInfo = {
+      referencia: row.proceso_referencia,
+      entidad: row.entidad,
+      proponente: 'Proponente Consultante'
+    };
+
+    const pdfBuffer = await garantiasEngine.generarDictamenGarantiasPdf(evaluacionData, procesoInfo);
+    const safeRef = (row.proceso_referencia).replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Dictamen_Garantias_Decreto1082_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF de garantías desde DB:', err.message);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

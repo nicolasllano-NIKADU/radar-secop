@@ -1440,6 +1440,12 @@
           </svg>
           <span>🏗️ Capacidad Residual K_R (Formulario 5)</span>
         </button>
+        <button id="modalBtnGarantias" class="btn-action" style="flex: 1; min-width: 140px; justify-content: center; background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #6ee7b7;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <span>🛡️ Garantías & Pólizas (Dec. 1082)</span>
+        </button>
         <button id="modalNotifyBtn" class="btn-action btn-action-tele" style="flex: 1; min-width: 140px; justify-content: center;">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <line x1="22" y1="2" x2="11" y2="13"/>
@@ -3427,6 +3433,126 @@
         </div>
         <div>
           <button id="btnCloseResidualCapacityModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL MATRIZ DE GARANTÍAS Y PÓLIZAS CCE (DECRETO 1082/2015) ================= -->
+  <div id="garantiasModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header" style="border-bottom: 1px solid var(--hairline); padding-bottom: 12px; margin-bottom: 14px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="entity-badge" style="background: rgba(16, 185, 129, 0.2); border: 1px solid var(--success); color: var(--success); font-weight: 800; font-size: 0.72rem;">DECRETO 1082/2015</span>
+              <span style="font-size: 1.05rem; font-weight: 800; color: var(--champagne);">Matriz de Verificación de Garantías & Pólizas CCE</span>
+            </div>
+            <div id="garantiasModalMeta" style="font-size: 0.78rem; color: var(--text-faint); margin-top: 4px;">
+              Proceso • Entidad • Presupuesto Oficial
+            </div>
+          </div>
+          <button id="btnCloseGarantiasModalTop" class="btn-close-modal" aria-label="Cerrar modal">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Configuración y Parámetros del Proceso -->
+      <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+        <div style="font-size: 0.78rem; font-weight: 700; color: var(--champagne); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+          <span>⚙️ Parámetros de la Convocatoria para Cálculo de Coberturas</span>
+          <span style="font-size: 0.7rem; color: var(--text-faint);">Art. 2.2.1.2.3.1.7 y 2.2.1.2.3.1.9 Decreto 1082/2015</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Presupuesto Oficial (COP):</label>
+            <input type="number" id="garPresupuesto" placeholder="Ej: 2000000000" style="width: 100%; padding: 6px; font-size: 0.8rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Valor Oferta / Contrato (COP):</label>
+            <input type="number" id="garValorContrato" placeholder="Ej: 1950000000" style="width: 100%; padding: 6px; font-size: 0.8rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Plazo Ejecución (Meses):</label>
+            <input type="number" id="garPlazoMeses" value="6" style="width: 100%; padding: 6px; font-size: 0.8rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">% Anticipo Pactado:</label>
+            <input type="number" id="garAnticipoPct" value="20" placeholder="Ej: 20" style="width: 100%; padding: 6px; font-size: 0.8rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Tipo de Contratación:</label>
+            <select id="garTipoProceso" style="width: 100%; padding: 6px; font-size: 0.8rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">
+              <option value="OBRA_PUBLICA" selected>Obra Pública / Infraestructura (5 años calidad)</option>
+              <option value="CONSULTORIA">Consultoría / Interventoría</option>
+              <option value="SERVICIOS_BIENES">Suministros / Prestación de Servicios</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-top: 10px; display: flex; justify-content: flex-end; gap: 8px;">
+          <button id="btnCalcularRequisitosGarantias" class="btn-action btn-action-primary" style="padding: 6px 14px; font-size: 0.78rem; gap: 6px;">
+            <span>⚡ Calcular Requisitos Reglamentarios CCE</span>
+          </button>
+          <button id="btnSimularPolizasConformes" class="btn-action" style="padding: 6px 12px; font-size: 0.78rem; background: rgba(0, 229, 255, 0.12); border: 1px solid var(--tech-cyan); color: var(--tech-cyan);">
+            <span>🧪 Cargar Póliza Simulación</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Veredicto de Auditoría y Semáforo Global -->
+      <div id="garantiasVeredictoArea" style="margin-bottom: 14px; display: none;">
+        <!-- Inyectado dinámicamente -->
+      </div>
+
+      <!-- Tabla de los 6 Amparos Reglamentarios -->
+      <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+        <div style="font-size: 0.78rem; font-weight: 700; color: var(--champagne); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+          <span>📋 Checklist de Amparos y Coberturas Obligatorias (Decreto 1082/2015)</span>
+          <span style="font-size: 0.7rem; color: var(--text-muted);" id="garCompliancePct">Auditoría en espera</span>
+        </div>
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.74rem; text-align: left;">
+            <thead>
+              <tr style="background: var(--lacquer-deep); color: var(--text-faint); border-bottom: 1px solid var(--hairline);">
+                <th style="padding: 6px 8px;">Amparo Legal</th>
+                <th style="padding: 6px 8px; text-align: right;">% Exigido</th>
+                <th style="padding: 6px 8px; text-align: right;">Valor Mínimo COP</th>
+                <th style="padding: 6px 8px; text-align: right;">Valor Asegurado</th>
+                <th style="padding: 6px 8px; text-align: center;">Vence Requerido</th>
+                <th style="padding: 6px 8px; text-align: center;">Vence Póliza</th>
+                <th style="padding: 6px 8px; text-align: center;">Estado</th>
+              </tr>
+            </thead>
+            <tbody id="garantiasTableBody">
+              <tr>
+                <td colspan="7" style="text-align: center; padding: 24px; color: var(--text-faint);">
+                  Haz clic en "Calcular Requisitos Reglamentarios CCE" para liquidar las coberturas legales obligatorias.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Footer y Acciones -->
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-top: 1px solid var(--hairline); padding-top: 12px;">
+        <div style="display: flex; gap: 8px;">
+          <button id="btnDownloadGarantiasPdf" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px; background: rgba(212, 175, 55, 0.15); border: 1px solid var(--gold); color: var(--gold); font-weight: 700; display: none;">
+            📄 Descargar Dictamen Oficial en PDF
+          </button>
+          <button id="btnSaveGarantias" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px; background: rgba(16, 185, 129, 0.15); border: 1px solid var(--success); color: var(--success); display: none;">
+            💾 Guardar Verificación
+          </button>
+        </div>
+        <div>
+          <button id="btnCloseGarantiasModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
             Cerrar
           </button>
         </div>
