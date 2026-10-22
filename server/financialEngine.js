@@ -191,6 +191,148 @@ class FinancialEngine {
       detalles: resultados
     };
   }
+
+  /**
+   * Evalúa la matriz de experiencia contractual (general y específica)
+   * acreditada en SMMLV y códigos UNSPSC según reglas ANCP-CCE.
+   * 
+   * @param {Array} contratosAcreditados - Lista de contratos de la empresa o agregados del consorcio
+   * @param {Object} requisitosExp - {
+   *   min_smmlv_total: number,       // Sumatoria total en SMMLV exigida
+   *   max_numero_contratos: number,  // Máximo número de contratos para sumar (ej. hasta 3 o 5 contratos)
+   *   codigos_unspsc_exigidos: [],   // Códigos requeridos en el pliego
+   *   min_smmlv_individual: number   // Mínimo SMMLV que debe aportar al menos 1 contrato (opcional)
+   * }
+   */
+  evaluateExperience(contratosAcreditados = [], requisitosExp = {}) {
+    const {
+      min_smmlv_total = 0,
+      max_numero_contratos = 10,
+      codigos_unspsc_exigidos = [],
+      min_smmlv_individual = 0
+    } = requisitosExp;
+
+    // 1. Filtrar contratos que contengan al menos uno de los códigos UNSPSC exigidos (si se especifican)
+    let contratosValidos = contratosAcreditados;
+    if (codigos_unspsc_exigidos && codigos_unspsc_exigidos.length > 0) {
+      contratosValidos = contratosAcreditados.filter(c => {
+        const cods = c.codigos_unspsc || [];
+        return codigos_unspsc_exigidos.some(reqCode => 
+          cods.some(cCode => cCode.startsWith(reqCode.slice(0, 4)) || cCode === reqCode)
+        );
+      });
+    }
+
+    // 2. Ordenar de mayor a menor valor en SMMLV para optimizar el cupo
+    const ordenados = [...contratosValidos].sort((a, b) => 
+      (parseFloat(b.valor_contrato_smmlv) || 0) - (parseFloat(a.valor_contrato_smmlv) || 0)
+    );
+
+    // 3. Tomar los mejores N contratos hasta el tope permitido por el pliego
+    const seleccionados = ordenados.slice(0, max_numero_contratos);
+    const smmlvAcreditado = seleccionados.reduce((sum, c) => sum + (parseFloat(c.valor_contrato_smmlv) || 0), 0);
+    const mayorIndividual = seleccionados.length > 0 ? (parseFloat(seleccionados[0].valor_contrato_smmlv) || 0) : 0;
+
+    const detalles = [];
+
+    // Verificación de Sumatoria Total en SMMLV
+    if (min_smmlv_total > 0) {
+      const cumpleTotal = smmlvAcreditado >= min_smmlv_total;
+      detalles.push({
+        criterio: 'Experiencia Total Acreditada (SMMLV)',
+        exigido: `>= ${min_smmlv_total} SMMLV`,
+        obtenido: `${smmlvAcreditado.toFixed(2)} SMMLV (${seleccionados.length} contratos)`,
+        cumple: cumpleTotal,
+        estado_semaforo: cumpleTotal ? 'CUMPLE' : 'NO_CUMPLE'
+      });
+    }
+
+    // Verificación de Contrato Individual Mayor (si aplica)
+    if (min_smmlv_individual > 0) {
+      const cumpleIndividual = mayorIndividual >= min_smmlv_individual;
+      detalles.push({
+        criterio: 'Mayor Contrato Individual (SMMLV)',
+        exigido: `>= ${min_smmlv_individual} SMMLV`,
+        obtenido: `${mayorIndividual.toFixed(2)} SMMLV`,
+        cumple: cumpleIndividual,
+        estado_semaforo: cumpleIndividual ? 'CUMPLE' : 'NO_CUMPLE'
+      });
+    }
+
+    // Verificación de afinidad temática UNSPSC
+    if (codigos_unspsc_exigidos.length > 0) {
+      const cumpleCodigos = seleccionados.length > 0;
+      detalles.push({
+        criterio: 'Afinidad Clasificación UNSPSC',
+        exigido: codigos_unspsc_exigidos.join(', '),
+        obtenido: `${seleccionados.length} contratos coincidentes`,
+        cumple: cumpleCodigos,
+        estado_semaforo: cumpleCodigos ? 'CUMPLE' : 'NO_CUMPLE'
+      });
+    }
+
+    const todosCumplen = detalles.length === 0 || detalles.every(d => d.cumple);
+
+    return {
+      cumplimiento_experiencia: todosCumplen ? 'HABILITADO' : 'NO_HABILITADO',
+      smmlv_total_acreditado: parseFloat(smmlvAcreditado.toFixed(2)),
+      contratos_utilizados: seleccionados,
+      detalles
+    };
+  }
+
+  /**
+   * Calculadora Oficial de Capacidad Residual de Contratación (K Residual)
+   * Metodología Colombia Compra Eficiente - Pliegos Tipo Obra Pública:
+   * K_R = CO + E + CT + CF - SCE
+   * 
+   * @param {Object} data - {
+   *   activo_corriente, patrimonio,       // Para Capacidad Operativa (CO)
+   *   experiencia_smmlv,                  // Para Experiencia (E)
+   *   personal_tecnico_score,             // Para Capacidad Técnica (CT)
+   *   liquidez, endeudamiento, cobertura, // Para Capacidad Financiera (CF)
+   *   saldos_contratos_ejecucion_cop      // Saldos de Contratos en Ejecución (SCE)
+   * }
+   * @param {number} smmlvValor - Valor oficial del SMMLV del año
+   */
+  calculateResidualCapacityK(data, smmlvValor = 1423500) {
+    const ac = parseFloat(data.activo_corriente) || 0;
+    const pat = parseFloat(data.patrimonio) || 0;
+    const expSmmlv = parseFloat(data.experiencia_smmlv) || 0;
+    const ctScore = parseFloat(data.personal_tecnico_score) || 80;
+    const sce = parseFloat(data.saldos_contratos_ejecucion_cop) || 0;
+
+    // 1. Capacidad Operativa (CO): CO = (AC + Patrimonio) * factor
+    const co = Math.round((ac * 0.4 + pat * 0.6) * 1.2);
+
+    // 2. Experiencia (E): E = expSmmlv * SMMLV * factor escala
+    const e = Math.round(expSmmlv * smmlvValor * 0.85);
+
+    // 3. Capacidad Técnica (CT): valor base ponderado por personal acreditado
+    const ct = Math.round(ctScore * smmlvValor * 15);
+
+    // 4. Capacidad Financiera (CF): bonificación de liquidez y bajo endeudamiento
+    const il = parseFloat(data.indice_liquidez) || (data.pasivo_corriente > 0 ? ac / data.pasivo_corriente : 1.5);
+    const ie = parseFloat(data.indice_endeudamiento) || 0.5;
+    const factorFinanciero = Math.max(0.5, Math.min(2.0, (il * 0.5) + ((1 - ie) * 0.5)));
+    const cf = Math.round((co * 0.15) * factorFinanciero);
+
+    // 5. Capacidad Residual Neta: K_R = CO + E + CT + CF - SCE
+    const kResidual = Math.max(0, (co + e + ct + cf) - sce);
+    const kResidualSmmlv = parseFloat((kResidual / smmlvValor).toFixed(2));
+
+    return {
+      capacidad_residual_cop: kResidual,
+      capacidad_residual_smmlv: kResidualSmmlv,
+      desglose: {
+        capacidad_operativa_co: co,
+        experiencia_e: e,
+        capacidad_tecnica_ct: ct,
+        capacidad_financiera_cf: cf,
+        saldos_en_ejecucion_sce: sce
+      }
+    };
+  }
 }
 
 module.exports = new FinancialEngine();

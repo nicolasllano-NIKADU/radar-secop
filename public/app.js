@@ -771,9 +771,14 @@ function renderCompanies(companies) {
           </div>
         </div>
 
-        <button onclick="openEditFinancialModal(${c.id})" class="btn-action" style="width: 100%; font-size: 0.78rem; padding: 6px; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-warm);">
-          Actualizar RUP / Financiero
-        </button>
+        <div style="display: flex; gap: 6px;">
+          <button onclick="openEditFinancialModal(${c.id})" class="btn-action" style="flex: 1; font-size: 0.74rem; padding: 6px; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-warm);">
+            Balance RUP
+          </button>
+          <button onclick="openExperienceModal(${c.id})" class="btn-action" style="flex: 1; font-size: 0.74rem; padding: 6px; background: rgba(212, 175, 55, 0.15); border: 1px solid var(--gold); color: var(--champagne); font-weight: 700;">
+            📜 Experiencia & K
+          </button>
+        </div>
       </div>
     `;
   }).join('');
@@ -1409,6 +1414,142 @@ window.simularParaPAA = function(valorPresupuesto) {
 };
 
 document.getElementById('btnSyncPAA')?.addEventListener('click', syncPAANow);
+
+// ==================== MÓDULO EXPERIENCIA RUP & K RESIDUAL ====================
+let currentExpCompanyId = null;
+
+async function openExperienceModal(empresaId) {
+  currentExpCompanyId = empresaId;
+  const comp = userCompanies.find(c => c.id === empresaId);
+  if (!comp) return;
+
+  const modal = document.getElementById('experienceModal');
+  const lblTitle = document.getElementById('expModalCompanyName');
+  if (lblTitle) lblTitle.textContent = `${comp.razon_social} - Matriz RUP`;
+
+  // Cargar K Residual
+  loadKResidual(empresaId);
+
+  // Cargar Contratos Acreditados
+  loadCompanyContracts(empresaId);
+
+  if (modal) modal.classList.add('active');
+}
+
+async function loadKResidual(empresaId) {
+  try {
+    const res = await fetch(`/api/empresas/${empresaId}/k-residual`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ personal_tecnico_score: 85, saldos_en_ejecucion: 0 })
+    });
+    const json = await res.json();
+    if (json.ok) {
+      document.getElementById('lblKResidualCop').textContent = formatCOP(json.data.capacidad_residual_cop);
+      document.getElementById('lblKResidualSmmlv').textContent = `${json.data.capacidad_residual_smmlv.toLocaleString('es-CO')} SMMLV`;
+    }
+  } catch (e) {
+    console.warn('Error calculando K residual:', e.message);
+  }
+}
+
+async function loadCompanyContracts(empresaId) {
+  const container = document.getElementById('expContractsList');
+  if (!container) return;
+
+  container.innerHTML = '<div style="text-align: center; padding: 10px; color: var(--text-faint);">Cargando contratos...</div>';
+
+  try {
+    const res = await fetch(`/api/empresas/${empresaId}/experiencia`);
+    const json = await res.json();
+
+    if (!json.ok || !json.data || json.data.length === 0) {
+      container.innerHTML = '<div style="text-align: center; padding: 14px; color: var(--text-faint); font-size: 0.8rem;">No hay contratos registrados en la matriz RUP. Agrega uno arriba.</div>';
+      return;
+    }
+
+    container.innerHTML = json.data.map(c => `
+      <div style="background: var(--lacquer-deep); border: 1px solid var(--hairline); padding: 10px 12px; border-radius: var(--radius-sm); display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+        <div style="overflow: hidden;">
+          <div style="font-size: 0.82rem; font-weight: 700; color: var(--text-warm); text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">
+            ${c.entidad_contratante} (Contrato: ${c.numero_contrato || 'S/N'})
+          </div>
+          <div style="font-size: 0.72rem; color: var(--text-faint); margin: 2px 0;">
+            ${c.objeto_contrato}
+          </div>
+          <div style="font-size: 0.7rem; color: var(--tech-cyan);">
+            UNSPSC: ${(c.codigos_unspsc || []).join(', ') || 'N/A'}
+          </div>
+        </div>
+        <div style="text-align: right; white-space: nowrap;">
+          <div style="font-weight: 800; font-size: 0.95rem; color: var(--champagne);">${parseFloat(c.valor_contrato_smmlv || 0).toLocaleString('es-CO')} SMMLV</div>
+          <button onclick="eliminarContrato(${c.id})" style="background: none; border: none; color: var(--danger); font-size: 0.72rem; cursor: pointer; padding: 2px 4px; margin-top: 4px;">
+            ✕ Eliminar
+          </button>
+        </div>
+      </div>
+    `).join('');
+  } catch (err) {
+    container.innerHTML = `<div style="color: var(--danger); font-size: 0.75rem;">Error: ${err.message}</div>`;
+  }
+}
+
+// Guardar nuevo contrato de experiencia
+document.getElementById('formAddExp')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!currentExpCompanyId) return;
+
+  const entidad = document.getElementById('expEntidad').value.trim();
+  const numero = document.getElementById('expNumero').value.trim();
+  const objeto = document.getElementById('expObjeto').value.trim();
+  const smmlv = parseFloat(document.getElementById('expSmmlv').value) || 0;
+  const unspscRaw = document.getElementById('expUnspsc').value.trim();
+  const codigos = unspscRaw ? unspscRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+  showToast('Guardando contrato RUP...');
+
+  try {
+    const res = await fetch(`/api/empresas/${currentExpCompanyId}/experiencia`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        entidad_contratante: entidad,
+        numero_contrato: numero,
+        objeto_contrato: objeto,
+        valor_contrato_smmlv: smmlv,
+        codigos_unspsc: codigos
+      })
+    });
+    const json = await res.json();
+    if (json.ok) {
+      showToast('Contrato registrado');
+      document.getElementById('formAddExp').reset();
+      loadCompanyContracts(currentExpCompanyId);
+      loadKResidual(currentExpCompanyId);
+    }
+  } catch (err) {
+    showToast(`Error: ${err.message}`);
+  }
+});
+
+window.eliminarContrato = async function(contratoId) {
+  if (!confirm('¿Eliminar este contrato de la matriz de experiencia?')) return;
+  try {
+    const res = await fetch(`/api/empresas/${currentExpCompanyId}/experiencia/${contratoId}`, { method: 'DELETE' });
+    const json = await res.json();
+    if (json.ok) {
+      showToast('Contrato eliminado');
+      loadCompanyContracts(currentExpCompanyId);
+      loadKResidual(currentExpCompanyId);
+    }
+  } catch (e) {
+    showToast('Error eliminando contrato');
+  }
+};
+
+document.getElementById('btnCloseExpModal')?.addEventListener('click', () => {
+  document.getElementById('experienceModal')?.classList.remove('active');
+});
 
 // Filtros de mes para PAA
 document.querySelectorAll('#paaMonthFilters .filter-pill').forEach(btn => {

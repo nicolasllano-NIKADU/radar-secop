@@ -234,6 +234,74 @@ class CompanyManager {
       return insertRes.rows[0];
     }
   }
+
+  /**
+   * Guarda un contrato de experiencia acreditado en RUP
+   */
+  async addExperienceContract(empresaId, contractData) {
+    const {
+      consecutivo_contrato = null,
+      numero_contrato = '',
+      entidad_contratante = '',
+      objeto_contrato = '',
+      valor_contrato_smmlv = 0,
+      valor_contrato_cop = 0,
+      fecha_terminacion = null,
+      codigos_unspsc = [],
+      es_obra_publica = false
+    } = contractData;
+
+    const query = `
+      INSERT INTO empresa_experiencia (
+        empresa_id, consecutivo_contrato, numero_contrato, entidad_contratante,
+        objeto_contrato, valor_contrato_smmlv, valor_contrato_cop, fecha_terminacion,
+        codigos_unspsc, es_obra_publica
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING *;
+    `;
+
+    const res = await db.query(query, [
+      empresaId,
+      consecutivo_contrato,
+      numero_contrato,
+      entidad_contratante,
+      objeto_contrato,
+      valor_contrato_smmlv,
+      valor_contrato_cop,
+      fecha_terminacion,
+      codigos_unspsc,
+      es_obra_publica
+    ]);
+
+    return res.rows[0];
+  }
+
+  /**
+   * Obtiene la matriz de experiencia contractual de una empresa
+   */
+  async getExperienceByCompany(empresaId) {
+    const query = `
+      SELECT * FROM empresa_experiencia
+      WHERE empresa_id = $1
+      ORDER BY valor_contrato_smmlv DESC;
+    `;
+    const res = await db.query(query, [empresaId]);
+    return res.rows;
+  }
+
+  /**
+   * Elimina un contrato de experiencia
+   */
+  async deleteExperienceContract(contractId, empresaId) {
+    const query = `
+      DELETE FROM empresa_experiencia
+      WHERE id = $1 AND empresa_id = $2
+      RETURNING id;
+    `;
+    const res = await db.query(query, [contractId, empresaId]);
+    return res.rows[0];
+  }
 }
 
 module.exports = new CompanyManager();

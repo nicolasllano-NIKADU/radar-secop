@@ -156,4 +156,83 @@ router.post('/sugerir-alianza', async (req, res) => {
   }
 });
 
+// GET /api/empresas/:id/experiencia - Lista los contratos acreditados de una empresa
+router.get('/:id/experiencia', async (req, res) => {
+  try {
+    const empresaId = parseInt(req.params.id, 10);
+    const contratos = await companyManager.getExperienceByCompany(empresaId);
+    res.json({ ok: true, data: contratos });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// POST /api/empresas/:id/experiencia - Registra un contrato de experiencia RUP
+router.post('/:id/experiencia', async (req, res) => {
+  try {
+    const empresaId = parseInt(req.params.id, 10);
+    const contrato = await companyManager.addExperienceContract(empresaId, req.body);
+    res.json({ ok: true, data: contrato });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+// DELETE /api/empresas/:empresaId/experiencia/:contratoId - Elimina un contrato
+router.delete('/:empresaId/experiencia/:contratoId', async (req, res) => {
+  try {
+    const empresaId = parseInt(req.params.empresaId, 10);
+    const contratoId = parseInt(req.params.contratoId, 10);
+    await companyManager.deleteExperienceContract(contratoId, empresaId);
+    res.json({ ok: true, message: 'Contrato eliminado' });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// POST /api/empresas/evaluar-experiencia - Evalúa matriz de experiencia individual o consorcial
+router.post('/evaluar-experiencia', async (req, res) => {
+  try {
+    const { empresas_ids = [], requisitos_experiencia = {} } = req.body;
+    let contratosTotales = [];
+
+    for (const empId of empresas_ids) {
+      const contratos = await companyManager.getExperienceByCompany(parseInt(empId, 10));
+      contratosTotales.push(...contratos);
+    }
+
+    const evaluacion = financialEngine.evaluateExperience(contratosTotales, requisitos_experiencia);
+    res.json({ ok: true, data: evaluacion });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+// POST /api/empresas/:id/k-residual - Calcula la capacidad residual de obra pública (K Residual)
+router.post('/:id/k-residual', async (req, res) => {
+  try {
+    const empresaId = parseInt(req.params.id, 10);
+    const allCompanies = await companyManager.getCompaniesByUser(req.user.id);
+    const emp = allCompanies.find(c => c.id === empresaId);
+    if (!emp) return res.status(404).json({ ok: false, error: 'Empresa no encontrada' });
+
+    const contratos = await companyManager.getExperienceByCompany(empresaId);
+    const expSmmlv = contratos.reduce((sum, c) => sum + (parseFloat(c.valor_contrato_smmlv) || 0), 0);
+
+    const kRes = financialEngine.calculateResidualCapacityK({
+      activo_corriente: emp.activo_corriente,
+      patrimonio: emp.patrimonio,
+      experiencia_smmlv: expSmmlv,
+      personal_tecnico_score: req.body.personal_tecnico_score || 80,
+      liquidez: emp.indice_liquidez,
+      endeudamiento: emp.indice_endeudamiento,
+      saldos_contratos_ejecucion_cop: req.body.saldos_en_ejecucion || 0
+    });
+
+    res.json({ ok: true, data: kRes });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 module.exports = router;
