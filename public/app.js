@@ -1373,6 +1373,27 @@ async function loadPAAOpportunities() {
   grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-faint);">Consultando compras proyectadas en PAA...</div>';
 
   try {
+    // 1. Cargar métricas del cockpit trimestral (Q1 a Q4)
+    fetch(`/api/paa/calendario/${empresaId}`)
+      .then(r => r.json())
+      .then(calJson => {
+        if (calJson.success && calJson.calendario) {
+          const t = calJson.calendario.trimestres;
+          if (document.getElementById('paaQ1Count')) document.getElementById('paaQ1Count').textContent = `${t.Q1.count} procesos`;
+          if (document.getElementById('paaQ1Value')) document.getElementById('paaQ1Value').textContent = formatCOP(t.Q1.valorTotal);
+
+          if (document.getElementById('paaQ2Count')) document.getElementById('paaQ2Count').textContent = `${t.Q2.count} procesos`;
+          if (document.getElementById('paaQ2Value')) document.getElementById('paaQ2Value').textContent = formatCOP(t.Q2.valorTotal);
+
+          if (document.getElementById('paaQ3Count')) document.getElementById('paaQ3Count').textContent = `${t.Q3.count} procesos`;
+          if (document.getElementById('paaQ3Value')) document.getElementById('paaQ3Value').textContent = formatCOP(t.Q3.valorTotal);
+
+          if (document.getElementById('paaQ4Count')) document.getElementById('paaQ4Count').textContent = `${t.Q4.count} procesos`;
+          if (document.getElementById('paaQ4Value')) document.getElementById('paaQ4Value').textContent = formatCOP(t.Q4.valorTotal);
+        }
+      })
+      .catch(e => console.error('Error cargando calendario PAA:', e));
+
     const res = await fetch(`/api/paa?empresa_id=${empresaId}&mes=${encodeURIComponent(activePaaMonth)}&minScore=30`);
     const json = await res.json();
 
@@ -1490,6 +1511,58 @@ async function syncPAANow() {
     }
   }
 }
+
+// Descargar Informe Comercial PAA en PDF
+document.getElementById('btnDownloadPaaReportPdf')?.addEventListener('click', async () => {
+  const lider = userCompanies.find(c => c.es_propia) || userCompanies[0];
+  const empresaId = lider ? lider.id : 1;
+
+  const btn = document.getElementById('btnDownloadPaaReportPdf');
+  const oldText = btn.innerHTML;
+  btn.innerHTML = '<span>⏳ Confeccionando Informe PAA...</span>';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(`/api/paa/informe-pdf/${empresaId}`);
+    if (!res.ok) throw new Error('Error generando informe comercial');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Informe_Comercial_PAA_Empresa_${empresaId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    showToast('Informe Comercial PAA descargado exitosamente');
+  } catch (err) {
+    showToast(`Error: ${err.message}`);
+  } finally {
+    btn.innerHTML = oldText;
+    btn.disabled = false;
+  }
+});
+
+// Filtrar por Trimestre desde las tarjetas del cockpit
+window.filtrarPaaPorTrimestre = function(q) {
+  const mapQ = {
+    'Q1': 'Enero',
+    'Q2': 'Abril',
+    'Q3': 'Julio',
+    'Q4': 'Octubre'
+  };
+  const mesFoco = mapQ[q] || 'TODOS';
+  activePaaMonth = mesFoco;
+
+  // Actualizar pills activas
+  document.querySelectorAll('#paaMonthFilters .filter-pill').forEach(pill => {
+    pill.classList.remove('active');
+    if (pill.getAttribute('data-month') === mesFoco) pill.classList.add('active');
+  });
+
+  loadPAAOpportunities();
+};
 
 // Conectar simulación con presupuesto estimado del PAA
 window.simularParaPAA = function(valorPresupuesto) {

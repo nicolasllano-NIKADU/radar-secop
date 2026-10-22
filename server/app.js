@@ -292,6 +292,30 @@ app.post('/api/paa/sync', async (req, res) => {
   }
 });
 
+app.get('/api/paa/calendario/:empresaId', async (req, res) => {
+  try {
+    const calendario = await paaManager.getCalendarioTrimestral(req.params.empresaId);
+    res.json({ success: true, calendario });
+  } catch (err) {
+    console.error('Error obteniendo calendario PAA:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/paa/informe-pdf/:empresaId', async (req, res) => {
+  try {
+    const pdfBuffer = await paaManager.generarInformeComercialPdf(req.params.empresaId);
+    const filename = `Informe_Comercial_PAA_Empresa_${req.params.empresaId}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando informe comercial PAA PDF:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // 11. Módulo de Auditoría Legal, Subsanabilidad y Causales de Rechazo
 app.get('/api/subsanabilidad/catalogo', (req, res) => {
   res.json({ success: true, data: subsanabilidadEngine.getCatalog() });

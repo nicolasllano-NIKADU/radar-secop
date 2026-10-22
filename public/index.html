@@ -438,14 +438,58 @@
 
     <!-- ================= VISTA 4: INTELIGENCIA COMERCIAL PAA ================= -->
     <section id="view-paa" class="view-section">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
         <div>
-          <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--champagne); margin-bottom: 4px;">Radar Anticipado PAA 2026</h2>
-          <p style="font-size: 0.8rem; color: var(--text-muted);">Compras proyectadas por entidades del Estado antes de la publicación de pliegos</p>
+          <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--champagne); margin-bottom: 4px;">Radar Anticipado PAA 2026 (Inteligencia Comercial)</h2>
+          <p style="font-size: 0.8rem; color: var(--text-muted);">Compras proyectadas por entidades del Estado antes de la publicación de pliegos borradores (API SODA REST)</p>
         </div>
-        <button id="btnSyncPAA" class="btn-action btn-action-primary" style="padding: 8px 14px; font-size: 0.82rem; gap: 6px;">
-          <span>⚡ Sincronizar PAA</span>
-        </button>
+        <div style="display: flex; gap: 8px;">
+          <button id="btnDownloadPaaReportPdf" class="btn-action" style="padding: 8px 14px; font-size: 0.82rem; background: rgba(212, 175, 55, 0.15); border: 1px solid var(--gold); color: var(--champagne);">
+            <span>📄 Descargar Informe Comercial (PDF)</span>
+          </button>
+          <button id="btnSyncPAA" class="btn-action btn-action-primary" style="padding: 8px 14px; font-size: 0.82rem; gap: 6px;">
+            <span>⚡ Sincronizar PAA con SECOP II</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Cockpit Trimestral de Inversión Pública (Q1 - Q4) -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 16px;">
+        <div class="card-glass" style="padding: 10px 14px; border-radius: 6px; border-left: 3px solid #38bdf8; cursor: pointer;" onclick="filtrarPaaPorTrimestre('Q1')">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.72rem; font-weight: 700; color: #38bdf8;">Q1 (Ene - Mar)</span>
+            <span id="paaQ1Count" class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 0.68rem;">0 procesos</span>
+          </div>
+          <div id="paaQ1Value" style="font-size: 1.05rem; font-weight: 800; color: var(--text-primary); margin-top: 4px;">$ 0</div>
+          <div style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Presupuesto Proyectado</div>
+        </div>
+
+        <div class="card-glass" style="padding: 10px 14px; border-radius: 6px; border-left: 3px solid #10b981; cursor: pointer;" onclick="filtrarPaaPorTrimestre('Q2')">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.72rem; font-weight: 700; color: #10b981;">Q2 (Abr - Jun)</span>
+            <span id="paaQ2Count" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-size: 0.68rem;">0 procesos</span>
+          </div>
+          <div id="paaQ2Value" style="font-size: 1.05rem; font-weight: 800; color: var(--text-primary); margin-top: 4px;">$ 0</div>
+          <div style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Presupuesto Proyectado</div>
+        </div>
+
+        <div class="card-glass" style="padding: 10px 14px; border-radius: 6px; border-left: 3px solid #f59e0b; cursor: pointer;" onclick="filtrarPaaPorTrimestre('Q3')">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.72rem; font-weight: 700; color: #f59e0b;">Q3 (Jul - Sep)</span>
+            <span id="paaQ3Count" class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; font-size: 0.68rem;">0 procesos</span>
+          </div>
+          <div id="paaQ3Value" style="font-size: 1.05rem; font-weight: 800; color: var(--text-primary); margin-top: 4px;">$ 0</div>
+          <div style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Presupuesto Proyectado</div>
+        </div>
+
+        <div class="card-glass" style="padding: 10px 14px; border-radius: 6px; border-left: 3px solid #a855f7; cursor: pointer;" onclick="filtrarPaaPorTrimestre('Q4')">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.72rem; font-weight: 700; color: #a855f7;">Q4 (Oct - Dic)</span>
+            <span id="paaQ4Count" class="badge" style="background: rgba(168, 85, 247, 0.15); color: #a855f7; font-size: 0.68rem;">0 procesos</span>
+          </div>
+          <div id="paaQ4Value" style="font-size: 1.05rem; font-weight: 800; color: var(--text-primary); margin-top: 4px;">$ 0</div>
+          <div style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Presupuesto Proyectado</div>
+        </div>
       </div>
 
       <!-- Filtros por Mes y Entidad -->
