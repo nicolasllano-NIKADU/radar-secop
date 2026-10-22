@@ -18,7 +18,8 @@ const SCHEMAS = [
   'schema_matriz_riesgos.sql',
   'schema_acuerdos_plurales.sql',
   'schema_preflight_audit.sql',
-  'schema_adendas.sql'
+  'schema_adendas.sql',
+  'schema_post_adjudicacion_avanzado.sql'
 ];
 
 async function runAllMigrations() {

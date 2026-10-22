@@ -30,6 +30,7 @@ const riskMatrixEngine = require('./riskMatrixEngine');
 const pluralAgreementEngine = require('./pluralAgreementEngine');
 const preflightAuditEngine = require('./preflightAuditEngine');
 const adendasEngine = require('./adendasEngine');
+const postAdjudicacionEngine = require('./postAdjudicacionEngine');
 const initDb = require('./initDb');
 
 const app = express();
@@ -1689,6 +1690,129 @@ app.get('/api/adendas/descargar-pdf/:procesoId', async (req, res) => {
     res.send(pdfBuffer);
   } catch (err) {
     console.error('Error generando PDF de adendas:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== MÓDULO: CONTROL DE EJECUCIÓN POST-ADJUDICACIÓN, ACTAS Y PAGOS PAC ====================
+
+app.get('/api/post-adjudicacion/contrato/:id/tablero', async (req, res) => {
+  try {
+    const tablero = await postAdjudicacionEngine.getTableroEjecucion(req.params.id);
+    if (!tablero) {
+      return res.status(404).json({ success: false, error: 'Contrato no encontrado' });
+    }
+    res.json({ success: true, data: tablero });
+  } catch (err) {
+    console.error('Error obteniendo tablero post-adjudicación:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/post-adjudicacion/contrato/:id/actas', async (req, res) => {
+  try {
+    const { tipo_acta, numero_acta, fecha_acta, porcentaje_avance_fisico, porcentaje_avance_financiero, valor_acta, observaciones } = req.body;
+    if (!tipo_acta || !numero_acta || !fecha_acta) {
+      return res.status(400).json({ success: false, error: 'Faltan campos obligatorios del acta.' });
+    }
+
+    const acta = await postAdjudicacionEngine.registrarActa({
+      contrato_id: req.params.id,
+      tipo_acta,
+      numero_acta,
+      fecha_acta,
+      porcentaje_avance_fisico,
+      porcentaje_avance_financiero,
+      valor_acta,
+      observaciones
+    });
+
+    res.json({ success: true, data: acta });
+  } catch (err) {
+    console.error('Error registrando acta contractual:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/post-adjudicacion/contrato/:id/pagos', async (req, res) => {
+  try {
+    const { numero_factura, fecha_emision, fecha_radicacion, concepto, valor_bruto, valor_iva, valor_retenciones, valor_neto_girar, estado_pago, fecha_pago, comprobante_egreso_no } = req.body;
+    if (!numero_factura || !fecha_radicacion || !valor_bruto) {
+      return res.status(400).json({ success: false, error: 'Faltan campos obligatorios de la factura/pago.' });
+    }
+
+    const factura = await postAdjudicacionEngine.registrarFactura({
+      contrato_id: req.params.id,
+      numero_factura,
+      fecha_emision: fecha_emision || fecha_radicacion,
+      fecha_radicacion,
+      concepto: concepto || 'Facturación mensual por avance contractual',
+      valor_bruto,
+      valor_iva,
+      valor_retenciones,
+      valor_neto_girar,
+      estado_pago,
+      fecha_pago,
+      comprobante_egreso_no
+    });
+
+    res.json({ success: true, data: factura });
+  } catch (err) {
+    console.error('Error registrando factura/pago:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/post-adjudicacion/pagos/:id', async (req, res) => {
+  try {
+    const { estado_pago, fecha_pago, comprobante_egreso_no } = req.body;
+    const actualizada = await postAdjudicacionEngine.actualizarEstadoFactura(req.params.id, {
+      estado_pago,
+      fecha_pago,
+      comprobante_egreso_no
+    });
+    res.json({ success: true, data: actualizada });
+  } catch (err) {
+    console.error('Error actualizando pago:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/post-adjudicacion/contrato/:id/polizas', async (req, res) => {
+  try {
+    const { aseguradora, numero_poliza, tipo_amparo, porcentaje_amparado, valor_asegurado, fecha_inicio_vigencia, fecha_fin_vigencia, estado_aprobacion } = req.body;
+    if (!aseguradora || !numero_poliza || !tipo_amparo || !valor_asegurado || !fecha_fin_vigencia) {
+      return res.status(400).json({ success: false, error: 'Faltan datos obligatorios de la póliza.' });
+    }
+
+    const poliza = await postAdjudicacionEngine.registrarPoliza(req.params.id, {
+      aseguradora,
+      numero_poliza,
+      tipo_amparo,
+      porcentaje_amparado,
+      valor_asegurado,
+      fecha_inicio_vigencia: fecha_inicio_vigencia || new Date().toISOString().slice(0, 10),
+      fecha_fin_vigencia,
+      estado_aprobacion
+    });
+
+    res.json({ success: true, data: poliza });
+  } catch (err) {
+    console.error('Error registrando póliza:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/post-adjudicacion/contrato/:id/liquidacion-pdf', async (req, res) => {
+  try {
+    const pdfBuffer = await postAdjudicacionEngine.generarActaLiquidacionPdf(req.params.id);
+    const filename = `Acta_Liquidacion_Contrato_${req.params.id}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF de liquidación:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

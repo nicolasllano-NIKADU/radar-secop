@@ -2813,6 +2813,251 @@
     </div>
   </div>
 
+  <!-- Modal Integral de Control Post-Adjudicación, Pólizas, Actas y Pagos PAC -->
+  <div id="postAwardModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 1100px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="entity-badge" style="background: #38bdf8; color: #000; font-weight: 800;">POST-ADJUDICACIÓN</div>
+          <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-warm);">Control de Ejecución Contractual, Semáforo de Pólizas, Actas y Pagos PAC</span>
+        </div>
+        <button id="btnClosePostAwardModal" class="btn-close-modal" aria-label="Cerrar modal">✕</button>
+      </div>
+
+      <div style="margin-top: 8px; border-bottom: 1px solid var(--hairline); padding-bottom: 10px;">
+        <h4 id="postAwardCtrRef" style="font-size: 1.05rem; color: var(--champagne); margin-bottom: 2px;">Contrato: --</h4>
+        <div id="postAwardCtrMeta" style="font-size: 0.78rem; color: var(--text-faint);">Entidad • Supervisor • Estado de Ejecución</div>
+      </div>
+
+      <!-- Resumen Ejecutivo de Balance Financiero y Avance -->
+      <div style="margin-top: 10px; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px;">
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px; border-radius: var(--radius-sm); text-align: center;">
+          <div style="font-size: 0.68rem; color: var(--text-faint); text-transform: uppercase;">Valor Total Vigente</div>
+          <div id="postKpiValorTotal" style="font-size: 1.15rem; font-weight: 800; color: var(--champagne);" class="tabular-nums">$ 0</div>
+          <div id="postKpiValorAdicion" style="font-size: 0.65rem; color: var(--text-faint);">Adicionado: $ 0</div>
+        </div>
+
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px; border-radius: var(--radius-sm); text-align: center;">
+          <div style="font-size: 0.68rem; color: var(--text-faint); text-transform: uppercase;">Tope Legal Adición (50%)</div>
+          <div id="postKpiTopeAdicion" style="font-size: 1.15rem; font-weight: 800; color: var(--text-warm);" class="tabular-nums">$ 0</div>
+          <div id="postKpiSaldoAdicion" style="font-size: 0.65rem; color: #10b981;">Disponible: $ 0</div>
+        </div>
+
+        <div class="card-glass" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); padding: 10px; border-radius: var(--radius-sm); text-align: center;">
+          <div style="font-size: 0.68rem; color: #6ee7b7; text-transform: uppercase;">Pagado Neto (PAC)</div>
+          <div id="postKpiTotalPagado" style="font-size: 1.15rem; font-weight: 800; color: #10b981;" class="tabular-nums">$ 0</div>
+          <div id="postKpiTotalFacturado" style="font-size: 0.65rem; color: var(--text-faint);">Facturado: $ 0</div>
+        </div>
+
+        <div class="card-glass" style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); padding: 10px; border-radius: var(--radius-sm); text-align: center;">
+          <div style="font-size: 0.68rem; color: #fde68a; text-transform: uppercase;">Cuentas en Trámite</div>
+          <div id="postKpiEnTramite" style="font-size: 1.15rem; font-weight: 800; color: #f59e0b;" class="tabular-nums">$ 0</div>
+          <div id="postKpiSaldoFacturar" style="font-size: 0.65rem; color: var(--text-faint);">Por Facturar: $ 0</div>
+        </div>
+
+        <div class="card-glass" style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); padding: 10px; border-radius: var(--radius-sm); text-align: center;">
+          <div style="font-size: 0.68rem; color: #7dd3fc; text-transform: uppercase;">Avance Físico / Finan.</div>
+          <div id="postKpiAvancePct" style="font-size: 1.15rem; font-weight: 800; color: #38bdf8;" class="tabular-nums">0% / 0%</div>
+          <div id="postKpiPolizasStatus" style="font-size: 0.65rem; color: var(--text-faint);">0 Pólizas</div>
+        </div>
+      </div>
+
+      <!-- Pestañas de Navegación del Contrato -->
+      <div style="margin-top: 14px; display: flex; gap: 8px; border-bottom: 1px solid var(--hairline); padding-bottom: 6px;">
+        <button id="postTabBtnPolizas" class="btn-action active" style="font-size: 0.76rem; padding: 6px 14px; background: rgba(56, 189, 248, 0.2); border: 1px solid #38bdf8; color: #7dd3fc; font-weight: 700;">
+          🛡️ Pólizas & Garantías Definitivas
+        </button>
+        <button id="postTabBtnActas" class="btn-action" style="font-size: 0.76rem; padding: 6px 14px; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-warm);">
+          📑 Actas de Ejecución & Avance
+        </button>
+        <button id="postTabBtnPagos" class="btn-action" style="font-size: 0.76rem; padding: 6px 14px; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-warm);">
+          💰 Facturación & Pagos PAC
+        </button>
+      </div>
+
+      <!-- ================= PESTAÑA 1: PÓLIZAS ================= -->
+      <div id="postTabContainerPolizas" style="margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.76rem; color: var(--text-faint);">Semáforo de Vigencias según Decreto 1082 de 2015:</span>
+          <button id="btnToggleNewPolicyForm" class="btn-action" style="font-size: 0.72rem; padding: 4px 10px; background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; color: #7dd3fc;">
+            ➕ Registrar Nueva Póliza / Amparo
+          </button>
+        </div>
+
+        <!-- Formulario Desplegable para Agregar Póliza -->
+        <div id="newPolicyFormContainer" style="display: none; background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px; padding: 10px;">
+          <div style="font-size: 0.78rem; font-weight: 700; color: #7dd3fc; margin-bottom: 6px;">Nuevo Amparo de Garantía Única</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; margin-bottom: 6px;">
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block;">Aseguradora</label>
+              <input type="text" id="newPolAseguradora" placeholder="Seguros del Estado" style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block;">Póliza No.</label>
+              <input type="text" id="newPolNumero" placeholder="POL-2026-001" style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block;">Tipo de Amparo</label>
+              <select id="newPolAmparo" style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+                <option value="CUMPLIMIENTO">Cumplimiento del Contrato</option>
+                <option value="SALARIOS_PRESTACIONES">Salarios y Prestaciones Sociales</option>
+                <option value="BUEN_MANEJO_ANTICIPO">Buen Manejo del Anticipo</option>
+                <option value="CALIDAD_SERVICIO">Calidad / Estabilidad</option>
+                <option value="RESPONSABILIDAD_CIVIL">Responsabilidad Civil Extracontractual</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block;">Valor Asegurado</label>
+              <input type="number" id="newPolValor" placeholder="Valor COP" style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block;">Vence</label>
+              <input type="date" id="newPolVence" style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            </div>
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 6px;">
+            <button id="btnCancelAddPolicy" class="btn-action" style="font-size: 0.7rem; padding: 3px 8px;">Cancelar</button>
+            <button id="btnSaveNewPolicy" class="btn-action btn-action-primary" style="font-size: 0.7rem; padding: 3px 10px;">Guardar Póliza</button>
+          </div>
+        </div>
+
+        <div id="postPoliciesListContainer" style="display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto;">
+          <!-- Listado de pólizas -->
+        </div>
+      </div>
+
+      <!-- ================= PESTAÑA 2: ACTAS ================= -->
+      <div id="postTabContainerActas" style="margin-top: 10px; display: none; flex-direction: column; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.76rem; color: var(--text-faint);">Trazabilidad del ciclo de ejecución (Actas de Inicio, Recibo, Suspensión y Cierre):</span>
+          <button id="btnToggleNewActaForm" class="btn-action" style="font-size: 0.72rem; padding: 4px 10px; background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #6ee7b7;">
+            ➕ Registrar Nueva Acta
+          </button>
+        </div>
+
+        <!-- Formulario Desplegable para Agregar Acta -->
+        <div id="newActaFormContainer" style="display: none; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 6px; padding: 10px;">
+          <div style="font-size: 0.78rem; font-weight: 700; color: #6ee7b7; margin-bottom: 6px;">Registrar Acta Contractual</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 6px; margin-bottom: 6px;">
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block;">Tipo de Acta</label>
+              <select id="newActaTipo" style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+                <option value="INICIO">Acta de Inicio</option>
+                <option value="PARCIAL_RECIBO" selected>Acta Parcial de Recibo</option>
+                <option value="SUSPENSION">Acta de Suspensión</option>
+                <option value="REINICIO">Acta de Reinicio</option>
+                <option value="ENTREGA_FINAL">Acta de Entrega Final</option>
+                <option value="LIQUIDACION">Acta de Liquidación Bilateral</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block;">Número / Acta No.</label>
+              <input type="text" id="newActaNumero" placeholder="Acta No. 01" style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block;">Fecha Acta</label>
+              <input type="date" id="newActaFecha" style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block;">Avance Físico Acumulado (%)</label>
+              <input type="number" id="newActaAvanceFisico" placeholder="Ej. 25.5" min="0" max="100" step="0.1" style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block;">Avance Financiero (%)</label>
+              <input type="number" id="newActaAvanceFinanciero" placeholder="Ej. 20.0" min="0" max="100" step="0.1" style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block;">Valor Reconocido en Acta</label>
+              <input type="number" id="newActaValor" placeholder="COP" style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            </div>
+          </div>
+          <div style="margin-bottom: 6px;">
+            <input type="text" id="newActaObs" placeholder="Observaciones de la Interventoría o Supervisor..." style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 6px;">
+            <button id="btnCancelAddActa" class="btn-action" style="font-size: 0.7rem; padding: 3px 8px;">Cancelar</button>
+            <button id="btnSaveNewActa" class="btn-action btn-action-primary" style="font-size: 0.7rem; padding: 3px 10px;">Guardar Acta</button>
+          </div>
+        </div>
+
+        <div id="postActasListContainer" style="display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto;">
+          <!-- Listado de actas -->
+        </div>
+      </div>
+
+      <!-- ================= PESTAÑA 3: PAGOS PAC ================= -->
+      <div id="postTabContainerPagos" style="margin-top: 10px; display: none; flex-direction: column; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.76rem; color: var(--text-faint);">Trazabilidad de Cuentas de Cobro, Facturas DIAN y Giros PAC/Tesorería:</span>
+          <button id="btnToggleNewPagoForm" class="btn-action" style="font-size: 0.72rem; padding: 4px 10px; background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; color: #fde68a;">
+            ➕ Radicar Nueva Factura / Cuenta
+          </button>
+        </div>
+
+        <!-- Formulario Desplegable para Agregar Factura -->
+        <div id="newPagoFormContainer" style="display: none; background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 6px; padding: 10px;">
+          <div style="font-size: 0.78rem; font-weight: 700; color: #fde68a; margin-bottom: 6px;">Radicación de Factura / Cuenta de Cobro</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; margin-bottom: 6px;">
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block;">Factura No.</label>
+              <input type="text" id="newPagoFacturaNo" placeholder="SETP-001" style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block;">Fecha Radicación</label>
+              <input type="date" id="newPagoFechaRad" style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block;">Valor Bruto COP</label>
+              <input type="number" id="newPagoBruto" placeholder="Valor antes IVA" style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block;">IVA (19% o 0)</label>
+              <input type="number" id="newPagoIva" placeholder="0" style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block;">Retenciones Estatales</label>
+              <input type="number" id="newPagoRet" placeholder="ReteFte + ReteICA" style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block;">Estado Inicial</label>
+              <select id="newPagoEstado" style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+                <option value="RADICADA">Radicada en Ventanilla</option>
+                <option value="EN_SUPERVISION">En Revisión de Supervisión</option>
+                <option value="EN_TESORERIA_PAC">En Tesorería / Trámite PAC</option>
+                <option value="PAGADA">Pagada / Giro Realizado</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-bottom: 6px;">
+            <input type="text" id="newPagoConcepto" placeholder="Concepto (ej. Acta parcial No. 2 de obra / mensualidad de servicio)..." style="width: 100%; padding: 3px 6px; font-size: 0.74rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 6px;">
+            <button id="btnCancelAddPago" class="btn-action" style="font-size: 0.7rem; padding: 3px 8px;">Cancelar</button>
+            <button id="btnSaveNewPago" class="btn-action btn-action-primary" style="font-size: 0.7rem; padding: 3px 10px;">Registrar Factura</button>
+          </div>
+        </div>
+
+        <div id="postPagosListContainer" style="display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto;">
+          <!-- Listado de pagos -->
+        </div>
+      </div>
+
+      <!-- Footer Actions -->
+      <div style="margin-top: 14px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; border-top: 1px solid var(--hairline); padding-top: 12px;">
+        <div style="display: flex; gap: 8px;">
+          <button id="btnDownloadLiquidacionPdf" class="btn-action" style="font-size: 0.8rem; padding: 6px 12px; background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; color: #7dd3fc; font-weight: 700;">
+            ⬇️ Generar Acta de Liquidación Bilateral (PDF)
+          </button>
+        </div>
+        <div>
+          <button id="btnClosePostAwardModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="/app.js"></script>
 </body>
 </html>

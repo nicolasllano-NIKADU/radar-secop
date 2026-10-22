@@ -1812,8 +1812,8 @@ async function loadContracts() {
           </div>
 
           <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;">
-            <button onclick="gestionarPolizasModal(${c.id})" class="btn-action" style="font-size: 0.75rem; padding: 6px 12px; background: var(--lacquer-deep); border: 1px solid var(--gold); color: var(--champagne);">
-              🛡️ Ver Pólizas & Amparos (${c.total_polizas || 0})
+            <button onclick="abrirModalPostAward(${c.id})" class="btn-action" style="font-size: 0.75rem; padding: 6px 12px; background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; color: #7dd3fc; font-weight: 700;">
+              📊 Tablero de Ejecución & Garantías (${c.total_polizas || 0})
             </button>
             <button onclick="adicionarContratoPrompt(${c.id}, ${valor}, ${topeAdicion - adicion})" class="btn-action btn-action-primary" style="font-size: 0.75rem; padding: 6px 12px;">
               + Adición / Prórroga
@@ -6484,6 +6484,473 @@ document.getElementById('btnCloseAdendasModalBtn')?.addEventListener('click', ()
 document.getElementById('adendasModal')?.addEventListener('click', (e) => {
   if (e.target.id === 'adendasModal') {
     document.getElementById('adendasModal')?.classList.remove('open');
+  }
+});
+
+// ==================== MÓDULO: CONTROL DE EJECUCIÓN POST-ADJUDICACIÓN, ACTAS Y PAGOS PAC ====================
+
+let currentPostAwardContractId = null;
+let currentPostAwardData = null;
+
+window.abrirModalPostAward = async function(contratoId) {
+  currentPostAwardContractId = contratoId;
+
+  document.getElementById('postAwardModal')?.classList.add('open');
+
+  // Mostrar loading
+  const refEl = document.getElementById('postAwardCtrRef');
+  const metaEl = document.getElementById('postAwardCtrMeta');
+  if (refEl) refEl.textContent = 'Cargando expediente del contrato...';
+  if (metaEl) metaEl.textContent = 'Consultando balance financiero, pólizas y pagos en tiempo real...';
+
+  try {
+    const res = await fetch(`/api/post-adjudicacion/contrato/${contratoId}/tablero`);
+    const json = await res.json();
+    if (!json.success || !json.data) throw new Error(json.error || 'Error al obtener datos');
+
+    currentPostAwardData = json.data;
+    actualizarPostAwardUI();
+  } catch (err) {
+    console.error('Error cargando tablero post-adjudicación:', err);
+    alert(`Error: ${err.message}`);
+  }
+};
+
+function actualizarPostAwardUI() {
+  if (!currentPostAwardData) return;
+
+  const c = currentPostAwardData.contrato;
+  const b = currentPostAwardData.balance_financiero;
+  const a = currentPostAwardData.avances;
+  const rPol = currentPostAwardData.resumen_polizas;
+
+  // Header
+  const refEl = document.getElementById('postAwardCtrRef');
+  const metaEl = document.getElementById('postAwardCtrMeta');
+  if (refEl) refEl.textContent = `Contrato No. ${c.numero_contrato} — ${c.entidad_contratante}`;
+  if (metaEl) {
+    metaEl.textContent = `Supervisor: ${c.supervisor_nombre || 'Por designar'} • Estado: ${c.estado_ejecucion} • Vencimiento: ${c.fecha_terminacion_estimada || 'Calculado por hitos'}`;
+  }
+
+  // KPIs Balance Financiero
+  const kpiValTotal = document.getElementById('postKpiValorTotal');
+  const kpiValAdic = document.getElementById('postKpiValorAdicion');
+  const kpiTope = document.getElementById('postKpiTopeAdicion');
+  const kpiSaldoAdic = document.getElementById('postKpiSaldoAdicion');
+  const kpiPagado = document.getElementById('postKpiTotalPagado');
+  const kpiFacturado = document.getElementById('postKpiTotalFacturado');
+  const kpiTramite = document.getElementById('postKpiEnTramite');
+  const kpiSaldoFact = document.getElementById('postKpiSaldoFacturar');
+  const kpiAvance = document.getElementById('postKpiAvancePct');
+  const kpiPolStatus = document.getElementById('postKpiPolizasStatus');
+
+  if (kpiValTotal) kpiValTotal.textContent = formatCOP(b.valor_total_vigente);
+  if (kpiValAdic) kpiValAdic.textContent = `Adicionado: ${formatCOP(b.valor_adicionado)}`;
+  if (kpiTope) kpiTope.textContent = formatCOP(c.tope_adicion_50);
+  if (kpiSaldoAdic) kpiSaldoAdic.textContent = `Disponible: ${formatCOP(c.saldo_adicion_disponible)}`;
+
+  if (kpiPagado) kpiPagado.textContent = formatCOP(b.total_pagado_neto);
+  if (kpiFacturado) kpiFacturado.textContent = `Facturado: ${formatCOP(b.total_facturado_bruto)}`;
+
+  if (kpiTramite) kpiTramite.textContent = formatCOP(b.total_en_tramite_pac);
+  if (kpiSaldoFact) kpiSaldoFact.textContent = `Por Facturar: ${formatCOP(b.saldo_por_facturar)}`;
+
+  if (kpiAvance) kpiAvance.textContent = `${a.avance_fisico_pct}% Fís. / ${b.porcentaje_ejecucion_financiera}% Fin.`;
+  if (kpiPolStatus) {
+    if (rPol.vencidas > 0) {
+      kpiPolStatus.textContent = `🚨 ${rPol.vencidas} Vencida(s)`;
+      kpiPolStatus.style.color = '#ef4444';
+    } else if (rPol.en_riesgo > 0) {
+      kpiPolStatus.textContent = `⚠️ ${rPol.en_riesgo} Por vencer (≤15d)`;
+      kpiPolStatus.style.color = '#f97316';
+    } else {
+      kpiPolStatus.textContent = `✅ ${rPol.al_dia} Póliza(s) Vigente(s)`;
+      kpiPolStatus.style.color = '#10b981';
+    }
+  }
+
+  renderPostAwardPolizas();
+  renderPostAwardActas();
+  renderPostAwardPagos();
+}
+
+function renderPostAwardPolizas() {
+  const container = document.getElementById('postPoliciesListContainer');
+  if (!container || !currentPostAwardData) return;
+
+  const polizas = currentPostAwardData.polizas || [];
+  if (polizas.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; color: var(--text-faint); padding: 25px; background: var(--lacquer-surface); border: 1px dashed var(--hairline); border-radius: 4px;">
+        No hay pólizas registradas para este contrato. Haz clic en "Registrar Nueva Póliza" para ingresar la Garantía Única.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = polizas.map(p => `
+    <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid ${p.semaforo.color}44; border-radius: 4px; padding: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 0.76rem; font-weight: 800; color: var(--champagne);">${p.tipo_amparo}</span>
+          <span class="badge" style="font-size: 0.65rem; padding: 1px 6px;">${p.aseguradora}</span>
+          <span style="font-size: 0.72rem; color: var(--text-warm);">Póliza No. <b>${p.numero_poliza}</b></span>
+        </div>
+        <div style="font-size: 0.7rem; color: var(--text-faint); margin-top: 3px;">
+          Valor Asegurado: <b>${formatCOP(p.valor_asegurado)}</b> (${p.porcentaje_amparado}%) • Vigencia: ${p.fecha_inicio_vigencia} hasta <b>${p.fecha_fin_vigencia}</b>
+        </div>
+      </div>
+
+      <div>
+        <span style="display: inline-block; padding: 3px 8px; font-size: 0.7rem; font-weight: 800; border-radius: 3px; background: ${p.semaforo.badgeBg}; color: ${p.semaforo.color}; border: 1px solid ${p.semaforo.color};">
+          ${p.semaforo.texto}
+        </span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderPostAwardActas() {
+  const container = document.getElementById('postActasListContainer');
+  if (!container || !currentPostAwardData) return;
+
+  const actas = currentPostAwardData.actas || [];
+  if (actas.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; color: var(--text-faint); padding: 25px; background: var(--lacquer-surface); border: 1px dashed var(--hairline); border-radius: 4px;">
+        No hay actas registradas aún. Registra el Acta de Inicio para formalizar el cómputo oficial del plazo.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = actas.map(a => `
+    <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); border-radius: 4px; padding: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #10b981; font-weight: 700; font-size: 0.7rem;">${a.tipo_acta}</span>
+          <span style="font-size: 0.78rem; font-weight: 800; color: var(--champagne);">${a.numero_acta}</span>
+          <span style="font-size: 0.72rem; color: var(--text-faint);">Fecha: ${a.fecha_acta}</span>
+        </div>
+        <div style="font-size: 0.72rem; color: var(--text-warm); margin-top: 3px;">
+          ${a.observaciones || 'Acta aprobada y firmada sin novedades.'}
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <div style="text-align: right; font-size: 0.72rem;">
+          <span style="color: #38bdf8; font-weight: 700;">Avance Físico: ${a.porcentaje_avance_fisico}%</span><br>
+          <span style="color: #10b981; font-weight: 700;">Valor Acta: ${formatCOP(a.valor_acta)}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderPostAwardPagos() {
+  const container = document.getElementById('postPagosListContainer');
+  if (!container || !currentPostAwardData) return;
+
+  const pagos = currentPostAwardData.pagos || [];
+  if (pagos.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; color: var(--text-faint); padding: 25px; background: var(--lacquer-surface); border: 1px dashed var(--hairline); border-radius: 4px;">
+        No hay facturas ni cuentas de cobro radicadas en la Entidad para este contrato.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = pagos.map(p => {
+    const isPagada = p.estado_pago === 'PAGADA';
+    const isEnTramite = p.estado_pago === 'EN_TESORERIA_PAC' || p.estado_pago === 'EN_SUPERVISION';
+    const badgeColor = isPagada ? '#10b981' : isEnTramite ? '#f59e0b' : '#38bdf8';
+
+    return `
+      <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); border-radius: 4px; padding: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 0.78rem; font-weight: 800; color: var(--champagne);">Factura No. ${p.numero_factura}</span>
+            <span style="font-size: 0.68rem; padding: 1px 6px; border-radius: 3px; font-weight: 700; background: ${badgeColor}22; color: ${badgeColor}; border: 1px solid ${badgeColor};">
+              ${p.estado_pago.replace(/_/g, ' ')}
+            </span>
+            <span style="font-size: 0.7rem; color: var(--text-faint);">Radicada: ${p.fecha_radicacion}</span>
+          </div>
+          <div style="font-size: 0.72rem; color: var(--text-warm); margin-top: 2px;">
+            ${p.concepto}
+          </div>
+          <div style="font-size: 0.68rem; color: var(--text-faint); margin-top: 2px;">
+            Bruto: ${formatCOP(p.valor_bruto)} | IVA: ${formatCOP(p.valor_iva)} | Retenciones: -${formatCOP(p.valor_retenciones)}
+          </div>
+        </div>
+
+        <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+          <div style="font-size: 0.88rem; font-weight: 800; color: #10b981;">
+            ${formatCOP(p.valor_neto_girar)}
+          </div>
+          ${!isPagada ? `
+            <button class="btn-marcar-pagada" data-id="${p.id}" style="font-size: 0.68rem; padding: 2px 8px; border-radius: 3px; border: 1px solid #10b981; background: rgba(16,185,129,0.15); color: #6ee7b7; cursor: pointer;">
+              ✓ Marcar Pagada (Giro PAC)
+            </button>
+          ` : `
+            <span style="font-size: 0.65rem; color: #6ee7b7;">Giro realizado ${p.fecha_pago ? `(${p.fecha_pago})` : ''}</span>
+          `}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Event Listeners para marcar pagada
+  container.querySelectorAll('.btn-marcar-pagada').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const id = e.currentTarget.dataset.id;
+      const egreso = prompt('Ingresa el número de comprobante de egreso bancario o referencia de giro PAC:');
+      if (egreso === null) return;
+
+      try {
+        await fetch(`/api/post-adjudicacion/pagos/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            estado_pago: 'PAGADA',
+            fecha_pago: new Date().toISOString().slice(0, 10),
+            comprobante_egreso_no: egreso || 'GIRO-PAC'
+          })
+        });
+
+        // Recargar tablero
+        const res = await fetch(`/api/post-adjudicacion/contrato/${currentPostAwardContractId}/tablero`);
+        const json = await res.json();
+        if (json.success) {
+          currentPostAwardData = json.data;
+          actualizarPostAwardUI();
+        }
+      } catch (err) {
+        console.error('Error actualizando pago:', err);
+      }
+    });
+  });
+}
+
+// Pestañas de navegación interna
+document.getElementById('postTabBtnPolizas')?.addEventListener('click', () => {
+  document.getElementById('postTabBtnPolizas').classList.add('active');
+  document.getElementById('postTabBtnActas').classList.remove('active');
+  document.getElementById('postTabBtnPagos').classList.remove('active');
+
+  document.getElementById('postTabContainerPolizas').style.display = 'flex';
+  document.getElementById('postTabContainerActas').style.display = 'none';
+  document.getElementById('postTabContainerPagos').style.display = 'none';
+});
+
+document.getElementById('postTabBtnActas')?.addEventListener('click', () => {
+  document.getElementById('postTabBtnActas').classList.add('active');
+  document.getElementById('postTabBtnPolizas').classList.remove('active');
+  document.getElementById('postTabBtnPagos').classList.remove('active');
+
+  document.getElementById('postTabContainerActas').style.display = 'flex';
+  document.getElementById('postTabContainerPolizas').style.display = 'none';
+  document.getElementById('postTabContainerPagos').style.display = 'none';
+});
+
+document.getElementById('postTabBtnPagos')?.addEventListener('click', () => {
+  document.getElementById('postTabBtnPagos').classList.add('active');
+  document.getElementById('postTabBtnPolizas').classList.remove('active');
+  document.getElementById('postTabBtnActas').classList.remove('active');
+
+  document.getElementById('postTabContainerPagos').style.display = 'flex';
+  document.getElementById('postTabContainerPolizas').style.display = 'none';
+  document.getElementById('postTabContainerActas').style.display = 'none';
+});
+
+// Toggles formularios
+document.getElementById('btnToggleNewPolicyForm')?.addEventListener('click', () => {
+  const f = document.getElementById('newPolicyFormContainer');
+  if (f) f.style.display = f.style.display === 'none' ? 'block' : 'none';
+});
+document.getElementById('btnCancelAddPolicy')?.addEventListener('click', () => {
+  const f = document.getElementById('newPolicyFormContainer');
+  if (f) f.style.display = 'none';
+});
+
+document.getElementById('btnToggleNewActaForm')?.addEventListener('click', () => {
+  const f = document.getElementById('newActaFormContainer');
+  if (f) f.style.display = f.style.display === 'none' ? 'block' : 'none';
+});
+document.getElementById('btnCancelAddActa')?.addEventListener('click', () => {
+  const f = document.getElementById('newActaFormContainer');
+  if (f) f.style.display = 'none';
+});
+
+document.getElementById('btnToggleNewPagoForm')?.addEventListener('click', () => {
+  const f = document.getElementById('newPagoFormContainer');
+  if (f) f.style.display = f.style.display === 'none' ? 'block' : 'none';
+});
+document.getElementById('btnCancelAddPago')?.addEventListener('click', () => {
+  const f = document.getElementById('newPagoFormContainer');
+  if (f) f.style.display = 'none';
+});
+
+// Guardar nueva póliza
+document.getElementById('btnSaveNewPolicy')?.addEventListener('click', async () => {
+  const aseguradora = document.getElementById('newPolAseguradora')?.value.trim();
+  const numero = document.getElementById('newPolNumero')?.value.trim();
+  const amparo = document.getElementById('newPolAmparo')?.value;
+  const valor = parseFloat(document.getElementById('newPolValor')?.value) || 0;
+  const vence = document.getElementById('newPolVence')?.value;
+
+  if (!aseguradora || !numero || !valor || !vence) {
+    alert('Por favor completa todos los campos de la póliza.');
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/post-adjudicacion/contrato/${currentPostAwardContractId}/polizas`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        aseguradora,
+        numero_poliza: numero,
+        tipo_amparo: amparo,
+        valor_asegurado: valor,
+        fecha_fin_vigencia: vence
+      })
+    });
+    const json = await res.json();
+    if (json.success) {
+      document.getElementById('newPolicyFormContainer').style.display = 'none';
+      abrirModalPostAward(currentPostAwardContractId);
+    } else {
+      alert(`Error: ${json.error}`);
+    }
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  }
+});
+
+// Guardar nueva acta
+document.getElementById('btnSaveNewActa')?.addEventListener('click', async () => {
+  const tipo = document.getElementById('newActaTipo')?.value;
+  const numero = document.getElementById('newActaNumero')?.value.trim() || 'Acta';
+  const fecha = document.getElementById('newActaFecha')?.value;
+  const fisico = parseFloat(document.getElementById('newActaAvanceFisico')?.value) || 0;
+  const financiero = parseFloat(document.getElementById('newActaAvanceFinanciero')?.value) || 0;
+  const valor = parseFloat(document.getElementById('newActaValor')?.value) || 0;
+  const obs = document.getElementById('newActaObs')?.value.trim();
+
+  if (!fecha) {
+    alert('Por favor selecciona la fecha del acta.');
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/post-adjudicacion/contrato/${currentPostAwardContractId}/actas`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tipo_acta: tipo,
+        numero_acta: numero,
+        fecha_acta: fecha,
+        porcentaje_avance_fisico: fisico,
+        porcentaje_avance_financiero: financiero,
+        valor_acta: valor,
+        observaciones: obs
+      })
+    });
+    const json = await res.json();
+    if (json.success) {
+      document.getElementById('newActaFormContainer').style.display = 'none';
+      abrirModalPostAward(currentPostAwardContractId);
+    } else {
+      alert(`Error: ${json.error}`);
+    }
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  }
+});
+
+// Guardar nuevo pago
+document.getElementById('btnSaveNewPago')?.addEventListener('click', async () => {
+  const numero = document.getElementById('newPagoFacturaNo')?.value.trim();
+  const fechaRad = document.getElementById('newPagoFechaRad')?.value;
+  const bruto = parseFloat(document.getElementById('newPagoBruto')?.value) || 0;
+  const iva = parseFloat(document.getElementById('newPagoIva')?.value) || 0;
+  const ret = parseFloat(document.getElementById('newPagoRet')?.value) || 0;
+  const estado = document.getElementById('newPagoEstado')?.value;
+  const concepto = document.getElementById('newPagoConcepto')?.value.trim();
+
+  if (!numero || !fechaRad || !bruto) {
+    alert('Por favor completa el número de factura, fecha y valor bruto.');
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/post-adjudicacion/contrato/${currentPostAwardContractId}/pagos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        numero_factura: numero,
+        fecha_radicacion: fechaRad,
+        valor_bruto: bruto,
+        valor_iva: iva,
+        valor_retenciones: ret,
+        estado_pago: estado,
+        concepto: concepto || 'Facturación por avance de ejecución'
+      })
+    });
+    const json = await res.json();
+    if (json.success) {
+      document.getElementById('newPagoFormContainer').style.display = 'none';
+      abrirModalPostAward(currentPostAwardContractId);
+    } else {
+      alert(`Error: ${json.error}`);
+    }
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  }
+});
+
+// Descargar Acta de Liquidación PDF
+document.getElementById('btnDownloadLiquidacionPdf')?.addEventListener('click', async () => {
+  if (!currentPostAwardContractId) return;
+
+  const btn = document.getElementById('btnDownloadLiquidacionPdf');
+  const oldText = btn.innerHTML;
+  btn.innerHTML = '⏳ Generando Acta de Liquidación...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(`/api/post-adjudicacion/contrato/${currentPostAwardContractId}/liquidacion-pdf`);
+    if (!res.ok) throw new Error('Error al generar el acta de liquidación');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Acta_Liquidacion_Contrato_${currentPostAwardContractId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error('Error generando liquidación PDF:', err);
+    alert(`Error: ${err.message}`);
+  } finally {
+    btn.innerHTML = oldText;
+    btn.disabled = false;
+  }
+});
+
+// Cerrar modal post award
+document.getElementById('btnClosePostAwardModal')?.addEventListener('click', () => {
+  document.getElementById('postAwardModal')?.classList.remove('open');
+});
+document.getElementById('btnClosePostAwardModalBtn')?.addEventListener('click', () => {
+  document.getElementById('postAwardModal')?.classList.remove('open');
+});
+document.getElementById('postAwardModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'postAwardModal') {
+    document.getElementById('postAwardModal')?.classList.remove('open');
   }
 });
 
