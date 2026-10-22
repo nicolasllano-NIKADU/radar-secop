@@ -34,6 +34,7 @@ const postAdjudicacionEngine = require('./postAdjudicacionEngine');
 const residualCapacityEngine = require('./residualCapacityEngine');
 const telegramBotEngine = require('./telegramBotEngine');
 const garantiasEngine = require('./garantiasEngine');
+const apuEngine = require('./apuEngine');
 const initDb = require('./initDb');
 
 const app = express();
@@ -2466,6 +2467,178 @@ app.get('/api/garantias/dictamen-pdf/:id', async (req, res) => {
     res.send(pdfBuffer);
   } catch (err) {
     console.error('Error generando PDF de garantías desde DB:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== MÓDULO APU & DESBALANCE DE OFERTAS ====================
+
+app.post('/api/apu/analizar', (req, res) => {
+  try {
+    const { items, aiu_config } = req.body;
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, error: 'Se requiere una lista de ítems de presupuesto válida' });
+    }
+    const resultado = apuEngine.analizarPresupuestoYDesbalance(items, aiu_config || {});
+    res.json({ success: true, data: resultado });
+  } catch (err) {
+    console.error('Error analizando APUs:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/apu/guardar', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const {
+      proceso_referencia,
+      entidad,
+      empresa_id,
+      presupuesto_total_oficial,
+      presupuesto_total_oferta,
+      desviacion_global_pct,
+      front_loading_ratio,
+      items_analizados,
+      aiu_config,
+      estado_dictamen,
+      resumen_alertas
+    } = req.body;
+
+    const sql = `
+      INSERT INTO analisis_apu_proceso (
+        proceso_referencia, entidad, empresa_id,
+        presupuesto_total_oficial, presupuesto_total_oferta,
+        desviacion_global_pct, front_loading_ratio,
+        items_analizados, aiu_config,
+        estado_dictamen, resumen_alertas
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      RETURNING *;
+    `;
+
+    const q = await dbPostgres.query(sql, [
+      proceso_referencia || 'PROC-APU',
+      entidad || 'Entidad Contratante',
+      empresa_id ? parseInt(empresa_id, 10) : null,
+      parseFloat(presupuesto_total_oficial) || 0,
+      parseFloat(presupuesto_total_oferta) || 0,
+      parseFloat(desviacion_global_pct) || 0,
+      parseFloat(front_loading_ratio) || 1.0,
+      JSON.stringify(items_analizados || []),
+      JSON.stringify(aiu_config || {}),
+      estado_dictamen || 'EQUILIBRADO',
+      JSON.stringify(resumen_alertas || {})
+    ]);
+
+    res.json({ success: true, data: q.rows[0] });
+  } catch (err) {
+    console.error('Error guardando análisis de APUs:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/apu/historial', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const empresaId = req.query.empresa_id ? parseInt(req.query.empresa_id, 10) : null;
+    const ref = req.query.referencia || null;
+
+    let query = `SELECT * FROM analisis_apu_proceso`;
+    const params = [];
+
+    if (empresaId) {
+      params.push(empresaId);
+      query += ` WHERE empresa_id = $${params.length}`;
+    }
+    if (ref) {
+      params.push(ref);
+      query += params.length === 1 ? ` WHERE proceso_referencia = $1` : ` AND proceso_referencia = $2`;
+    }
+
+    query += ` ORDER BY creado_en DESC LIMIT 50`;
+    const q = await dbPostgres.query(query, params);
+    res.json({ success: true, count: q.rows.length, data: q.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/apu/dictamen-pdf', async (req, res) => {
+  try {
+    const { analisis_data, proceso_info = {} } = req.body;
+    if (!analisis_data) {
+      return res.status(400).json({ success: false, error: 'Datos de análisis de APU requeridos' });
+    }
+
+    const pdfBuffer = await apuEngine.generarDictamenApuPdf(analisis_data, proceso_info);
+    const safeRef = (proceso_info.referencia || 'APU_DICTAMEN').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Dictamen_APU_Decreto1082_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF de dictamen de APUs:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/apu/dictamen-pdf/:id', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const id = parseInt(req.params.id, 10);
+    const q = await dbPostgres.query('SELECT * FROM analisis_apu_proceso WHERE id = $1', [id]);
+    if (q.rows.length === 0) return res.status(404).json({ success: false, error: 'Registro de análisis no encontrado' });
+
+    const row = q.rows[0];
+    const items = row.items_analizados || [];
+    const aiu = row.aiu_config || {};
+    const alertas = row.resumen_alertas || {};
+
+    const analisisData = {
+      totales: {
+        total_oficial_con_aiu: parseFloat(row.presupuesto_total_oficial),
+        total_oferta_con_aiu: parseFloat(row.presupuesto_total_oferta),
+        total_oficial_directo: alertas.total_oficial_directo || Math.round(parseFloat(row.presupuesto_total_oficial) * 0.75),
+        total_oferta_directo: alertas.total_oferta_directo || Math.round(parseFloat(row.presupuesto_total_oferta) * 0.75),
+        aiu_oficial_cop: alertas.aiu_oficial_cop || Math.round(parseFloat(row.presupuesto_total_oficial) * 0.22),
+        aiu_oferta_cop: alertas.aiu_oferta_cop || Math.round(parseFloat(row.presupuesto_total_oferta) * 0.22),
+        iva_utilidad_oficial_cop: alertas.iva_utilidad_oficial_cop || 0,
+        iva_utilidad_oferta_cop: alertas.iva_utilidad_oferta_cop || 0,
+        desviacion_global_pct: parseFloat(row.desviacion_global_pct),
+        diferencia_total_cop: parseFloat(row.presupuesto_total_oferta) - parseFloat(row.presupuesto_total_oficial),
+        porcentaje_po_oferta: Number(((parseFloat(row.presupuesto_total_oferta) / (parseFloat(row.presupuesto_total_oficial) || 1)) * 100).toFixed(2))
+      },
+      front_loading: {
+        front_loading_ratio: parseFloat(row.front_loading_ratio),
+        tiene_front_loading: parseFloat(row.front_loading_ratio) > 1.15,
+        alerta_detalle: alertas.front_loading_alerta || 'Cobros iniciales analizados'
+      },
+      aiu_desglose: aiu,
+      resumen_auditoria: {
+        total_items: items.length,
+        items_conformes: items.filter(it => it.clasificacion === 'NORMAL').length,
+        items_con_alerta: items.filter(it => it.clasificacion !== 'NORMAL').length,
+        items_criticos_sobreprecio: items.filter(it => it.clasificacion === 'CRITICO_SOBREPRECIO').length,
+        items_criticos_precio_bajo: items.filter(it => it.clasificacion === 'CRITICO_PRECIO_BAJO').length,
+        estado_dictamen: row.estado_dictamen,
+        concepto_juridico: alertas.concepto_juridico || 'Auditoría registrada en base de datos.'
+      },
+      items: items
+    };
+
+    const procesoInfo = {
+      referencia: row.proceso_referencia,
+      entidad: row.entidad,
+      proponente: 'Proponente Consultante'
+    };
+
+    const pdfBuffer = await apuEngine.generarDictamenApuPdf(analisisData, procesoInfo);
+    const safeRef = (row.proceso_referencia).replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Dictamen_APU_Decreto1082_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF de APUs desde DB:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

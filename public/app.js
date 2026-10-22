@@ -8293,6 +8293,415 @@ document.getElementById('btnSaveGarantias')?.addEventListener('click', async () 
   }
 });
 
+// ==================== MÓDULO: ANÁLISIS DE PRECIOS UNITARIOS (APU) Y DESBALANCE ====================
+let currentApuItems = [];
+let currentApuAnalisis = null;
+
+function cargarPlantillaApuDemo() {
+  currentApuItems = [
+    { codigo: '1.1', descripcion: 'Localización, trazado y replanteo topográfico', unidad: 'M2', cantidad: 1500, fase: 'INICIAL', precio_unitario_oficial: 8500, precio_unitario_oferta: 8700 },
+    { codigo: '1.2', descripcion: 'Campamento de obra y cerramiento provisional', unidad: 'GL', cantidad: 1, fase: 'INICIAL', precio_unitario_oficial: 25000000, precio_unitario_oferta: 25800000 },
+    { codigo: '1.3', descripcion: 'Excavación mecánica en material común con retiro', unidad: 'M3', cantidad: 4500, fase: 'INICIAL', precio_unitario_oficial: 35000, precio_unitario_oferta: 36500 },
+    { codigo: '2.1', descripcion: 'Concreto estructural 3000 PSI para zapatas y vigas', unidad: 'M3', cantidad: 320, fase: 'INTERMEDIA', precio_unitario_oficial: 680000, precio_unitario_oferta: 665000 },
+    { codigo: '2.2', descripcion: 'Acero de refuerzo figurado fy=420 MPa (60000 PSI)', unidad: 'KG', cantidad: 28000, fase: 'INTERMEDIA', precio_unitario_oficial: 5200, precio_unitario_oferta: 5100 },
+    { codigo: '2.3', descripcion: 'Muros en mampostería bloque de arcilla e=0.12m', unidad: 'M2', cantidad: 1200, fase: 'INTERMEDIA', precio_unitario_oficial: 48000, precio_unitario_oferta: 47200 },
+    { codigo: '3.1', descripcion: 'Pañete liso muros interiores y exteriores', unidad: 'M2', cantidad: 2400, fase: 'FINAL', precio_unitario_oficial: 22000, precio_unitario_oferta: 21500 },
+    { codigo: '3.2', descripcion: 'Piso en porcelanato tráfico pesado 60x60', unidad: 'M2', cantidad: 950, fase: 'FINAL', precio_unitario_oficial: 95000, precio_unitario_oferta: 93500 },
+    { codigo: '3.3', descripcion: 'Pintura vinilo tipo 1 tres manos en muros y cielo', unidad: 'M2', cantidad: 2400, fase: 'FINAL', precio_unitario_oficial: 14000, precio_unitario_oferta: 13800 },
+    { codigo: '3.4', descripcion: 'Aseo general de entrega y desmovilización', unidad: 'GL', cantidad: 1, fase: 'FINAL', precio_unitario_oficial: 8000000, precio_unitario_oferta: 7900000 }
+  ];
+}
+
+// Abrir Modal de APUs desde el detalle de la licitación
+document.getElementById('modalBtnAPU')?.addEventListener('click', () => {
+  const opp = oportunidades.find(o => o.id === activeModalId);
+  if (!opp) return;
+
+  const metaEl = document.getElementById('apuModalMeta');
+  if (metaEl) {
+    metaEl.textContent = `${opp.referencia || opp.id} • ${opp.entidad || 'Entidad Contratante'} • ${formatCOP(opp.precio_base || opp.cuantia)}`;
+  }
+
+  // Reset de áreas dinámicas
+  const dashArea = document.getElementById('apuDashboardArea');
+  if (dashArea) dashArea.style.display = 'none';
+  const dlBtn = document.getElementById('btnDownloadApuPdf');
+  if (dlBtn) dlBtn.style.display = 'none';
+  const saveBtn = document.getElementById('btnSaveApu');
+  if (saveBtn) saveBtn.style.display = 'none';
+
+  // Si no hay ítems cargados, cargar plantilla estándar
+  if (currentApuItems.length === 0) {
+    cargarPlantillaApuDemo();
+  }
+
+  // Renderizar tabla y abrir modal
+  renderApuTable();
+
+  document.getElementById('detailModal')?.classList.remove('open');
+  document.getElementById('apuModal')?.classList.add('open');
+
+  // Ejecutar auditoría inicial automáticamente
+  ejecutarAuditoriaApu();
+});
+
+// Cerrar Modal APU
+document.getElementById('btnCloseApuModalTop')?.addEventListener('click', () => {
+  document.getElementById('apuModal')?.classList.remove('open');
+});
+document.getElementById('btnCloseApuModalBtn')?.addEventListener('click', () => {
+  document.getElementById('apuModal')?.classList.remove('open');
+});
+document.getElementById('apuModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'apuModal') {
+    document.getElementById('apuModal')?.classList.remove('open');
+  }
+});
+
+// Botón Cargar Plantilla
+document.getElementById('btnApuLoadTemplate')?.addEventListener('click', () => {
+  cargarPlantillaApuDemo();
+  renderApuTable();
+  ejecutarAuditoriaApu();
+  showToast('Plantilla de Obra Pública cargada');
+});
+
+// Botón Agregar Ítem
+document.getElementById('btnApuAddItem')?.addEventListener('click', () => {
+  const nextNum = currentApuItems.length + 1;
+  currentApuItems.push({
+    codigo: `${nextNum}.0`,
+    descripcion: `Nuevo ítem de presupuesto ${nextNum}`,
+    unidad: 'UN',
+    cantidad: 1,
+    fase: 'INTERMEDIA',
+    precio_unitario_oficial: 100000,
+    precio_unitario_oferta: 100000
+  });
+  renderApuTable();
+  const counter = document.getElementById('apuItemsCounter');
+  if (counter) counter.textContent = `${currentApuItems.length} ítems cargados`;
+});
+
+// Renderizar tabla editable de APUs
+function renderApuTable() {
+  const tbody = document.getElementById('apuTableBody');
+  const counter = document.getElementById('apuItemsCounter');
+  if (counter) counter.textContent = `${currentApuItems.length} ítems cargados`;
+  if (!tbody) return;
+
+  if (currentApuItems.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 24px; color: var(--text-faint);">No hay ítems en la tabla.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = currentApuItems.map((it, idx) => {
+    const desv = it.desviacion_pct !== undefined ? it.desviacion_pct : (
+      it.precio_unitario_oficial > 0
+        ? Number((((it.precio_unitario_oferta - it.precio_unitario_oficial) / it.precio_unitario_oficial) * 100).toFixed(1))
+        : 0
+    );
+
+    let badgeColor = 'rgba(16, 185, 129, 0.15)';
+    let badgeTextCol = '#10b981';
+    let badgeLabel = 'NORMAL';
+
+    if (it.clasificacion === 'CRITICO_SOBREPRECIO' || desv > 25) {
+      badgeColor = 'rgba(239, 68, 68, 0.2)';
+      badgeTextCol = '#ef4444';
+      badgeLabel = 'CRÍT. ALTO';
+    } else if (it.clasificacion === 'CRITICO_PRECIO_BAJO' || desv < -25) {
+      badgeColor = 'rgba(220, 38, 38, 0.2)';
+      badgeTextCol = '#dc2626';
+      badgeLabel = 'CRÍT. BAJO';
+    } else if (it.clasificacion === 'ALERTA_SOBRECOSTO' || desv > 10) {
+      badgeColor = 'rgba(245, 158, 11, 0.2)';
+      badgeTextCol = '#f59e0b';
+      badgeLabel = 'SOBREPRECIO';
+    } else if (it.clasificacion === 'ALERTA_SUBVALORADO' || desv < -15) {
+      badgeColor = 'rgba(234, 179, 8, 0.2)';
+      badgeTextCol = '#eab308';
+      badgeLabel = 'SUBVALORADO';
+    }
+
+    return `
+      <tr style="border-bottom: 1px solid var(--hairline);" data-idx="${idx}">
+        <td style="padding: 4px 6px;">
+          <input type="text" class="apu-input-cod" value="${it.codigo}" style="width: 100%; padding: 4px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;" />
+        </td>
+        <td style="padding: 4px 6px;">
+          <input type="text" class="apu-input-desc" value="${it.descripcion}" style="width: 100%; padding: 4px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;" />
+        </td>
+        <td style="padding: 4px 6px;">
+          <input type="text" class="apu-input-und" value="${it.unidad}" style="width: 100%; padding: 4px; font-size: 0.72rem; text-align: center; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;" />
+        </td>
+        <td style="padding: 4px 6px;">
+          <input type="number" class="apu-input-cant" value="${it.cantidad}" style="width: 100%; padding: 4px; font-size: 0.72rem; text-align: right; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;" />
+        </td>
+        <td style="padding: 4px 6px;">
+          <select class="apu-input-fase" style="width: 100%; padding: 4px; font-size: 0.7rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            <option value="INICIAL" ${it.fase === 'INICIAL' ? 'selected' : ''}>Inicial</option>
+            <option value="INTERMEDIA" ${it.fase === 'INTERMEDIA' ? 'selected' : ''}>Intermedia</option>
+            <option value="FINAL" ${it.fase === 'FINAL' ? 'selected' : ''}>Final</option>
+          </select>
+        </td>
+        <td style="padding: 4px 6px;">
+          <input type="number" class="apu-input-po" value="${it.precio_unitario_oficial}" style="width: 100%; padding: 4px; font-size: 0.72rem; text-align: right; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--champagne); border-radius: 3px;" />
+        </td>
+        <td style="padding: 4px 6px;">
+          <input type="number" class="apu-input-oferta" value="${it.precio_unitario_oferta}" style="width: 100%; padding: 4px; font-size: 0.72rem; text-align: right; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: #38bdf8; font-weight: 700; border-radius: 3px;" />
+        </td>
+        <td style="padding: 4px 6px; text-align: right; font-weight: 700; font-size: 0.72rem; color: ${desv > 0 ? '#f59e0b' : (desv < 0 ? '#38bdf8' : 'var(--text-faint)')};">
+          ${desv > 0 ? '+' : ''}${desv}%
+        </td>
+        <td style="padding: 4px 6px; text-align: center;">
+          <span style="font-size: 0.65rem; padding: 2px 6px; border-radius: 3px; background: ${badgeColor}; color: ${badgeTextCol}; font-weight: 700;">
+            ${badgeLabel}
+          </span>
+        </td>
+        <td style="padding: 4px 6px; text-align: center;">
+          <button class="btn-apu-del" data-idx="${idx}" style="background: transparent; border: none; color: var(--danger); cursor: pointer; font-size: 0.85rem;" title="Eliminar ítem">✕</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  // Event Listeners para cambios en los inputs
+  tbody.querySelectorAll('tr').forEach(tr => {
+    const idx = parseInt(tr.getAttribute('data-idx'), 10);
+    tr.querySelector('.apu-input-cod')?.addEventListener('change', (e) => { currentApuItems[idx].codigo = e.target.value; });
+    tr.querySelector('.apu-input-desc')?.addEventListener('change', (e) => { currentApuItems[idx].descripcion = e.target.value; });
+    tr.querySelector('.apu-input-und')?.addEventListener('change', (e) => { currentApuItems[idx].unidad = e.target.value; });
+    tr.querySelector('.apu-input-cant')?.addEventListener('change', (e) => { currentApuItems[idx].cantidad = parseFloat(e.target.value) || 0; });
+    tr.querySelector('.apu-input-fase')?.addEventListener('change', (e) => { currentApuItems[idx].fase = e.target.value; });
+    tr.querySelector('.apu-input-po')?.addEventListener('change', (e) => { currentApuItems[idx].precio_unitario_oficial = parseFloat(e.target.value) || 0; });
+    tr.querySelector('.apu-input-oferta')?.addEventListener('change', (e) => { currentApuItems[idx].precio_unitario_oferta = parseFloat(e.target.value) || 0; });
+    tr.querySelector('.btn-apu-del')?.addEventListener('click', (e) => {
+      const delIdx = parseInt(e.currentTarget.getAttribute('data-idx'), 10);
+      currentApuItems.splice(delIdx, 1);
+      renderApuTable();
+    });
+  });
+}
+
+// Ejecutar Auditoría Integral de APUs y Desbalance
+async function ejecutarAuditoriaApu() {
+  if (currentApuItems.length === 0) {
+    showToast('Agrega al menos un ítem al presupuesto');
+    return;
+  }
+
+  // Leer valores de inputs en vivo
+  const tbody = document.getElementById('apuTableBody');
+  if (tbody) {
+    tbody.querySelectorAll('tr').forEach(tr => {
+      const idx = parseInt(tr.getAttribute('data-idx'), 10);
+      if (currentApuItems[idx]) {
+        currentApuItems[idx].codigo = tr.querySelector('.apu-input-cod')?.value || currentApuItems[idx].codigo;
+        currentApuItems[idx].descripcion = tr.querySelector('.apu-input-desc')?.value || currentApuItems[idx].descripcion;
+        currentApuItems[idx].unidad = tr.querySelector('.apu-input-und')?.value || currentApuItems[idx].unidad;
+        currentApuItems[idx].cantidad = parseFloat(tr.querySelector('.apu-input-cant')?.value) || currentApuItems[idx].cantidad;
+        currentApuItems[idx].fase = tr.querySelector('.apu-input-fase')?.value || currentApuItems[idx].fase;
+        currentApuItems[idx].precio_unitario_oficial = parseFloat(tr.querySelector('.apu-input-po')?.value) || currentApuItems[idx].precio_unitario_oficial;
+        currentApuItems[idx].precio_unitario_oferta = parseFloat(tr.querySelector('.apu-input-oferta')?.value) || currentApuItems[idx].precio_unitario_oferta;
+      }
+    });
+  }
+
+  const aiuConfig = {
+    administracion_pct: parseFloat(document.getElementById('apuAdminPct')?.value || 18),
+    imprevistos_pct: parseFloat(document.getElementById('apuImprevPct')?.value || 2),
+    utilidad_pct: parseFloat(document.getElementById('apuUtilidadPct')?.value || 5),
+    tarifa_iva_utilidad_pct: parseFloat(document.getElementById('apuIvaUtilidadPct')?.value || 19)
+  };
+
+  try {
+    const res = await fetch('/api/apu/analizar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        items: currentApuItems,
+        aiu_config: aiuConfig
+      })
+    });
+
+    const json = await res.json();
+    if (!json.success || !json.data) throw new Error(json.error || 'Fallo en la auditoría de APUs');
+
+    currentApuAnalisis = json.data;
+    const totales = json.data.totales;
+    const fl = json.data.front_loading;
+    const audit = json.data.resumen_auditoria;
+    const aiu = json.data.aiu_desglose;
+
+    // Actualizar currentApuItems con la auditoría
+    currentApuItems = json.data.items;
+    renderApuTable();
+
+    // Renderizar Dashboard
+    const dashArea = document.getElementById('apuDashboardArea');
+    if (dashArea) {
+      dashArea.style.display = 'block';
+      const isOk = audit.estado_dictamen === 'EQUILIBRADO';
+      const hasFL = fl.tiene_front_loading;
+
+      dashArea.innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; margin-bottom: 12px;">
+          <!-- Tarjeta 1: Totales Económicos con AIU e IVA -->
+          <div style="background: var(--lacquer-surface); border: 1px solid var(--hairline); border-radius: var(--radius-sm); padding: 12px;">
+            <div style="font-size: 0.68rem; font-weight: 700; color: var(--champagne); text-transform: uppercase;">1. Liquidación Económica Total</div>
+            <div style="margin-top: 6px; font-size: 0.75rem;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                <span style="color: var(--text-faint);">PO Estimado c/ AIU:</span>
+                <span style="font-weight: 700; color: var(--champagne);">${formatCOP(totales.total_oficial_con_aiu)}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                <span style="color: var(--text-faint);">Oferta Total c/ AIU:</span>
+                <span style="font-weight: 800; color: #10b981;">${formatCOP(totales.total_oferta_con_aiu)}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                <span style="color: var(--text-faint);">AIU Total (${aiu.aiu_total_pct}%):</span>
+                <span style="color: var(--text-primary);">${formatCOP(totales.aiu_oferta_cop)}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-faint);">IVA s/ Utilidad (19%):</span>
+                <span style="color: var(--text-primary);">${formatCOP(totales.iva_utilidad_oferta_cop)}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tarjeta 2: Front-Loading / Anticipo Oculto -->
+          <div style="background: ${hasFL ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)'}; border: 1px solid ${hasFL ? '#ef4444' : 'var(--success)'}; border-radius: var(--radius-sm); padding: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 0.68rem; font-weight: 800; color: ${hasFL ? '#ef4444' : 'var(--success)'}; text-transform: uppercase;">2. Control Front-Loading</span>
+              <span style="font-size: 0.65rem; padding: 2px 6px; border-radius: 3px; background: ${hasFL ? '#ef4444' : 'var(--success)'}; color: #ffffff; font-weight: 800;">
+                ${hasFL ? 'ALERTA DE DESBALANCE' : 'EQUILIBRADO'}
+              </span>
+            </div>
+            <div style="margin-top: 6px;">
+              <div style="font-size: 1.15rem; font-weight: 800; color: ${hasFL ? '#ef4444' : 'var(--champagne)'};">
+                Ratio: ${fl.front_loading_ratio}
+              </div>
+              <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">
+                ${fl.alerta_detalle}
+              </p>
+            </div>
+          </div>
+
+          <!-- Tarjeta 3: Veredicto Global -->
+          <div style="background: ${isOk ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)'}; border: 1px solid ${isOk ? 'var(--success)' : '#f59e0b'}; border-radius: var(--radius-sm); padding: 12px;">
+            <div style="font-size: 0.68rem; font-weight: 800; color: ${isOk ? 'var(--success)' : '#fde047'}; text-transform: uppercase;">3. Dictamen Viabilidad CCE</div>
+            <div style="margin-top: 6px;">
+              <div style="font-size: 1rem; font-weight: 800; color: ${isOk ? 'var(--success)' : '#fde047'};">
+                ${isOk ? '✅ OFERTA EQUILIBRADA' : '⚠️ OFERTA OBSERVADA'}
+              </div>
+              <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">
+                ${audit.concepto_juridico}
+              </p>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Mostrar botones de PDF y Guardar
+    const dlBtn = document.getElementById('btnDownloadApuPdf');
+    if (dlBtn) dlBtn.style.display = 'inline-flex';
+    const saveBtn = document.getElementById('btnSaveApu');
+    if (saveBtn) saveBtn.style.display = 'inline-flex';
+    showToast('Auditoría de APUs & Desbalance completada');
+  } catch (e) {
+    showToast(`Error al auditar APUs: ${e.message}`);
+  }
+}
+
+document.getElementById('btnEjecutarAuditoriaApu')?.addEventListener('click', ejecutarAuditoriaApu);
+
+// Descarga de Dictamen Oficial en PDF
+document.getElementById('btnDownloadApuPdf')?.addEventListener('click', async () => {
+  if (!currentApuAnalisis) return;
+  const opp = oportunidades.find(o => o.id === activeModalId) || {};
+  showToast('Generando Dictamen Oficial de APUs en PDF...');
+
+  try {
+    const lider = (userCompanies && userCompanies.length > 0) ? (userCompanies.find(c => c.es_propia) || userCompanies[0]) : null;
+    const res = await fetch('/api/apu/dictamen-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        analisis_data: currentApuAnalisis,
+        proceso_info: {
+          referencia: opp.referencia || opp.id || 'LP-001-2026',
+          entidad: opp.entidad || 'Entidad Estatal Contratante',
+          proponente: lider ? lider.razon_social : 'Proponente Licitante'
+        }
+      })
+    });
+
+    if (!res.ok) throw new Error('Error al generar PDF de APUs');
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Dictamen_APU_Decreto1082_${(opp.referencia || 'APU').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    a.remove();
+    showToast('Dictamen Oficial de APUs descargado con éxito');
+  } catch (e) {
+    showToast(`Error al descargar PDF: ${e.message}`);
+  }
+});
+
+// Guardar Auditoría en Historial PostgreSQL
+document.getElementById('btnSaveApu')?.addEventListener('click', async () => {
+  if (!currentApuAnalisis) return;
+  const opp = oportunidades.find(o => o.id === activeModalId) || {};
+  const totales = currentApuAnalisis.totales;
+  const fl = currentApuAnalisis.front_loading;
+  const audit = currentApuAnalisis.resumen_auditoria;
+
+  try {
+    const lider = (userCompanies && userCompanies.length > 0) ? (userCompanies.find(c => c.es_propia) || userCompanies[0]) : null;
+    const res = await fetch('/api/apu/guardar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        proceso_referencia: opp.referencia || opp.id || 'LP-001-2026',
+        entidad: opp.entidad || 'Entidad Contratante',
+        empresa_id: lider ? lider.id : null,
+        presupuesto_total_oficial: totales.total_oficial_con_aiu,
+        presupuesto_total_oferta: totales.total_oferta_con_aiu,
+        desviacion_global_pct: totales.desviacion_global_pct,
+        front_loading_ratio: fl.front_loading_ratio,
+        items_analizados: currentApuAnalisis.items,
+        aiu_config: currentApuAnalisis.aiu_desglose,
+        estado_dictamen: audit.estado_dictamen,
+        resumen_alertas: {
+          total_oficial_directo: totales.total_oficial_directo,
+          total_oferta_directo: totales.total_oferta_directo,
+          aiu_oficial_cop: totales.aiu_oficial_cop,
+          aiu_oferta_cop: totales.aiu_oferta_cop,
+          iva_utilidad_oficial_cop: totales.iva_utilidad_oficial_cop,
+          iva_utilidad_oferta_cop: totales.iva_utilidad_oferta_cop,
+          front_loading_alerta: fl.alerta_detalle,
+          concepto_juridico: audit.concepto_juridico
+        }
+      })
+    });
+
+    const json = await res.json();
+    if (json.success) {
+      showToast('Auditoría de APUs guardada en PostgreSQL');
+    } else {
+      showToast(`Error al guardar: ${json.error}`);
+    }
+  } catch (e) {
+    showToast('Error de conexión al guardar auditoría de APUs');
+  }
+});
+
 // ==================== INICIALIZACIÓN ====================
 window.addEventListener('DOMContentLoaded', () => {
   checkUserSession();

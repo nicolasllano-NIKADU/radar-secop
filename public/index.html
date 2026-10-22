@@ -1446,6 +1446,14 @@
           </svg>
           <span>🛡️ Garantías & Pólizas (Dec. 1082)</span>
         </button>
+        <button id="modalBtnAPU" class="btn-action" style="flex: 1; min-width: 140px; justify-content: center; background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; color: #fde047;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <line x1="18" y1="20" x2="18" y2="10"/>
+            <line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6" y1="20" x2="6" y2="14"/>
+          </svg>
+          <span>📊 APUs & Desbalance (Ley 1882)</span>
+        </button>
         <button id="modalNotifyBtn" class="btn-action btn-action-tele" style="flex: 1; min-width: 140px; justify-content: center;">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <line x1="22" y1="2" x2="11" y2="13"/>
@@ -3553,6 +3561,126 @@
         </div>
         <div>
           <button id="btnCloseGarantiasModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL ANÁLISIS DE PRECIOS UNITARIOS (APU) Y DESBALANCE (LEY 1882 & DECRETO 1082) ================= -->
+  <div id="apuModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 960px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header" style="border-bottom: 1px solid var(--hairline); padding-bottom: 12px; margin-bottom: 14px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="entity-badge" style="background: rgba(245, 158, 11, 0.2); border: 1px solid #f59e0b; color: #fde047; font-weight: 800; font-size: 0.72rem;">LEY 1882 / DEC. 1082</span>
+              <span style="font-size: 1.05rem; font-weight: 800; color: var(--champagne);">Auditoría de Precios Unitarios (APU) & Desbalance</span>
+            </div>
+            <div id="apuModalMeta" style="font-size: 0.78rem; color: var(--text-faint); margin-top: 4px;">
+              Proceso • Entidad • Presupuesto Oficial
+            </div>
+          </div>
+          <button id="btnCloseApuModalTop" class="btn-close-modal" aria-label="Cerrar modal">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Configuración de AIU y Herramientas -->
+      <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+        <div style="font-size: 0.78rem; font-weight: 700; color: var(--champagne); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+          <span>⚙️ Estructura AIU (Administración, Imprevistos, Utilidad) e IVA Art. 462-1 E.T.</span>
+          <span style="font-size: 0.7rem; color: var(--text-faint);">Pliegos Tipo Infraestructura ANCP-CCE</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;">
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Administración (%):</label>
+            <input type="number" id="apuAdminPct" value="18" step="0.5" style="width: 100%; padding: 6px; font-size: 0.8rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Imprevistos (%):</label>
+            <input type="number" id="apuImprevPct" value="2" step="0.5" style="width: 100%; padding: 6px; font-size: 0.8rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Utilidad (%):</label>
+            <input type="number" id="apuUtilidadPct" value="5" step="0.5" style="width: 100%; padding: 6px; font-size: 0.8rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">IVA s/ Utilidad (%):</label>
+            <input type="number" id="apuIvaUtilidadPct" value="19" readonly style="width: 100%; padding: 6px; font-size: 0.8rem; background: rgba(255,255,255,0.03); border: 1px solid var(--hairline); color: var(--text-faint); border-radius: var(--radius-sm);" />
+          </div>
+        </div>
+
+        <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <div style="display: flex; gap: 6px;">
+            <button id="btnApuLoadTemplate" class="btn-action" style="padding: 6px 12px; font-size: 0.78rem; background: rgba(0, 229, 255, 0.12); border: 1px solid var(--tech-cyan); color: var(--tech-cyan);">
+              <span>⚡ Cargar Plantilla Obra Pública</span>
+            </button>
+            <button id="btnApuAddItem" class="btn-action" style="padding: 6px 12px; font-size: 0.78rem; background: rgba(255, 255, 255, 0.08); border: 1px solid var(--hairline); color: var(--text-primary);">
+              <span>➕ Agregar Ítem</span>
+            </button>
+          </div>
+          <button id="btnEjecutarAuditoriaApu" class="btn-action btn-action-primary" style="padding: 6px 16px; font-size: 0.78rem; gap: 6px;">
+            <span>🚀 Auditar APUs & Desbalance</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Resumen de Dictamen y Front-Loading (Inyectado) -->
+      <div id="apuDashboardArea" style="margin-bottom: 14px; display: none;">
+        <!-- Inyectado dinámicamente con totales, ratio front-loading y concepto legal -->
+      </div>
+
+      <!-- Tabla de Ítems del Presupuesto (APUs) -->
+      <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+        <div style="font-size: 0.78rem; font-weight: 700; color: var(--champagne); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+          <span>📋 Desglose de Precios Unitarios (APUs) e Identificación de Fases</span>
+          <span style="font-size: 0.7rem; color: var(--text-muted);" id="apuItemsCounter">0 ítems cargados</span>
+        </div>
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.72rem; text-align: left;">
+            <thead>
+              <tr style="background: var(--lacquer-deep); color: var(--text-faint); border-bottom: 1px solid var(--hairline);">
+                <th style="padding: 6px 6px; width: 60px;">Cód</th>
+                <th style="padding: 6px 6px; min-width: 160px;">Descripción</th>
+                <th style="padding: 6px 6px; width: 50px;">Und</th>
+                <th style="padding: 6px 6px; width: 60px; text-align: right;">Cant</th>
+                <th style="padding: 6px 6px; width: 85px;">Fase</th>
+                <th style="padding: 6px 6px; width: 95px; text-align: right;">P.U. Oficial</th>
+                <th style="padding: 6px 6px; width: 95px; text-align: right;">P.U. Oferta</th>
+                <th style="padding: 6px 6px; width: 65px; text-align: right;">Desv %</th>
+                <th style="padding: 6px 6px; width: 95px; text-align: center;">Estado</th>
+                <th style="padding: 6px 6px; width: 40px; text-align: center;">✕</th>
+              </tr>
+            </thead>
+            <tbody id="apuTableBody">
+              <tr>
+                <td colspan="10" style="text-align: center; padding: 24px; color: var(--text-faint);">
+                  No hay ítems en la tabla. Pulsa "Cargar Plantilla Obra Pública" o "Agregar Ítem" para iniciar la auditoría.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Footer y Acciones -->
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-top: 1px solid var(--hairline); padding-top: 12px;">
+        <div style="display: flex; gap: 8px;">
+          <button id="btnDownloadApuPdf" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px; background: rgba(212, 175, 55, 0.15); border: 1px solid var(--gold); color: var(--gold); font-weight: 700; display: none;">
+            📄 Descargar Dictamen Oficial en PDF
+          </button>
+          <button id="btnSaveApu" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px; background: rgba(16, 185, 129, 0.15); border: 1px solid var(--success); color: var(--success); display: none;">
+            💾 Guardar Auditoría
+          </button>
+        </div>
+        <div>
+          <button id="btnCloseApuModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
             Cerrar
           </button>
         </div>
