@@ -26,6 +26,7 @@ const scoringEngine = require('./scoringEngine');
 const pliegoObservationsEngine = require('./pliegoObservationsEngine');
 const evaluationChallengeEngine = require('./evaluationChallengeEngine');
 const winRateAnalyticsEngine = require('./winRateAnalyticsEngine');
+const riskMatrixEngine = require('./riskMatrixEngine');
 const initDb = require('./initDb');
 
 const app = express();
@@ -1328,6 +1329,98 @@ app.get('/api/analytics/win-rate', async (req, res) => {
     res.json({ success: true, data: analytics });
   } catch (err) {
     console.error('Error calculando métricas de win rate y analytics:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== MÓDULO: MATRIZ DE RIESGOS CONTRACTUALES (ANCP-CCE) ====================
+
+app.post('/api/riesgos/generar', async (req, res) => {
+  try {
+    const { proceso, oferente, tipoContrato } = req.body;
+    if (!proceso) {
+      return res.status(400).json({ success: false, error: 'Faltan datos del proceso de contratación' });
+    }
+
+    // Verificar si ya existe guardada en DB
+    const procesoId = String(proceso.id || proceso.referencia || 'PROC-001');
+    const existente = await riskMatrixEngine.getMatrizRiesgos(procesoId);
+
+    if (existente) {
+      return res.json({ success: true, cached: true, ...existente });
+    }
+
+    // Si no existe, generarla de cero
+    const resultado = riskMatrixEngine.generarMatrizRiesgos({ proceso, oferente, tipoContrato });
+    res.json({ success: true, cached: false, ...resultado });
+  } catch (err) {
+    console.error('Error generando matriz de riesgos:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/riesgos/guardar', async (req, res) => {
+  try {
+    const { matriz, items } = req.body;
+    if (!matriz || !items || !Array.isArray(items)) {
+      return res.status(400).json({ success: false, error: 'Estructura inválida de matriz o items de riesgo' });
+    }
+
+    const resultado = await riskMatrixEngine.guardarMatrizRiesgos({ matriz, items });
+    res.json({ success: true, ...resultado });
+  } catch (err) {
+    console.error('Error guardando matriz de riesgos:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/riesgos/:procesoId', async (req, res) => {
+  try {
+    const data = await riskMatrixEngine.getMatrizRiesgos(req.params.procesoId);
+    if (!data) {
+      return res.status(404).json({ success: false, error: 'No se encontró matriz de riesgos para este proceso' });
+    }
+    res.json({ success: true, ...data });
+  } catch (err) {
+    console.error('Error obteniendo matriz de riesgos:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/riesgos/descargar-pdf', async (req, res) => {
+  try {
+    const { matriz, items } = req.body;
+    if (!matriz || !items) {
+      return res.status(400).json({ success: false, error: 'Datos insuficientes para exportar PDF' });
+    }
+
+    const pdfBuffer = await riskMatrixEngine.generarMatrizRiesgosPdf({ matriz, items });
+    const filename = `Matriz_Riesgos_CCE_${(matriz.numero_proceso || 'PROCESO').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF de matriz de riesgos:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/riesgos/descargar-pdf/:procesoId', async (req, res) => {
+  try {
+    const data = await riskMatrixEngine.getMatrizRiesgos(req.params.procesoId);
+    if (!data) {
+      return res.status(404).json({ success: false, error: 'Matriz de riesgos no encontrada' });
+    }
+
+    const pdfBuffer = await riskMatrixEngine.generarMatrizRiesgosPdf(data);
+    const filename = `Matriz_Riesgos_CCE_${(data.matriz.numero_proceso || 'PROCESO').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF de matriz de riesgos:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

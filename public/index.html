@@ -1249,6 +1249,14 @@
           </svg>
           <span>⚔️ Impugnar / Subsanar</span>
         </button>
+        <button id="modalBtnRiskMatrix" class="btn-action" style="flex: 1; min-width: 140px; justify-content: center; background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; color: #fde68a;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <span>⚠️ Matriz de Riesgos CCE</span>
+        </button>
         <button id="modalNotifyBtn" class="btn-action btn-action-tele" style="flex: 1; min-width: 140px; justify-content: center;">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <line x1="22" y1="2" x2="11" y2="13"/>
@@ -2210,6 +2218,213 @@
             ⬇️ Descargar Memorial PDF (SECOP II)
           </button>
           <button id="btnCloseEvalChallengeModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Matriz de Riesgos Contractuales (Formato Oficial ANCP-CCE) -->
+  <div id="riskMatrixModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 1150px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="entity-badge" style="background: #f59e0b; color: #1e293b; font-weight: 800;">MATRIZ DE RIESGOS CCE</div>
+          <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-warm);">Tipificación, Valoración 5×5 y Asignación Legal (Ley 1150/2007 Art. 4 & Manual M-ICR-01)</span>
+        </div>
+        <button id="btnCloseRiskMatrixModal" class="btn-close-modal" aria-label="Cerrar modal">✕</button>
+      </div>
+
+      <div style="margin-top: 8px; border-bottom: 1px solid var(--hairline); padding-bottom: 10px;">
+        <h4 id="riskProcesoRef" style="font-size: 1.05rem; color: var(--champagne); margin-bottom: 2px;">Proceso: --</h4>
+        <div id="riskProcesoMeta" style="font-size: 0.78rem; color: var(--text-faint);">Entidad • Tipo Contrato • Valor Estimado</div>
+      </div>
+
+      <!-- Resumen de Métricas de Riesgo -->
+      <div style="margin-top: 10px; display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px;">
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px; border-radius: var(--radius-sm); text-align: center;">
+          <div style="font-size: 0.68rem; color: var(--text-faint); text-transform: uppercase;">Total Riesgos</div>
+          <div id="riskKpiTotal" style="font-size: 1.25rem; font-weight: 800; color: var(--champagne);" class="tabular-nums">0</div>
+        </div>
+        <div class="card-glass" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); padding: 10px; border-radius: var(--radius-sm); text-align: center;">
+          <div style="font-size: 0.68rem; color: #fca5a5; text-transform: uppercase;">Extremos (≥16)</div>
+          <div id="riskKpiExtremos" style="font-size: 1.25rem; font-weight: 800; color: #ef4444;" class="tabular-nums">0</div>
+        </div>
+        <div class="card-glass" style="background: rgba(249, 115, 22, 0.1); border: 1px solid rgba(249, 115, 22, 0.3); padding: 10px; border-radius: var(--radius-sm); text-align: center;">
+          <div style="font-size: 0.68rem; color: #fdba74; text-transform: uppercase;">Altos (9-15)</div>
+          <div id="riskKpiAltos" style="font-size: 1.25rem; font-weight: 800; color: #f97316;" class="tabular-nums">0</div>
+        </div>
+        <div class="card-glass" style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); padding: 10px; border-radius: var(--radius-sm); text-align: center;">
+          <div style="font-size: 0.68rem; color: #fde68a; text-transform: uppercase;">Medios (5-8)</div>
+          <div id="riskKpiMedios" style="font-size: 1.25rem; font-weight: 800; color: #f59e0b;" class="tabular-nums">0</div>
+        </div>
+        <div class="card-glass" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 10px; border-radius: var(--radius-sm); text-align: center;">
+          <div style="font-size: 0.68rem; color: #6ee7b7; text-transform: uppercase;">Bajos (≤4)</div>
+          <div id="riskKpiBajos" style="font-size: 1.25rem; font-weight: 800; color: #10b981;" class="tabular-nums">0</div>
+        </div>
+        <div class="card-glass" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); padding: 10px; border-radius: var(--radius-sm); text-align: center;">
+          <div style="font-size: 0.68rem; color: #93c5fd; text-transform: uppercase;">Distribución Asignación</div>
+          <div id="riskKpiAsignacion" style="font-size: 0.95rem; font-weight: 800; color: #60a5fa; margin-top: 3px;" class="tabular-nums">0 / 0 / 0</div>
+          <div style="font-size: 0.62rem; color: var(--text-faint);">Contr. / Ent. / Comp.</div>
+        </div>
+      </div>
+
+      <!-- Matriz de Calor 5x5 y Controles -->
+      <div style="margin-top: 12px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px;">
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span style="font-size: 0.75rem; color: var(--text-faint);">Filtrar por:</span>
+          <select id="riskFilterEtapa" style="padding: 4px 8px; font-size: 0.72rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 4px;">
+            <option value="ALL">Todas las Etapas</option>
+            <option value="Planeación">Planeación</option>
+            <option value="Ejecución">Ejecución</option>
+            <option value="Liquidación">Liquidación</option>
+          </select>
+          <select id="riskFilterAsignado" style="padding: 4px 8px; font-size: 0.72rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 4px;">
+            <option value="ALL">Todos los Asignados</option>
+            <option value="CONTRATISTA">Contratista</option>
+            <option value="ENTIDAD">Entidad Estatal</option>
+            <option value="COMPARTIDO">Compartido</option>
+          </select>
+        </div>
+        <button id="btnOpenAddRiskItemForm" class="btn-action" style="font-size: 0.75rem; padding: 5px 12px; background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; color: #fde68a;">
+          ➕ Agregar Riesgo Personalizado
+        </button>
+      </div>
+
+      <!-- Formulario Desplegable para Agregar Nuevo Riesgo -->
+      <div id="riskNewItemContainer" style="display: none; background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 6px; padding: 12px; margin-top: 10px;">
+        <div style="font-size: 0.8rem; font-weight: 700; color: #fde68a; margin-bottom: 8px;">Nuevo Riesgo Contractual Previsible</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-bottom: 8px;">
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block;">Código</label>
+            <input type="text" id="newRiskCodigo" placeholder="RSK-PER-01" style="width: 100%; padding: 4px 6px; font-size: 0.75rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--champagne); border-radius: 4px;">
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block;">Etapa</label>
+            <select id="newRiskEtapa" style="width: 100%; padding: 4px 6px; font-size: 0.75rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 4px;">
+              <option value="Planeación">Planeación</option>
+              <option value="Ejecución" selected>Ejecución</option>
+              <option value="Liquidación">Liquidación</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block;">Tipo de Riesgo</label>
+            <select id="newRiskTipo" style="width: 100%; padding: 4px 6px; font-size: 0.75rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 4px;">
+              <option value="Operacional">Operacional</option>
+              <option value="Financiero">Financiero</option>
+              <option value="Tecnológico/Ciberseguridad">Tecnológico / Ciberseguridad</option>
+              <option value="Regulatorio">Regulatorio</option>
+              <option value="Social/Ambiental">Social / Ambiental</option>
+              <option value="Técnico/Geológico">Técnico / Geológico</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block;">Probabilidad (1-5)</label>
+            <select id="newRiskProb" style="width: 100%; padding: 4px 6px; font-size: 0.75rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 4px;">
+              <option value="1">1 - Raro</option>
+              <option value="2" selected>2 - Improbable</option>
+              <option value="3">3 - Posible</option>
+              <option value="4">4 - Probable</option>
+              <option value="5">5 - Casi Seguro</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block;">Impacto (1-5)</label>
+            <select id="newRiskImpacto" style="width: 100%; padding: 4px 6px; font-size: 0.75rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 4px;">
+              <option value="1">1 - Insignificante</option>
+              <option value="2">2 - Menor</option>
+              <option value="3" selected>3 - Moderado</option>
+              <option value="4">4 - Mayor</option>
+              <option value="5">5 - Catastrófico</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block;">Asignado A</label>
+            <select id="newRiskAsignado" style="width: 100%; padding: 4px 6px; font-size: 0.75rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 4px;">
+              <option value="CONTRATISTA" selected>Contratista</option>
+              <option value="ENTIDAD">Entidad Estatal</option>
+              <option value="COMPARTIDO">Compartido</option>
+            </select>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block;">Descripción del Evento</label>
+            <input type="text" id="newRiskDesc" placeholder="Detalle del riesgo previsible..." style="width: 100%; padding: 4px 6px; font-size: 0.75rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--champagne); border-radius: 4px;">
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block;">Consecuencia</label>
+            <input type="text" id="newRiskConsecuencia" placeholder="Efecto sobre el cronograma o costo..." style="width: 100%; padding: 4px 6px; font-size: 0.75rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--champagne); border-radius: 4px;">
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block;">Acciones de Mitigación</label>
+            <input type="text" id="newRiskMitigacion" placeholder="Controles preventivos y planes de acción..." style="width: 100%; padding: 4px 6px; font-size: 0.75rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--champagne); border-radius: 4px;">
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block;">Garantía / Mecanismo</label>
+            <input type="text" id="newRiskGarantia" placeholder="Póliza Decreto 1082/2015..." style="width: 100%; padding: 4px 6px; font-size: 0.75rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--champagne); border-radius: 4px;">
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block;">Responsable</label>
+            <input type="text" id="newRiskResp" placeholder="Director de Proyecto..." style="width: 100%; padding: 4px 6px; font-size: 0.75rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--champagne); border-radius: 4px;">
+          </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button id="btnCancelAddRisk" class="btn-action" style="font-size: 0.72rem; padding: 4px 10px;">Cancelar</button>
+          <button id="btnConfirmAddRisk" class="btn-action btn-action-primary" style="font-size: 0.72rem; padding: 4px 12px; background: #f59e0b; color: #1e293b; font-weight: 700;">Insertar en Matriz</button>
+        </div>
+      </div>
+
+      <!-- Tabla Principal de la Matriz de Riesgos -->
+      <div style="margin-top: 10px; max-height: 280px; overflow-y: auto; border: 1px solid var(--hairline); border-radius: 6px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem;">
+          <thead>
+            <tr style="background: rgba(15, 23, 42, 0.85); color: #ffffff; position: sticky; top: 0; z-index: 2;">
+              <th style="padding: 6px 8px; text-align: center; width: 45px;">Cód.</th>
+              <th style="padding: 6px 8px; text-align: left; width: 60px;">Etapa</th>
+              <th style="padding: 6px 8px; text-align: left; width: 80px;">Tipo</th>
+              <th style="padding: 6px 8px; text-align: left;">Descripción & Consecuencia</th>
+              <th style="padding: 6px 8px; text-align: center; width: 40px;" title="Probabilidad (1 a 5)">P</th>
+              <th style="padding: 6px 8px; text-align: center; width: 40px;" title="Impacto (1 a 5)">I</th>
+              <th style="padding: 6px 8px; text-align: center; width: 75px;">Nivel</th>
+              <th style="padding: 6px 8px; text-align: center; width: 95px;">Asignado A</th>
+              <th style="padding: 6px 8px; text-align: center; width: 75px;">Tratamiento</th>
+              <th style="padding: 6px 8px; text-align: left;">Mitigación & Póliza</th>
+              <th style="padding: 6px 8px; text-align: center; width: 35px;">✕</th>
+            </tr>
+          </thead>
+          <tbody id="riskTableBody">
+            <tr><td colspan="11" style="text-align: center; padding: 25px; color: var(--text-faint);">Cargando matriz de riesgos oficial...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Resumen Ejecutivo y Marco Jurídico Vinculante -->
+      <div style="margin-top: 12px;">
+        <div style="font-size: 0.75rem; font-weight: 700; color: var(--champagne); margin-bottom: 4px;">
+          ⚖️ Marco Jurídico y Cláusula de Equilibrio Económico (Ley 1150/2007 Art. 4 & Ley 80/1993 Art. 27):
+        </div>
+        <textarea id="riskResumenTextarea" rows="2" style="width: 100%; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); padding: 6px 8px; font-size: 0.75rem; border-radius: 4px; resize: vertical; line-height: 1.4;"></textarea>
+      </div>
+
+      <!-- Footer Actions -->
+      <div style="margin-top: 14px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; border-top: 1px solid var(--hairline); padding-top: 12px;">
+        <div style="display: flex; gap: 8px;">
+          <button id="btnCopyRiskMatrix" class="btn-action" style="font-size: 0.8rem; padding: 6px 12px; background: rgba(0, 229, 255, 0.12); border: 1px solid var(--tech-cyan); color: var(--tech-cyan);">
+            📋 Copiar Tabla / HTML
+          </button>
+          <button id="btnGuardarRiskDb" class="btn-action" style="font-size: 0.8rem; padding: 6px 12px; background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #6ee7b7;">
+            💾 Guardar Matriz en DB
+          </button>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button id="btnDownloadRiskPdf" class="btn-action btn-action-primary" style="font-size: 0.82rem; padding: 7px 18px; background: #f59e0b; color: #1e293b; font-weight: 800; border: none; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);">
+            ⬇️ Descargar Matriz PDF Oficial (CCE)
+          </button>
+          <button id="btnCloseRiskMatrixModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
             Cerrar
           </button>
         </div>

@@ -4988,6 +4988,447 @@ function renderWinRateAnalytics(data) {
   }
 }
 
+// ==================== MÓDULO: MATRIZ DE RIESGOS CONTRACTUALES (ANCP-CCE) ====================
+
+let currentRiskMatriz = null;
+let currentRiskItems = [];
+let currentRiskProcesoId = null;
+
+// Abrir modal desde detailModal
+document.getElementById('modalBtnRiskMatrix')?.addEventListener('click', () => {
+  if (!activeModalId) return;
+  abrirModalMatrizRiesgos(activeModalId);
+});
+
+async function abrirModalMatrizRiesgos(procesoId) {
+  const opp = oportunidades.find(o => o.id === procesoId);
+  if (!opp) return;
+
+  currentRiskProcesoId = procesoId;
+
+  const refEl = document.getElementById('riskProcesoRef');
+  const metaEl = document.getElementById('riskProcesoMeta');
+  if (refEl) refEl.textContent = `Proceso: ${opp.referencia || opp.id} — ${opp.nombre || opp.objeto}`;
+  if (metaEl) {
+    const valFmt = formatCOP(opp.valor_estimado || opp.cuantia || 0);
+    metaEl.textContent = `${opp.entidad} • Modalidad: ${opp.modalidad || opp.tipo_proceso || 'Servicios'} • Cuantía: ${valFmt}`;
+  }
+
+  // Abrir modal
+  document.getElementById('riskMatrixModal')?.classList.add('open');
+
+  const tbody = document.getElementById('riskTableBody');
+  if (tbody) {
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 25px; color: var(--text-faint);">Cargando y estructurando matriz de riesgos oficial ANCP-CCE...</td></tr>';
+  }
+
+  try {
+    const targetEmpresa = userCompanies.find(c => c.es_propia) || userCompanies[0] || {
+      nit: '901.458.912-3',
+      razon_social: 'CONSORCIO / EMPRESA PROPONENTE S.A.S.'
+    };
+
+    const res = await fetch('/api/riesgos/generar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        proceso: opp,
+        oferente: targetEmpresa,
+        tipoContrato: opp.modalidad || opp.tipo_proceso || 'Prestación de Servicios'
+      })
+    });
+
+    const json = await res.json();
+    if (json.success && json.matriz && Array.isArray(json.items)) {
+      currentRiskMatriz = json.matriz;
+      currentRiskItems = json.items;
+
+      actualizarKpisRiesgos();
+      renderRiskTable();
+
+      const resumenEl = document.getElementById('riskResumenTextarea');
+      if (resumenEl) {
+        resumenEl.value = currentRiskMatriz.resumen_ejecutivo || '';
+      }
+    } else {
+      if (tbody) tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; padding: 20px; color: var(--danger);">Error cargando riesgos: ${json.error || 'Respuesta inválida'}</td></tr>`;
+    }
+  } catch (err) {
+    console.error('Error generando matriz de riesgos:', err);
+    if (tbody) tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; padding: 20px; color: var(--danger);">Error de conexión: ${err.message}</td></tr>`;
+  }
+}
+
+function calcularNivelRiesgoClient(probabilidad, impacto) {
+  const p = Math.max(1, Math.min(5, parseInt(probabilidad, 10) || 1));
+  const i = Math.max(1, Math.min(5, parseInt(impacto, 10) || 1));
+  const calificacion = p * i;
+
+  if (calificacion <= 4) {
+    return { calificacion, categoria: 'BAJO', color: '#10b981', badgeBg: 'rgba(16, 185, 129, 0.2)' };
+  } else if (calificacion <= 8) {
+    return { calificacion, categoria: 'MEDIO', color: '#f59e0b', badgeBg: 'rgba(245, 158, 11, 0.2)' };
+  } else if (calificacion <= 15) {
+    return { calificacion, categoria: 'ALTO', color: '#f97316', badgeBg: 'rgba(249, 115, 22, 0.2)' };
+  } else {
+    return { calificacion, categoria: 'EXTREMO', color: '#ef4444', badgeBg: 'rgba(239, 68, 68, 0.2)' };
+  }
+}
+
+function actualizarKpisRiesgos() {
+  if (!currentRiskMatriz || !currentRiskItems) return;
+
+  let ext = 0, alt = 0, med = 0, baj = 0;
+  let contr = 0, ent = 0, comp = 0;
+
+  currentRiskItems.forEach(it => {
+    const calc = calcularNivelRiesgoClient(it.probabilidad, it.impacto);
+    it.nivel_riesgo_calificacion = calc.calificacion;
+    it.nivel_riesgo_categoria = calc.categoria;
+    it.color = calc.color;
+    it.badgeBg = calc.badgeBg;
+
+    if (calc.categoria === 'EXTREMO') ext++;
+    else if (calc.categoria === 'ALTO') alt++;
+    else if (calc.categoria === 'MEDIO') med++;
+    else baj++;
+
+    if (it.a_quien_se_asigna === 'CONTRATISTA') contr++;
+    else if (it.a_quien_se_asigna === 'ENTIDAD') ent++;
+    else comp++;
+  });
+
+  currentRiskMatriz.total_riesgos = currentRiskItems.length;
+  currentRiskMatriz.riesgos_extremos = ext;
+  currentRiskMatriz.riesgos_altos = alt;
+  currentRiskMatriz.riesgos_medios = med;
+  currentRiskMatriz.riesgos_bajos = baj;
+  currentRiskMatriz.distribucion_asignacion = {
+    contratista: contr,
+    entidad: ent,
+    compartido: comp
+  };
+
+  const totalEl = document.getElementById('riskKpiTotal');
+  const extEl = document.getElementById('riskKpiExtremos');
+  const altEl = document.getElementById('riskKpiAltos');
+  const medEl = document.getElementById('riskKpiMedios');
+  const bajEl = document.getElementById('riskKpiBajos');
+  const asigEl = document.getElementById('riskKpiAsignacion');
+
+  if (totalEl) totalEl.textContent = currentRiskItems.length;
+  if (extEl) extEl.textContent = ext;
+  if (altEl) altEl.textContent = alt;
+  if (medEl) medEl.textContent = med;
+  if (bajEl) bajEl.textContent = baj;
+  if (asigEl) asigEl.textContent = `${contr} / ${ent} / ${comp}`;
+}
+
+function renderRiskTable() {
+  const tbody = document.getElementById('riskTableBody');
+  if (!tbody) return;
+
+  const filterEtapa = document.getElementById('riskFilterEtapa')?.value || 'ALL';
+  const filterAsignado = document.getElementById('riskFilterAsignado')?.value || 'ALL';
+
+  const itemsFiltrados = currentRiskItems.filter(it => {
+    if (filterEtapa !== 'ALL' && it.etapa !== filterEtapa) return false;
+    if (filterAsignado !== 'ALL' && it.a_quien_se_asigna !== filterAsignado) return false;
+    return true;
+  });
+
+  if (itemsFiltrados.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 25px; color: var(--text-faint);">No hay riesgos que coincidan con los filtros seleccionados.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = itemsFiltrados.map((it, idx) => {
+    const realIdx = currentRiskItems.indexOf(it);
+    const calc = calcularNivelRiesgoClient(it.probabilidad, it.impacto);
+
+    return `
+      <tr style="border-bottom: 1px solid var(--hairline); background: ${idx % 2 === 0 ? 'rgba(255,255,255,0.01)' : 'transparent'};">
+        <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: var(--champagne); font-size: 0.72rem;">${it.codigo_riesgo}</td>
+        <td style="padding: 6px 8px; font-size: 0.72rem; color: var(--text-muted);">${it.etapa}</td>
+        <td style="padding: 6px 8px; font-size: 0.72rem; color: var(--text-warm); font-weight: 600;">${it.tipo}</td>
+        <td style="padding: 6px 8px; font-size: 0.72rem; max-width: 250px;">
+          <div style="color: var(--text-primary); font-weight: 500; line-height: 1.3;">${it.descripcion_riesgo}</div>
+          <div style="font-size: 0.68rem; color: var(--text-faint); margin-top: 2px;"><b>Efecto:</b> ${it.consecuencia_evento}</div>
+        </td>
+        <td style="padding: 6px 4px; text-align: center;">
+          <select class="risk-prob-select" data-index="${realIdx}" style="padding: 2px 4px; font-size: 0.72rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            <option value="1" ${it.probabilidad == 1 ? 'selected' : ''}>1</option>
+            <option value="2" ${it.probabilidad == 2 ? 'selected' : ''}>2</option>
+            <option value="3" ${it.probabilidad == 3 ? 'selected' : ''}>3</option>
+            <option value="4" ${it.probabilidad == 4 ? 'selected' : ''}>4</option>
+            <option value="5" ${it.probabilidad == 5 ? 'selected' : ''}>5</option>
+          </select>
+        </td>
+        <td style="padding: 6px 4px; text-align: center;">
+          <select class="risk-impacto-select" data-index="${realIdx}" style="padding: 2px 4px; font-size: 0.72rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            <option value="1" ${it.impacto == 1 ? 'selected' : ''}>1</option>
+            <option value="2" ${it.impacto == 2 ? 'selected' : ''}>2</option>
+            <option value="3" ${it.impacto == 3 ? 'selected' : ''}>3</option>
+            <option value="4" ${it.impacto == 4 ? 'selected' : ''}>4</option>
+            <option value="5" ${it.impacto == 5 ? 'selected' : ''}>5</option>
+          </select>
+        </td>
+        <td style="padding: 6px 8px; text-align: center;">
+          <span style="display: inline-block; padding: 2px 6px; font-size: 0.68rem; font-weight: 800; border-radius: 3px; background: ${calc.badgeBg}; color: ${calc.color}; border: 1px solid ${calc.color};">
+            ${calc.calificacion} - ${calc.categoria}
+          </span>
+        </td>
+        <td style="padding: 6px 4px; text-align: center;">
+          <select class="risk-asignado-select" data-index="${realIdx}" style="padding: 2px 4px; font-size: 0.7rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            <option value="CONTRATISTA" ${it.a_quien_se_asigna === 'CONTRATISTA' ? 'selected' : ''}>Contratista</option>
+            <option value="ENTIDAD" ${it.a_quien_se_asigna === 'ENTIDAD' ? 'selected' : ''}>Entidad</option>
+            <option value="COMPARTIDO" ${it.a_quien_se_asigna === 'COMPARTIDO' ? 'selected' : ''}>Compartido</option>
+          </select>
+        </td>
+        <td style="padding: 6px 4px; text-align: center;">
+          <select class="risk-tratamiento-select" data-index="${realIdx}" style="padding: 2px 4px; font-size: 0.7rem; background: var(--lacquer-surface); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: 3px;">
+            <option value="MITIGAR" ${it.tratamiento === 'MITIGAR' ? 'selected' : ''}>Mitigar</option>
+            <option value="TRANSFERIR" ${it.tratamiento === 'TRANSFERIR' ? 'selected' : ''}>Transferir</option>
+            <option value="EVITAR" ${it.tratamiento === 'EVITAR' ? 'selected' : ''}>Evitar</option>
+            <option value="ACEPTAR" ${it.tratamiento === 'ACEPTAR' ? 'selected' : ''}>Aceptar</option>
+          </select>
+        </td>
+        <td style="padding: 6px 8px; font-size: 0.7rem; max-width: 230px;">
+          <div style="color: var(--text-warm); line-height: 1.25;">${it.acciones_mitigacion}</div>
+          <div style="font-size: 0.65rem; color: #38bdf8; margin-top: 2px;">🛡️ <b>Mecanismo:</b> ${it.mecanismo_transferencia || 'Póliza de Cumplimiento'}</div>
+        </td>
+        <td style="padding: 6px 4px; text-align: center;">
+          <button class="btn-delete-risk" data-index="${realIdx}" style="background: transparent; border: none; color: var(--danger); cursor: pointer; font-size: 0.8rem; padding: 2px 4px;" title="Eliminar riesgo">🗑️</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  // Event Listeners dinámicos de inputs
+  tbody.querySelectorAll('.risk-prob-select').forEach(sel => {
+    sel.addEventListener('change', (e) => {
+      const idx = parseInt(e.target.dataset.index, 10);
+      currentRiskItems[idx].probabilidad = parseInt(e.target.value, 10);
+      actualizarKpisRiesgos();
+      renderRiskTable();
+    });
+  });
+
+  tbody.querySelectorAll('.risk-impacto-select').forEach(sel => {
+    sel.addEventListener('change', (e) => {
+      const idx = parseInt(e.target.dataset.index, 10);
+      currentRiskItems[idx].impacto = parseInt(e.target.value, 10);
+      actualizarKpisRiesgos();
+      renderRiskTable();
+    });
+  });
+
+  tbody.querySelectorAll('.risk-asignado-select').forEach(sel => {
+    sel.addEventListener('change', (e) => {
+      const idx = parseInt(e.target.dataset.index, 10);
+      currentRiskItems[idx].a_quien_se_asigna = e.target.value;
+      actualizarKpisRiesgos();
+    });
+  });
+
+  tbody.querySelectorAll('.risk-tratamiento-select').forEach(sel => {
+    sel.addEventListener('change', (e) => {
+      const idx = parseInt(e.target.dataset.index, 10);
+      currentRiskItems[idx].tratamiento = e.target.value;
+    });
+  });
+
+  tbody.querySelectorAll('.btn-delete-risk').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const idx = parseInt(e.currentTarget.dataset.index, 10);
+      currentRiskItems.splice(idx, 1);
+      actualizarKpisRiesgos();
+      renderRiskTable();
+    });
+  });
+}
+
+// Filtros de tabla
+document.getElementById('riskFilterEtapa')?.addEventListener('change', renderRiskTable);
+document.getElementById('riskFilterAsignado')?.addEventListener('change', renderRiskTable);
+
+// Formulario nuevo riesgo
+document.getElementById('btnOpenAddRiskItemForm')?.addEventListener('click', () => {
+  const container = document.getElementById('riskNewItemContainer');
+  if (container) {
+    container.style.display = container.style.display === 'none' ? 'block' : 'none';
+  }
+});
+
+document.getElementById('btnCancelAddRisk')?.addEventListener('click', () => {
+  const container = document.getElementById('riskNewItemContainer');
+  if (container) container.style.display = 'none';
+});
+
+document.getElementById('btnConfirmAddRisk')?.addEventListener('click', () => {
+  const codigo = document.getElementById('newRiskCodigo')?.value.trim() || `RSK-CUSTOM-${currentRiskItems.length + 1}`;
+  const etapa = document.getElementById('newRiskEtapa')?.value || 'Ejecución';
+  const tipo = document.getElementById('newRiskTipo')?.value || 'Operacional';
+  const prob = parseInt(document.getElementById('newRiskProb')?.value || '2', 10);
+  const impacto = parseInt(document.getElementById('newRiskImpacto')?.value || '3', 10);
+  const asignado = document.getElementById('newRiskAsignado')?.value || 'CONTRATISTA';
+  const desc = document.getElementById('newRiskDesc')?.value.trim();
+  const consecuencia = document.getElementById('newRiskConsecuencia')?.value.trim();
+  const mitigacion = document.getElementById('newRiskMitigacion')?.value.trim();
+  const garantia = document.getElementById('newRiskGarantia')?.value.trim() || 'Póliza de Cumplimiento Decreto 1082/2015';
+  const resp = document.getElementById('newRiskResp')?.value.trim() || 'Director de Proyecto';
+
+  if (!desc) {
+    alert('Por favor describe el evento del riesgo.');
+    return;
+  }
+
+  const calc = calcularNivelRiesgoClient(prob, impacto);
+
+  const nuevoItem = {
+    codigo_riesgo: codigo,
+    etapa,
+    tipo,
+    descripcion_riesgo: desc,
+    consecuencia_evento: consecuencia || 'Afectación a la ejecución contractual.',
+    probabilidad: prob,
+    impacto: impacto,
+    nivel_riesgo_calificacion: calc.calificacion,
+    nivel_riesgo_categoria: calc.categoria,
+    color: calc.color,
+    badgeBg: calc.badgeBg,
+    a_quien_se_asigna: asignado,
+    tratamiento: 'MITIGAR',
+    acciones_mitigacion: mitigacion || 'Monitoreo y plan de contingencia.',
+    mecanismo_transferencia: garantia,
+    periodicidad_monitoreo: 'Mensual',
+    responsable_monitoreo: resp
+  };
+
+  currentRiskItems.unshift(nuevoItem);
+
+  // Limpiar campos
+  document.getElementById('newRiskCodigo').value = '';
+  document.getElementById('newRiskDesc').value = '';
+  document.getElementById('newRiskConsecuencia').value = '';
+  document.getElementById('newRiskMitigacion').value = '';
+
+  document.getElementById('riskNewItemContainer').style.display = 'none';
+
+  actualizarKpisRiesgos();
+  renderRiskTable();
+});
+
+// Guardar en Base de Datos PostgreSQL
+document.getElementById('btnGuardarRiskDb')?.addEventListener('click', async () => {
+  if (!currentRiskMatriz || currentRiskItems.length === 0) {
+    alert('No hay matriz de riesgos activa para guardar.');
+    return;
+  }
+
+  const btn = document.getElementById('btnGuardarRiskDb');
+  const oldText = btn.innerHTML;
+  btn.innerHTML = '⏳ Guardando...';
+  btn.disabled = true;
+
+  try {
+    currentRiskMatriz.resumen_ejecutivo = document.getElementById('riskResumenTextarea')?.value || currentRiskMatriz.resumen_ejecutivo;
+
+    const res = await fetch('/api/riesgos/guardar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        matriz: currentRiskMatriz,
+        items: currentRiskItems
+      })
+    });
+
+    const json = await res.json();
+    if (json.success) {
+      alert('✅ Matriz de Riesgos Contractuales guardada exitosamente en PostgreSQL.');
+    } else {
+      alert(`❌ Error al guardar: ${json.error}`);
+    }
+  } catch (err) {
+    console.error('Error guardando matriz:', err);
+    alert(`❌ Error de conexión: ${err.message}`);
+  } finally {
+    btn.innerHTML = oldText;
+    btn.disabled = false;
+  }
+});
+
+// Copiar tabla / texto a portapapeles
+document.getElementById('btnCopyRiskMatrix')?.addEventListener('click', () => {
+  if (!currentRiskItems || currentRiskItems.length === 0) return;
+
+  const header = "CÓDIGO\tETAPA\tTIPO\tDESCRIPCIÓN\tCONSECUENCIA\tPROBABILIDAD\tIMPACTO\tNIVEL\tCATEGORÍA\tASIGNADO A\tTRATAMIENTO\tMITIGACIÓN\tGARANTÍA\tRESPONSABLE\n";
+  const rows = currentRiskItems.map(it => 
+    `${it.codigo_riesgo}\t${it.etapa}\t${it.tipo}\t${it.descripcion_riesgo}\t${it.consecuencia_evento}\t${it.probabilidad}\t${it.impacto}\t${it.nivel_riesgo_calificacion}\t${it.nivel_riesgo_categoria}\t${it.a_quien_se_asigna}\t${it.tratamiento}\t${it.acciones_mitigacion}\t${it.mecanismo_transferencia || 'N/A'}\t${it.responsable_monitoreo || 'Director de Proyecto'}`
+  ).join('\n');
+
+  navigator.clipboard.writeText(header + rows)
+    .then(() => alert('📋 Matriz de Riesgos copiada al portapapeles (compatible con Excel / SECOP II).'))
+    .catch(() => alert('Error al copiar al portapapeles.'));
+});
+
+// Descargar PDF Oficial
+document.getElementById('btnDownloadRiskPdf')?.addEventListener('click', async () => {
+  if (!currentRiskMatriz || currentRiskItems.length === 0) {
+    alert('No hay matriz de riesgos para descargar.');
+    return;
+  }
+
+  const btn = document.getElementById('btnDownloadRiskPdf');
+  const oldText = btn.innerHTML;
+  btn.innerHTML = '⏳ Generando PDF CCE...';
+  btn.disabled = true;
+
+  try {
+    currentRiskMatriz.resumen_ejecutivo = document.getElementById('riskResumenTextarea')?.value || currentRiskMatriz.resumen_ejecutivo;
+
+    const res = await fetch('/api/riesgos/descargar-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        matriz: currentRiskMatriz,
+        items: currentRiskItems
+      })
+    });
+
+    if (!res.ok) throw new Error('Error en el servidor al generar PDF');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Matriz_Riesgos_CCE_${(currentRiskMatriz.numero_proceso || 'PROCESO').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error('Error descargando PDF:', err);
+    alert(`❌ Error descargando PDF: ${err.message}`);
+  } finally {
+    btn.innerHTML = oldText;
+    btn.disabled = false;
+  }
+});
+
+// Cerrar modal
+document.getElementById('btnCloseRiskMatrixModal')?.addEventListener('click', () => {
+  document.getElementById('riskMatrixModal')?.classList.remove('open');
+});
+document.getElementById('btnCloseRiskMatrixModalBtn')?.addEventListener('click', () => {
+  document.getElementById('riskMatrixModal')?.classList.remove('open');
+});
+document.getElementById('riskMatrixModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'riskMatrixModal') {
+    document.getElementById('riskMatrixModal')?.classList.remove('open');
+  }
+});
+
 // ==================== INICIALIZACIÓN ====================
 window.addEventListener('DOMContentLoaded', () => {
   checkUserSession();
