@@ -1454,6 +1454,16 @@
           </svg>
           <span>📊 APUs & Desbalance (Ley 1882)</span>
         </button>
+        <button id="modalBtnPropuestaEconomica" class="btn-action" style="flex: 1; min-width: 140px; justify-content: center; background: rgba(59, 130, 246, 0.15); border: 1px solid #3b82f6; color: #93c5fd;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10 9 9 9 8 9"/>
+          </svg>
+          <span>📑 Sobre Económico CCE</span>
+        </button>
         <button id="modalNotifyBtn" class="btn-action btn-action-tele" style="flex: 1; min-width: 140px; justify-content: center;">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <line x1="22" y1="2" x2="11" y2="13"/>
@@ -3675,12 +3685,162 @@
           <button id="btnDownloadApuPdf" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px; background: rgba(212, 175, 55, 0.15); border: 1px solid var(--gold); color: var(--gold); font-weight: 700; display: none;">
             📄 Descargar Dictamen Oficial en PDF
           </button>
+          <button id="btnApuExportarSobreEconomico" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px; background: rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6; color: #93c5fd; font-weight: 700; display: none;">
+            📑 Exportar Sobre Económico CCE
+          </button>
           <button id="btnSaveApu" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px; background: rgba(16, 185, 129, 0.15); border: 1px solid var(--success); color: var(--success); display: none;">
             💾 Guardar Auditoría
           </button>
         </div>
         <div>
           <button id="btnCloseApuModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL GENERADOR DE SOBRE Y PROPUESTA ECONÓMICA OFICIAL CCE ================= -->
+  <div id="propuestaEconomicaModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 960px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header" style="border-bottom: 1px solid var(--hairline); padding-bottom: 12px; margin-bottom: 14px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="entity-badge" style="background: rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6; color: #93c5fd; font-weight: 800; font-size: 0.72rem;">PLIEGOS TIPO ANCP-CCE</span>
+              <span style="font-size: 1.05rem; font-weight: 800; color: var(--champagne);">Generador Oficial de Sobre y Oferta Económica</span>
+            </div>
+            <div id="propuestaModalMeta" style="font-size: 0.78rem; color: var(--text-faint); margin-top: 4px;">
+              Proceso • Entidad • Presupuesto Oficial
+            </div>
+          </div>
+          <button id="btnClosePropuestaModalTop" class="btn-close-modal" aria-label="Cerrar modal">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Resumen de Valor en Letras y Números (Hero Card) -->
+      <div class="card-glass" style="background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success); padding: 14px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <span style="font-size: 0.7rem; font-weight: 800; color: var(--success); text-transform: uppercase;">VALOR TOTAL DE LA OFERTA ECONÓMICA (INCLUIDO AIU E IVA ART. 462-1 E.T.):</span>
+            <div id="propuestaTotalMonto" style="font-size: 1.5rem; font-weight: 800; color: var(--champagne); margin-top: 2px;">
+              $ 0 COP
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <span class="entity-badge" style="background: rgba(16, 185, 129, 0.2); border: 1px solid var(--success); color: var(--success); font-weight: 800; font-size: 0.72rem;">SOBRE 2 / OFERTA ECONÓMICA</span>
+          </div>
+        </div>
+        <div id="propuestaTotalLetras" style="font-size: 0.78rem; font-weight: 700; color: #86efac; margin-top: 8px; line-height: 1.4; border-top: 1px solid rgba(16, 185, 129, 0.2); padding-top: 6px;">
+          SON: CERO PESOS M/CTE
+        </div>
+      </div>
+
+      <!-- Desglose de Liquidación AIU e IVA -->
+      <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+        <div style="font-size: 0.78rem; font-weight: 700; color: var(--champagne); margin-bottom: 10px;">
+          📊 Discriminación de Costos Directos, AIU e IVA sobre Utilidad
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; font-size: 0.75rem;">
+          <div style="background: var(--lacquer-deep); padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
+            <div style="color: var(--text-faint); font-size: 0.68rem;">1. Costos Directos:</div>
+            <div id="propDirectosCop" style="font-weight: 700; color: var(--text-primary); margin-top: 2px;">$ 0</div>
+          </div>
+          <div style="background: var(--lacquer-deep); padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
+            <div style="color: var(--text-faint); font-size: 0.68rem;">2. Administración (A):</div>
+            <div id="propAdminCop" style="font-weight: 700; color: var(--text-primary); margin-top: 2px;">$ 0</div>
+          </div>
+          <div style="background: var(--lacquer-deep); padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
+            <div style="color: var(--text-faint); font-size: 0.68rem;">3. Imprevistos (I):</div>
+            <div id="propImprevCop" style="font-weight: 700; color: var(--text-primary); margin-top: 2px;">$ 0</div>
+          </div>
+          <div style="background: var(--lacquer-deep); padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
+            <div style="color: var(--text-faint); font-size: 0.68rem;">4. Utilidad (U):</div>
+            <div id="propUtilCop" style="font-weight: 700; color: var(--text-primary); margin-top: 2px;">$ 0</div>
+          </div>
+          <div style="background: var(--lacquer-deep); padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--hairline);">
+            <div style="color: var(--text-faint); font-size: 0.68rem;">5. IVA 19% s/ Utilidad:</div>
+            <div id="propIvaCop" style="font-weight: 700; color: var(--tech-cyan); margin-top: 2px;">$ 0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuración del Proponente y Datos de Firma Formal -->
+      <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+        <div style="font-size: 0.78rem; font-weight: 700; color: var(--champagne); margin-bottom: 10px; display: flex; justify-content: space-between;">
+          <span>✍️ Identificación del Proponente y Representación Legal</span>
+          <span style="font-size: 0.7rem; color: var(--text-faint);">Formulario 1 CCE Vinculante</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px;">
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Razón Social:</label>
+            <input type="text" id="propRazonSocial" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">NIT:</label>
+            <input type="text" id="propNit" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Representante Legal:</label>
+            <input type="text" id="propRepLegal" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Cédula de Ciudadanía:</label>
+            <input type="text" id="propCedula" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Ciudad de Firma:</label>
+            <input type="text" id="propCiudadFirma" value="Bogotá D.C." style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Validez Oferta (Días):</label>
+            <input type="number" id="propValidezDias" value="90" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+        </div>
+
+        <div style="font-size: 0.78rem; font-weight: 700; color: var(--champagne); margin-top: 14px; margin-bottom: 10px;">
+          🏦 Datos Bancarios para Desembolsos y Anticipo
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px;">
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Entidad Financiera:</label>
+            <input type="text" id="propBancoNombre" value="Bancolombia S.A." style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Tipo de Cuenta:</label>
+            <select id="propBancoTipo" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">
+              <option value="Cuenta Corriente" selected>Cuenta Corriente</option>
+              <option value="Cuenta de Ahorros">Cuenta de Ahorros</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Número de Cuenta:</label>
+            <input type="text" id="propBancoNumero" value="001-234567-89" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer y Acciones de Descarga -->
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-top: 1px solid var(--hairline); padding-top: 12px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button id="btnDownloadSobreEconomicoPdf" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px; background: rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6; color: #93c5fd; font-weight: 700;">
+            📄 Descargar Sobre Económico Oficial (PDF)
+          </button>
+          <button id="btnDownloadPresupuestoExcel" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px; background: rgba(16, 185, 129, 0.2); border: 1px solid var(--success); color: #86efac; font-weight: 700;">
+            📊 Descargar Presupuesto y APUs (Excel .xlsx)
+          </button>
+          <button id="btnSavePropuestaEconomica" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px; background: rgba(212, 175, 55, 0.15); border: 1px solid var(--gold); color: var(--gold);">
+            💾 Guardar Propuesta
+          </button>
+        </div>
+        <div>
+          <button id="btnClosePropuestaModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
             Cerrar
           </button>
         </div>

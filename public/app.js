@@ -8607,6 +8607,8 @@ async function ejecutarAuditoriaApu() {
     // Mostrar botones de PDF y Guardar
     const dlBtn = document.getElementById('btnDownloadApuPdf');
     if (dlBtn) dlBtn.style.display = 'inline-flex';
+    const expBtn = document.getElementById('btnApuExportarSobreEconomico');
+    if (expBtn) expBtn.style.display = 'inline-flex';
     const saveBtn = document.getElementById('btnSaveApu');
     if (saveBtn) saveBtn.style.display = 'inline-flex';
     showToast('Auditoría de APUs & Desbalance completada');
@@ -8699,6 +8701,244 @@ document.getElementById('btnSaveApu')?.addEventListener('click', async () => {
     }
   } catch (e) {
     showToast('Error de conexión al guardar auditoría de APUs');
+  }
+});
+
+// ==================== MÓDULO: SOBRES Y PROPUESTAS ECONÓMICAS OFICIALES CCE ====================
+let currentPropuestaLiquidacion = null;
+
+function construirPropuestaPayload() {
+  const opp = oportunidades.find(o => o.id === activeModalId) || {};
+  const lider = (userCompanies && userCompanies.length > 0) ? (userCompanies.find(c => c.es_propia) || userCompanies[0]) : {};
+
+  // Ítems: si currentApuItems tiene elementos, usarlos, si no demo
+  const items = (currentApuItems && currentApuItems.length > 0) ? currentApuItems : [
+    { codigo: '1.1', descripcion: 'Localización, trazado y replanteo topográfico', unidad: 'M2', cantidad: 1500, fase: 'INICIAL', precio_unitario: 8700 },
+    { codigo: '1.2', descripcion: 'Campamento de obra y cerramiento provisional', unidad: 'GL', cantidad: 1, fase: 'INICIAL', precio_unitario: 25800000 },
+    { codigo: '1.3', descripcion: 'Excavación mecánica en material común con retiro', unidad: 'M3', cantidad: 4500, fase: 'INICIAL', precio_unitario: 36500 },
+    { codigo: '2.1', descripcion: 'Concreto estructural 3000 PSI para zapatas y vigas', unidad: 'M3', cantidad: 320, fase: 'INTERMEDIA', precio_unitario: 665000 },
+    { codigo: '2.2', descripcion: 'Acero de refuerzo figurado fy=420 MPa (60000 PSI)', unidad: 'KG', cantidad: 28000, fase: 'INTERMEDIA', precio_unitario: 5100 },
+    { codigo: '2.3', descripcion: 'Muros en mampostería bloque de arcilla e=0.12m', unidad: 'M2', cantidad: 1200, fase: 'INTERMEDIA', precio_unitario: 47200 },
+    { codigo: '3.1', descripcion: 'Pañete liso muros interiores y exteriores', unidad: 'M2', cantidad: 2400, fase: 'FINAL', precio_unitario: 21500 },
+    { codigo: '3.2', descripcion: 'Piso en porcelanato tráfico pesado 60x60', unidad: 'M2', cantidad: 950, fase: 'FINAL', precio_unitario: 93500 },
+    { codigo: '3.3', descripcion: 'Pintura vinilo tipo 1 tres manos en muros y cielo', unidad: 'M2', cantidad: 2400, fase: 'FINAL', precio_unitario: 13800 },
+    { codigo: '3.4', descripcion: 'Aseo general de entrega y desmovilización', unidad: 'GL', cantidad: 1, fase: 'FINAL', precio_unitario: 7900000 }
+  ];
+
+  const aiuCfg = {
+    administracion_pct: parseFloat(document.getElementById('apuAdminPct')?.value || 18),
+    imprevistos_pct: parseFloat(document.getElementById('apuImprevPct')?.value || 2),
+    utilidad_pct: parseFloat(document.getElementById('apuUtilidadPct')?.value || 5),
+    tarifa_iva_utilidad_pct: parseFloat(document.getElementById('apuIvaUtilidadPct')?.value || 19)
+  };
+
+  return {
+    proceso: {
+      referencia: opp.referencia || opp.id || 'LP-001-2026',
+      entidad: opp.entidad || 'Entidad Estatal Contratante',
+      objeto: opp.objeto || opp.nombre || 'Contratación estatal de obra pública o consultoría',
+      precio_base: opp.precio_base || opp.cuantia
+    },
+    oferente: {
+      razon_social: document.getElementById('propRazonSocial')?.value || lider.razon_social || 'EMPRESA PROPONENTE S.A.S.',
+      nit: document.getElementById('propNit')?.value || lider.nit || '900.000.000-1',
+      representante_legal: document.getElementById('propRepLegal')?.value || lider.representante_legal || 'Representante Legal',
+      cedula_representante: document.getElementById('propCedula')?.value || lider.cedula_representante || '1.000.000.000',
+      ciudad: document.getElementById('propCiudadFirma')?.value || 'Bogotá D.C.',
+      email: lider.email || 'licitaciones@empresa.com'
+    },
+    validez_dias: parseInt(document.getElementById('propValidezDias')?.value || 90, 10),
+    ciudad_firma: document.getElementById('propCiudadFirma')?.value || 'Bogotá D.C.',
+    banco: {
+      nombre: document.getElementById('propBancoNombre')?.value || 'Bancolombia S.A.',
+      tipo: document.getElementById('propBancoTipo')?.value || 'Cuenta Corriente',
+      numero: document.getElementById('propBancoNumero')?.value || '001-234567-89'
+    },
+    aiuConfig: aiuCfg,
+    items
+  };
+}
+
+async function abrirModalSobreEconomico() {
+  const opp = oportunidades.find(o => o.id === activeModalId);
+  if (!opp) return;
+
+  const metaEl = document.getElementById('propuestaModalMeta');
+  if (metaEl) {
+    metaEl.textContent = `${opp.referencia || opp.id} • ${opp.entidad || 'Entidad Contratante'} • ${formatCOP(opp.precio_base || opp.cuantia)}`;
+  }
+
+  // Pre-llenar datos de la empresa líder
+  const lider = (userCompanies && userCompanies.length > 0) ? (userCompanies.find(c => c.es_propia) || userCompanies[0]) : null;
+  if (lider) {
+    const rs = document.getElementById('propRazonSocial'); if (rs) rs.value = lider.razon_social || '';
+    const nit = document.getElementById('propNit'); if (nit) nit.value = lider.nit || '';
+    const rep = document.getElementById('propRepLegal'); if (rep) rep.value = lider.representante_legal || '';
+    const cc = document.getElementById('propCedula'); if (cc) cc.value = lider.cedula_representante || '';
+  }
+
+  // Si currentApuItems está vacío, cargar plantilla demo
+  if (currentApuItems.length === 0) {
+    cargarPlantillaApuDemo();
+  }
+
+  // Liquidar en servidor
+  const payload = construirPropuestaPayload();
+  try {
+    const res = await fetch('/api/propuesta-economica/liquidar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const json = await res.json();
+    if (!json.success || !json.data) throw new Error(json.error || 'Error liquidando');
+
+    currentPropuestaLiquidacion = json.data;
+    const totales = json.data.totales;
+    const aiu = json.data.aiu_desglose;
+
+    // Actualizar vista
+    const montoEl = document.getElementById('propuestaTotalMonto');
+    if (montoEl) montoEl.textContent = formatCOP(totales.gran_total_oferta_cop);
+
+    const letrasEl = document.getElementById('propuestaTotalLetras');
+    if (letrasEl) letrasEl.textContent = 'SON: ' + totales.gran_total_letras;
+
+    const dirEl = document.getElementById('propDirectosCop');
+    if (dirEl) dirEl.textContent = formatCOP(totales.total_directo_cop);
+
+    const admEl = document.getElementById('propAdminCop');
+    if (admEl) admEl.textContent = `${formatCOP(totales.administracion_cop)} (${aiu.administracion_pct}%)`;
+
+    const impEl = document.getElementById('propImprevCop');
+    if (impEl) impEl.textContent = `${formatCOP(totales.imprevistos_cop)} (${aiu.imprevistos_pct}%)`;
+
+    const utlEl = document.getElementById('propUtilCop');
+    if (utlEl) utlEl.textContent = `${formatCOP(totales.utilidad_cop)} (${aiu.utilidad_pct}%)`;
+
+    const ivaEl = document.getElementById('propIvaCop');
+    if (ivaEl) ivaEl.textContent = `${formatCOP(totales.iva_utilidad_cop)} (19%)`;
+
+    // Cerrar otros modales y abrir propuesta
+    document.getElementById('detailModal')?.classList.remove('open');
+    document.getElementById('apuModal')?.classList.remove('open');
+    document.getElementById('propuestaEconomicaModal')?.classList.add('open');
+  } catch (e) {
+    showToast(`Error al liquidar propuesta: ${e.message}`);
+  }
+}
+
+document.getElementById('modalBtnPropuestaEconomica')?.addEventListener('click', abrirModalSobreEconomico);
+document.getElementById('btnApuExportarSobreEconomico')?.addEventListener('click', abrirModalSobreEconomico);
+
+// Cerrar Modal Propuesta
+document.getElementById('btnClosePropuestaModalTop')?.addEventListener('click', () => {
+  document.getElementById('propuestaEconomicaModal')?.classList.remove('open');
+});
+document.getElementById('btnClosePropuestaModalBtn')?.addEventListener('click', () => {
+  document.getElementById('propuestaEconomicaModal')?.classList.remove('open');
+});
+document.getElementById('propuestaEconomicaModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'propuestaEconomicaModal') {
+    document.getElementById('propuestaEconomicaModal')?.classList.remove('open');
+  }
+});
+
+// Descargar Sobre Económico Oficial en PDF
+document.getElementById('btnDownloadSobreEconomicoPdf')?.addEventListener('click', async () => {
+  showToast('Generando Sobre Económico Oficial en PDF...');
+  const payload = currentPropuestaLiquidacion || construirPropuestaPayload();
+  const opp = oportunidades.find(o => o.id === activeModalId) || {};
+
+  try {
+    const res = await fetch('/api/propuesta-economica/pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error('Error al generar PDF de Sobre Económico');
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Sobre_Economico_Formulario_CCE_${(opp.referencia || 'SOBRE2').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    a.remove();
+    showToast('Sobre Económico Oficial CCE descargado con éxito');
+  } catch (e) {
+    showToast(`Error al descargar PDF: ${e.message}`);
+  }
+});
+
+// Descargar Presupuesto Oficial y APUs en Excel (.xlsx)
+document.getElementById('btnDownloadPresupuestoExcel')?.addEventListener('click', async () => {
+  showToast('Generando Presupuesto Oficial en Excel con fórmulas CCE...');
+  const payload = currentPropuestaLiquidacion || construirPropuestaPayload();
+  const opp = oportunidades.find(o => o.id === activeModalId) || {};
+
+  try {
+    const res = await fetch('/api/propuesta-economica/excel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error('Error al generar Excel de Presupuesto');
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Presupuesto_Oficial_APUs_${(opp.referencia || 'PRESUPUESTO').replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    a.remove();
+    showToast('Libro Excel CCE con fórmulas descargado con éxito');
+  } catch (e) {
+    showToast(`Error al descargar Excel: ${e.message}`);
+  }
+});
+
+// Guardar Propuesta Económica en Historial PostgreSQL
+document.getElementById('btnSavePropuestaEconomica')?.addEventListener('click', async () => {
+  const payload = currentPropuestaLiquidacion || construirPropuestaPayload();
+  const opp = oportunidades.find(o => o.id === activeModalId) || {};
+  const lider = (userCompanies && userCompanies.length > 0) ? (userCompanies.find(c => c.es_propia) || userCompanies[0]) : null;
+
+  try {
+    const res = await fetch('/api/propuesta-economica/guardar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        proceso_referencia: opp.referencia || opp.id || 'LP-001-2026',
+        entidad: opp.entidad || 'Entidad Contratante',
+        empresa_id: lider ? lider.id : null,
+        valor_total_oferta: payload.totales.gran_total_oferta_cop,
+        valor_total_letras: payload.totales.gran_total_letras,
+        validez_dias: payload.validez_dias || 90,
+        ciudad_firma: payload.ciudad_firma || 'Bogotá D.C.',
+        aiu_config: payload.aiu_desglose,
+        totales_liquidacion: payload.totales,
+        items_presupuesto: payload.items,
+        datos_proponente: payload.oferente,
+        datos_consorcio: payload.consorcio,
+        datos_banco: payload.banco,
+        observaciones: payload.observaciones || ''
+      })
+    });
+
+    const json = await res.json();
+    if (json.success) {
+      showToast('Propuesta Económica registrada en PostgreSQL');
+    } else {
+      showToast(`Error al guardar: ${json.error}`);
+    }
+  } catch (e) {
+    showToast('Error de conexión al guardar propuesta económica');
   }
 });
 

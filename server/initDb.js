@@ -22,7 +22,8 @@ const SCHEMAS = [
   'schema_post_adjudicacion_avanzado.sql',
   'schema_capacidad_residual.sql',
   'schema_garantias_cce.sql',
-  'schema_apu_analisis.sql'
+  'schema_apu_analisis.sql',
+  'schema_propuesta_economica.sql'
 ];
 
 async function runAllMigrations() {

@@ -35,6 +35,7 @@ const residualCapacityEngine = require('./residualCapacityEngine');
 const telegramBotEngine = require('./telegramBotEngine');
 const garantiasEngine = require('./garantiasEngine');
 const apuEngine = require('./apuEngine');
+const economicProposalEngine = require('./economicProposalEngine');
 const initDb = require('./initDb');
 
 const app = express();
@@ -2639,6 +2640,215 @@ app.get('/api/apu/dictamen-pdf/:id', async (req, res) => {
     res.send(pdfBuffer);
   } catch (err) {
     console.error('Error generando PDF de APUs desde DB:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== MÓDULO SOBRES Y PROPUESTAS ECONÓMICAS CCE ====================
+
+app.post('/api/propuesta-economica/liquidar', (req, res) => {
+  try {
+    const liquidacion = economicProposalEngine.liquidarPropuesta(req.body);
+    res.json({ success: true, data: liquidacion });
+  } catch (err) {
+    console.error('Error liquidando propuesta económica:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/propuesta-economica/guardar', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const {
+      proceso_referencia,
+      entidad,
+      empresa_id,
+      valor_total_oferta,
+      valor_total_letras,
+      validez_dias,
+      ciudad_firma,
+      aiu_config,
+      totales_liquidacion,
+      items_presupuesto,
+      datos_proponente,
+      datos_consorcio,
+      datos_banco,
+      observaciones
+    } = req.body;
+
+    const sql = `
+      INSERT INTO propuestas_economicas_sobres (
+        proceso_referencia, entidad, empresa_id,
+        valor_total_oferta, valor_total_letras,
+        validez_dias, ciudad_firma,
+        aiu_config, totales_liquidacion, items_presupuesto,
+        datos_proponente, datos_consorcio, datos_banco,
+        observaciones
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      RETURNING *;
+    `;
+
+    const q = await dbPostgres.query(sql, [
+      proceso_referencia || 'PROC-OFERTA-ECON',
+      entidad || 'Entidad Contratante',
+      empresa_id ? parseInt(empresa_id, 10) : null,
+      parseFloat(valor_total_oferta) || 0,
+      valor_total_letras || '',
+      parseInt(validez_dias, 10) || 90,
+      ciudad_firma || 'Bogotá D.C.',
+      JSON.stringify(aiu_config || {}),
+      JSON.stringify(totales_liquidacion || {}),
+      JSON.stringify(items_presupuesto || []),
+      JSON.stringify(datos_proponente || {}),
+      datos_consorcio ? JSON.stringify(datos_consorcio) : null,
+      datos_banco ? JSON.stringify(datos_banco) : null,
+      observaciones || ''
+    ]);
+
+    res.json({ success: true, data: q.rows[0] });
+  } catch (err) {
+    console.error('Error guardando propuesta económica:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/propuesta-economica/historial', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const empresaId = req.query.empresa_id ? parseInt(req.query.empresa_id, 10) : null;
+    const ref = req.query.referencia || null;
+
+    let query = `SELECT * FROM propuestas_economicas_sobres`;
+    const params = [];
+
+    if (empresaId) {
+      params.push(empresaId);
+      query += ` WHERE empresa_id = $${params.length}`;
+    }
+    if (ref) {
+      params.push(ref);
+      query += params.length === 1 ? ` WHERE proceso_referencia = $1` : ` AND proceso_referencia = $2`;
+    }
+
+    query += ` ORDER BY creado_en DESC LIMIT 50`;
+    const q = await dbPostgres.query(query, params);
+    res.json({ success: true, count: q.rows.length, data: q.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/propuesta-economica/pdf', async (req, res) => {
+  try {
+    let propuestaData = req.body;
+    // Si viene como payload crudo, liquidar primero
+    if (!propuestaData.totales || !propuestaData.totales.gran_total_letras) {
+      propuestaData = economicProposalEngine.liquidarPropuesta(propuestaData);
+    }
+
+    const pdfBuffer = await economicProposalEngine.generarFormularioEconomicoPdf(propuestaData);
+    const safeRef = ((propuestaData.proceso && propuestaData.proceso.referencia) || 'SOBRE_ECONOMICO').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Sobre_Economico_Formulario_CCE_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF de Sobre Económico:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/propuesta-economica/excel', async (req, res) => {
+  try {
+    let propuestaData = req.body;
+    if (!propuestaData.totales || !propuestaData.totales.gran_total_letras) {
+      propuestaData = economicProposalEngine.liquidarPropuesta(propuestaData);
+    }
+
+    const excelBuffer = await economicProposalEngine.generarPresupuestoExcel(propuestaData);
+    const safeRef = ((propuestaData.proceso && propuestaData.proceso.referencia) || 'PRESUPUESTO_APU').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="Presupuesto_Oficial_APUs_${safeRef}.xlsx"`);
+    res.send(excelBuffer);
+  } catch (err) {
+    console.error('Error generando Excel de Presupuesto:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/propuesta-economica/pdf/:id', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const id = parseInt(req.params.id, 10);
+    const q = await dbPostgres.query('SELECT * FROM propuestas_economicas_sobres WHERE id = $1', [id]);
+    if (q.rows.length === 0) return res.status(404).json({ success: false, error: 'Propuesta no encontrada' });
+
+    const row = q.rows[0];
+    const propuestaData = {
+      proceso: {
+        referencia: row.proceso_referencia,
+        entidad: row.entidad,
+        objeto: 'Contratación estatal de obra o servicios',
+        presupuesto_oficial: parseFloat(row.valor_total_oferta)
+      },
+      oferente: row.datos_proponente,
+      consorcio: row.datos_consorcio,
+      validez_dias: row.validez_dias,
+      ciudad_firma: row.ciudad_firma,
+      banco: row.datos_banco || { nombre: 'Bancolombia S.A.', tipo: 'Cuenta Corriente', numero: '001-234567-89' },
+      observaciones: row.observaciones,
+      totales: row.totales_liquidacion,
+      aiu_desglose: row.aiu_config,
+      items: row.items_presupuesto
+    };
+
+    const pdfBuffer = await economicProposalEngine.generarFormularioEconomicoPdf(propuestaData);
+    const safeRef = (row.proceso_referencia).replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Sobre_Economico_Formulario_CCE_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF de Sobre Económico desde DB:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/propuesta-economica/excel/:id', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const id = parseInt(req.params.id, 10);
+    const q = await dbPostgres.query('SELECT * FROM propuestas_economicas_sobres WHERE id = $1', [id]);
+    if (q.rows.length === 0) return res.status(404).json({ success: false, error: 'Propuesta no encontrada' });
+
+    const row = q.rows[0];
+    const propuestaData = {
+      proceso: {
+        referencia: row.proceso_referencia,
+        entidad: row.entidad,
+        objeto: 'Contratación estatal de obra o servicios',
+        presupuesto_oficial: parseFloat(row.valor_total_oferta)
+      },
+      oferente: row.datos_proponente,
+      consorcio: row.datos_consorcio,
+      validez_dias: row.validez_dias,
+      ciudad_firma: row.ciudad_firma,
+      banco: row.datos_banco || { nombre: 'Bancolombia S.A.', tipo: 'Cuenta Corriente', numero: '001-234567-89' },
+      observaciones: row.observaciones,
+      totales: row.totales_liquidacion,
+      aiu_desglose: row.aiu_config,
+      items: row.items_presupuesto
+    };
+
+    const excelBuffer = await economicProposalEngine.generarPresupuestoExcel(propuestaData);
+    const safeRef = (row.proceso_referencia).replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="Presupuesto_Oficial_APUs_${safeRef}.xlsx"`);
+    res.send(excelBuffer);
+  } catch (err) {
+    console.error('Error generando Excel desde DB:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
