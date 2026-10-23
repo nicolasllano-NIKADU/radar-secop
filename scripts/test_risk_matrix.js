@@ -83,6 +83,21 @@ async function runTests() {
     }
     console.log(`   ✓ Documento PDF generado exitosamente: ${pdfBuffer.length} bytes (Landscape, tablas y sellos de garantía).`);
 
+    // 6. Prueba de Generación Excel (.xlsx) CONPES 3714
+    console.log('\n6️⃣ Verificando generación de Libro Excel (.xlsx) CONPES 3714:');
+    const ExcelJS = require('exceljs');
+    const excelBuffer = await riskMatrixEngine.generarMatrizRiesgosExcel(cargado);
+    if (!excelBuffer || excelBuffer.length < 4000) {
+      throw new Error(`Buffer Excel defectuoso: ${excelBuffer?.length} bytes`);
+    }
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(excelBuffer);
+    const sheetNames = wb.worksheets.map(s => s.name);
+    if (!sheetNames.includes('1. Resumen CONPES 3714') || !sheetNames.includes('2. Matriz CONPES 3714')) {
+      throw new Error(`Faltan hojas en libro Excel: ${sheetNames.join(', ')}`);
+    }
+    console.log(`   ✓ Libro Excel generado y validado: ${wb.worksheets.length} hojas ("${sheetNames.join('", "')}") tamaño: ${excelBuffer.length} bytes.`);
+
     // Limpieza de prueba
     await dbPostgres.query('DELETE FROM matriz_riesgos_proceso WHERE proceso_id = $1', [procesoMock.id]);
     console.log('   ✓ Registro mock limpiado en DB.');

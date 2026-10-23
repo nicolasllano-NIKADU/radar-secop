@@ -1755,6 +1755,44 @@ app.post('/api/riesgos/descargar-pdf', async (req, res) => {
   }
 });
 
+app.post('/api/riesgos/descargar-excel', async (req, res) => {
+  try {
+    const { matriz, items } = req.body;
+    if (!matriz || !items) {
+      return res.status(400).json({ success: false, error: 'Datos insuficientes para exportar Excel' });
+    }
+
+    const excelBuffer = await riskMatrixEngine.generarMatrizRiesgosExcel({ matriz, items });
+    const filename = `Matriz_Riesgos_CONPES3714_${(matriz.numero_proceso || 'PROCESO').replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(excelBuffer);
+  } catch (err) {
+    console.error('Error generando Excel de matriz de riesgos:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/riesgos/descargar-excel/:procesoId', async (req, res) => {
+  try {
+    const data = await riskMatrixEngine.getMatrizRiesgos(req.params.procesoId);
+    if (!data) {
+      return res.status(404).json({ success: false, error: 'Matriz de riesgos no encontrada' });
+    }
+
+    const excelBuffer = await riskMatrixEngine.generarMatrizRiesgosExcel(data);
+    const filename = `Matriz_Riesgos_CONPES3714_${(data.matriz.numero_proceso || 'PROCESO').replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(excelBuffer);
+  } catch (err) {
+    console.error('Error generando Excel de matriz de riesgos desde DB:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.get('/api/riesgos/descargar-pdf/:procesoId', async (req, res) => {
   try {
     const data = await riskMatrixEngine.getMatrizRiesgos(req.params.procesoId);
@@ -1770,6 +1808,44 @@ app.get('/api/riesgos/descargar-pdf/:procesoId', async (req, res) => {
     res.send(pdfBuffer);
   } catch (err) {
     console.error('Error generando PDF de matriz de riesgos:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/riesgos/descargar-excel', async (req, res) => {
+  try {
+    const { matriz, items } = req.body;
+    if (!matriz || !items) {
+      return res.status(400).json({ success: false, error: 'Datos insuficientes para exportar Excel' });
+    }
+
+    const excelBuffer = await riskMatrixEngine.generarMatrizRiesgosExcel({ matriz, items });
+    const filename = `Matriz_Riesgos_CONPES3714_${(matriz.numero_proceso || 'PROCESO').replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(excelBuffer);
+  } catch (err) {
+    console.error('Error generando Excel de matriz de riesgos:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/riesgos/descargar-excel/:procesoId', async (req, res) => {
+  try {
+    const data = await riskMatrixEngine.getMatrizRiesgos(req.params.procesoId);
+    if (!data) {
+      return res.status(404).json({ success: false, error: 'Matriz de riesgos no encontrada' });
+    }
+
+    const excelBuffer = await riskMatrixEngine.generarMatrizRiesgosExcel(data);
+    const filename = `Matriz_Riesgos_CONPES3714_${(data.matriz.numero_proceso || 'PROCESO').replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(excelBuffer);
+  } catch (err) {
+    console.error('Error generando Excel de matriz de riesgos desde DB:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

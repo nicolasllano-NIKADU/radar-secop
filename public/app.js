@@ -5957,6 +5957,51 @@ document.getElementById('btnDownloadRiskPdf')?.addEventListener('click', async (
   }
 });
 
+// Descargar Excel Oficial CONPES 3714
+document.getElementById('btnDownloadRiskExcel')?.addEventListener('click', async () => {
+  if (!currentRiskMatriz || currentRiskItems.length === 0) {
+    alert('No hay matriz de riesgos para descargar.');
+    return;
+  }
+
+  const btn = document.getElementById('btnDownloadRiskExcel');
+  const oldText = btn.innerHTML;
+  btn.innerHTML = '⏳ Generando Excel CONPES 3714...';
+  btn.disabled = true;
+
+  try {
+    currentRiskMatriz.resumen_ejecutivo = document.getElementById('riskResumenTextarea')?.value || currentRiskMatriz.resumen_ejecutivo;
+
+    const res = await fetch('/api/riesgos/descargar-excel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        matriz: currentRiskMatriz,
+        items: currentRiskItems
+      })
+    });
+
+    if (!res.ok) throw new Error('Error en el servidor al generar Excel');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Matriz_Riesgos_CONPES3714_${(currentRiskMatriz.numero_proceso || 'PROCESO').replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    if (typeof showToast === 'function') showToast('Libro Excel CONPES 3714 descargado con éxito');
+  } catch (err) {
+    console.error('Error descargando Excel de riesgos:', err);
+    alert(`❌ Error descargando Excel: ${err.message}`);
+  } finally {
+    btn.innerHTML = oldText;
+    btn.disabled = false;
+  }
+});
+
 // Cerrar modal
 document.getElementById('btnCloseRiskMatrixModal')?.addEventListener('click', () => {
   document.getElementById('riskMatrixModal')?.classList.remove('open');

@@ -5,6 +5,7 @@
 // ============================================================================
 
 const PDFDocument = require('pdfkit');
+const ExcelJS = require('exceljs');
 const dbPostgres = require('./dbPostgres');
 
 class RiskMatrixEngine {
@@ -744,6 +745,181 @@ class RiskMatrixEngine {
         reject(err);
       }
     });
+  }
+
+  /**
+   * Genera el archivo Excel (.xlsx) estructurado oficial de Matriz de Riesgos CONPES 3714 / ANCP-CCE
+   * @param {{ matriz: Object, items: Array }} param0
+   * @returns {Promise<Buffer>}
+   */
+  static async generarMatrizRiesgosExcel({ matriz, items = [] }) {
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Radar SECOP - NIKADU IA';
+    workbook.lastModifiedBy = 'Radar SECOP';
+    workbook.created = new Date();
+    workbook.modified = new Date();
+
+    const fCOP = (val) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val || 0);
+
+    // -----------------------------------------------------------------
+    // HOJA 1: RESUMEN EJECUTIVO Y TIPOLOGÍA CONPES 3714
+    // -----------------------------------------------------------------
+    const wsResumen = workbook.addWorksheet('1. Resumen CONPES 3714');
+    wsResumen.views = [{ showGridLines: true }];
+    wsResumen.columns = [{ width: 28 }, { width: 35 }, { width: 22 }, { width: 30 }];
+
+    wsResumen.mergeCells('A1:D1');
+    wsResumen.getCell('A1').value = 'REPÚBLICA DE COLOMBIA • AGENCIA NACIONAL DE CONTRATACIÓN PÚBLICA (ANCP-CCE)';
+    wsResumen.getCell('A1').font = { size: 9, bold: true, color: { argb: 'FF64748B' } };
+    wsResumen.getCell('A1').alignment = { horizontal: 'center' };
+
+    wsResumen.mergeCells('A2:D2');
+    wsResumen.getCell('A2').value = 'MATRIZ DE TIPIFICACIÓN, ESTIMACIÓN Y ASIGNACIÓN DE RIESGOS PREVISIBLES';
+    wsResumen.getCell('A2').font = { size: 12, bold: true, color: { argb: 'FF0F172A' } };
+    wsResumen.getCell('A2').alignment = { horizontal: 'center' };
+
+    wsResumen.mergeCells('A3:D3');
+    wsResumen.getCell('A3').value = 'Documento CONPES 3714 • Ley 1150 de 2007 Art. 4 • Decreto 1082 de 2015';
+    wsResumen.getCell('A3').font = { size: 8, italic: true, color: { argb: 'FF475569' } };
+    wsResumen.getCell('A3').alignment = { horizontal: 'center' };
+
+    wsResumen.addRow([]);
+    wsResumen.addRow(['NÚMERO DE PROCESO:', matriz.numero_proceso || 'PROCESO-001', 'FECHA DE REVISIÓN:', new Date().toLocaleDateString('es-CO')]);
+    wsResumen.addRow(['ENTIDAD CONTRATANTE:', matriz.entidad_nombre || 'Entidad Estatal', 'TIPO DE CONTRATO:', matriz.tipo_contrato || 'Obra Pública']);
+    wsResumen.addRow(['PROPONENTE / ADJUDICATARIO:', matriz.proponente_razon_social || 'Contratista', 'NIT PROPONENTE:', matriz.proponente_nit || '900.000.000-1']);
+    wsResumen.addRow(['VALOR ESTIMADO CONTRATO:', fCOP(matriz.valor_estimado), 'TOTAL RIESGOS TIPIFICADOS:', `${items.length} Riesgos`]);
+
+    ['A5', 'A6', 'A7', 'A8', 'C5', 'C6', 'C7', 'C8'].forEach(c => {
+      wsResumen.getCell(c).font = { bold: true, size: 9, color: { argb: 'FF1E293B' } };
+    });
+
+    wsResumen.addRow([]);
+    wsResumen.addRow(['CONSOLIDADO Y BALANCES DE SEVERIDAD']);
+    wsResumen.getCell('A10').font = { bold: true, size: 11, color: { argb: 'FF1E3A8A' } };
+
+    wsResumen.addRow(['CATEGORÍA SEVERIDAD', 'CANTIDAD RIESGOS', 'PORCENTAJE (%)', 'IMPACTO EN EQUILIBRIO']);
+    wsResumen.getRow(11).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    ['A11', 'B11', 'C11', 'D11'].forEach(c => {
+      wsResumen.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+    });
+
+    const tot = items.length || 1;
+    wsResumen.addRow(['Riesgos Extremos (≥16)', matriz.riesgos_extremos || 0, `${((matriz.riesgos_extremos || 0) / tot * 100).toFixed(1)}%`, 'Mitigación obligatoria y amparo de póliza']);
+    wsResumen.addRow(['Riesgos Altos (9-15)', matriz.riesgos_altos || 0, `${((matriz.riesgos_altos || 0) / tot * 100).toFixed(1)}%`, 'Monitoreo activo quincenal']);
+    wsResumen.addRow(['Riesgos Medios (5-8)', matriz.riesgos_medios || 0, `${((matriz.riesgos_medios || 0) / tot * 100).toFixed(1)}%`, 'Controles preventivos operacionales']);
+    wsResumen.addRow(['Riesgos Bajos (≤4)', matriz.riesgos_bajos || 0, `${((matriz.riesgos_bajos || 0) / tot * 100).toFixed(1)}%`, 'Aceptables con controles de rutina']);
+
+    wsResumen.getCell('A12').font = { bold: true, color: { argb: 'FFEF4444' } };
+    wsResumen.getCell('A13').font = { bold: true, color: { argb: 'FFF97316' } };
+    wsResumen.getCell('A14').font = { bold: true, color: { argb: 'FFF59E0B' } };
+    wsResumen.getCell('A15').font = { bold: true, color: { argb: 'FF10B981' } };
+
+    wsResumen.addRow([]);
+    wsResumen.addRow(['DISTRIBUCIÓN Y ASIGNACIÓN CONTRACTUAL (Art. 4 Ley 1150/2007)']);
+    wsResumen.getCell('A17').font = { bold: true, size: 11, color: { argb: 'FF1E3A8A' } };
+
+    wsResumen.addRow(['SUJETO OBLIGADO', 'TOTAL ASIGNADOS', 'PARTICIPACIÓN (%)', 'MECANISMO DE ABSORCIÓN']);
+    wsResumen.getRow(18).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    ['A18', 'B18', 'C18', 'D18'].forEach(c => {
+      wsResumen.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+    });
+
+    const dist = matriz.distribucion_asignacion || {};
+    wsResumen.addRow(['Contratista', dist.contratista || 0, `${((dist.contratista || 0) / tot * 100).toFixed(1)}%`, 'Garantía Única de Cumplimiento / RCE / AIU']);
+    wsResumen.addRow(['Entidad Estatal', dist.entidad || 0, `${((dist.entidad || 0) / tot * 100).toFixed(1)}%`, 'Presupuesto oficial y reequilibrio económico']);
+    wsResumen.addRow(['Compartido', dist.compartido || 0, `${((dist.compartido || 0) / tot * 100).toFixed(1)}%`, 'Cláusulas de indexación y acuerdos bilaterales']);
+
+    // -----------------------------------------------------------------
+    // HOJA 2: MATRIZ DE RIESGOS CONPES 3714 (17 COLUMNAS ESTÁNDAR)
+    // -----------------------------------------------------------------
+    const wsMatriz = workbook.addWorksheet('2. Matriz CONPES 3714');
+    wsMatriz.views = [{ showGridLines: true }];
+
+    wsMatriz.columns = [
+      { key: 'orden', width: 6 },
+      { key: 'codigo', width: 14 },
+      { key: 'clase', width: 12 },
+      { key: 'fuente', width: 12 },
+      { key: 'etapa', width: 12 },
+      { key: 'tipo', width: 18 },
+      { key: 'descripcion', width: 38 },
+      { key: 'consecuencia', width: 32 },
+      { key: 'p_ini', width: 8 },
+      { key: 'i_ini', width: 8 },
+      { key: 'val_ini', width: 10 },
+      { key: 'cat_ini', width: 12 },
+      { key: 'asignado', width: 14 },
+      { key: 'tratamiento', width: 12 },
+      { key: 'mitigacion', width: 38 },
+      { key: 'transferencia', width: 28 },
+      { key: 'responsable', width: 24 }
+    ];
+
+    wsMatriz.mergeCells('A1:Q1');
+    wsMatriz.getCell('A1').value = `MATRIZ DETALLADA DE RIESGOS PREVISIBLES (CONPES 3714) - PROCESO: ${matriz.numero_proceso || ''}`;
+    wsMatriz.getCell('A1').font = { size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+    wsMatriz.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
+    wsMatriz.getCell('A1').alignment = { horizontal: 'center' };
+
+    const header = wsMatriz.addRow([
+      'No.', 'CÓDIGO', 'CLASE', 'FUENTE', 'ETAPA', 'TIPO', 'DESCRIPCIÓN DEL RIESGO', 'CONSECUENCIA',
+      'PROB', 'IMP', 'VALORAC.', 'SEVERIDAD', 'A QUIÉN SE ASIGNA', 'TRATAMIENTO', 'ACCIONES DE MITIGACIÓN',
+      'MECANISMO TRANSFERENCIA', 'RESPONSABLE MONITOREO'
+    ]);
+    header.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 8 };
+    for (let c = 1; c <= 17; c++) {
+      header.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+      header.getCell(c).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    }
+
+    items.forEach((it, idx) => {
+      const calc = RiskMatrixEngine.calcularNivelRiesgo(it.probabilidad, it.impacto);
+      const row = wsMatriz.addRow([
+        idx + 1,
+        it.codigo_riesgo,
+        it.clase || 'Específico',
+        it.fuente || (it.a_quien_se_asigna === 'ENTIDAD' ? 'Interno' : 'Externo'),
+        it.etapa,
+        it.tipo,
+        it.descripcion_riesgo,
+        it.consecuencia_evento,
+        it.probabilidad,
+        it.impacto,
+        calc.calificacion,
+        calc.categoria,
+        it.a_quien_se_asigna,
+        it.tratamiento,
+        it.acciones_mitigacion,
+        it.mecanismo_transferencia,
+        it.responsable_monitoreo
+      ]);
+
+      row.getCell(1).alignment = { horizontal: 'center' };
+      row.getCell(2).alignment = { horizontal: 'center' };
+      row.getCell(9).alignment = { horizontal: 'center' };
+      row.getCell(10).alignment = { horizontal: 'center' };
+      row.getCell(11).alignment = { horizontal: 'center' };
+      row.getCell(12).alignment = { horizontal: 'center' };
+      row.getCell(13).alignment = { horizontal: 'center' };
+      row.getCell(14).alignment = { horizontal: 'center' };
+
+      // Colores de severidad
+      if (calc.categoria === 'EXTREMO') {
+        row.getCell(12).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEF4444' } };
+        row.getCell(12).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      } else if (calc.categoria === 'ALTO') {
+        row.getCell(12).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF97316' } };
+        row.getCell(12).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      } else if (calc.categoria === 'MEDIO') {
+        row.getCell(12).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF59E0B' } };
+        row.getCell(12).font = { bold: true, color: { argb: 'FF0F172A' } };
+      } else {
+        row.getCell(12).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF10B981' } };
+        row.getCell(12).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      }
+    });
+
+    return await workbook.xlsx.writeBuffer();
   }
 }
 
