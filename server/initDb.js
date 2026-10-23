@@ -25,7 +25,10 @@ const SCHEMAS = [
   'schema_apu_analisis.sql',
   'schema_propuesta_economica.sql',
   'schema_criterios_diferenciales.sql',
-  'schema_anticipos_fiducia.sql'
+  'schema_anticipos_fiducia.sql',
+  'schema_equilibrio_economico.sql',
+  'schema_liquidacion_contractual.sql',
+  'schema_supervision_interventoria.sql'
 ];
 
 async function runAllMigrations() {

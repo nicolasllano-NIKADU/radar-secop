@@ -1480,6 +1480,29 @@
           </svg>
           <span>🏦 Anticipos & Fiducia (Ley 1474)</span>
         </button>
+        <button id="modalBtnEquilibrioEconomico" class="btn-action" style="flex: 1; min-width: 140px; justify-content: center; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #fca5a5;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M12 3v18"/>
+            <rect x="3" y="7" width="6" height="5"/>
+            <rect x="15" y="12" width="6" height="5"/>
+          </svg>
+          <span>⚖️ Equilibrio Económico (Ley 80)</span>
+        </button>
+        <button id="modalBtnLiquidacion" class="btn-action" style="flex: 1; min-width: 140px; justify-content: center; background: rgba(5, 150, 105, 0.15); border: 1px solid #059669; color: #6ee7b7;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+          <span>📜 Liquidación Final (Ley 80 Art. 60)</span>
+        </button>
+        <button id="modalBtnInterventoria" class="btn-action" style="flex: 1; min-width: 140px; justify-content: center; background: rgba(79, 70, 229, 0.15); border: 1px solid #4f46e5; color: #a5b4fc;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <path d="M9 15l2 2 4-4"/>
+          </svg>
+          <span>🔍 Interventoría & Bitácora (Ley 1474)</span>
+        </button>
         <button id="modalNotifyBtn" class="btn-action btn-action-tele" style="flex: 1; min-width: 140px; justify-content: center;">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <line x1="22" y1="2" x2="11" y2="13"/>
@@ -4341,6 +4364,820 @@
         </div>
         <div>
           <button id="btnCloseAnticiposModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL RESTABLECIMIENTO DEL EQUILIBRIO ECONÓMICO (LEY 80 ART. 27) ================= -->
+  <div id="equilibrioEconomicoModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 1040px; max-height: 92vh; overflow-y: auto;">
+      <div class="modal-header" style="border-bottom: 1px solid var(--hairline); padding-bottom: 12px; margin-bottom: 14px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 1.3rem;">⚖️</span>
+              <h2 style="font-size: 1.15rem; font-weight: 800; color: #ef4444; margin: 0;">
+                Módulo de Reclamaciones y Equilibrio Económico Contractual
+              </h2>
+              <span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #fca5a5; font-size: 0.7rem; font-weight: 700;">
+                Ley 80/1993 Art. 27 • Ley 2220/2022
+              </span>
+            </div>
+            <p style="font-size: 0.72rem; color: var(--text-faint); margin: 3px 0 0 0;">
+              Teoría de la Imprevisión • Mayor Permanencia en Obra • Hecho del Príncipe • Stand-by Maquinaria • Indexación IPC Consejo de Estado
+            </p>
+          </div>
+          <button id="btnCloseEquilibrioModal" class="btn-icon" title="Cerrar modal" style="color: var(--text-faint);">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <!-- Pestañas de Navegación -->
+      <div style="display: flex; gap: 8px; border-bottom: 1px solid var(--hairline); padding-bottom: 10px; margin-bottom: 16px;">
+        <button id="tabBtnEquilibrioSimulador" class="filter-pill active" style="font-size: 0.78rem; padding: 6px 14px; font-weight: 700;">
+          📊 1. Liquidación Pericial & Parámetros
+        </button>
+        <button id="tabBtnEquilibrioItems" class="filter-pill" style="font-size: 0.78rem; padding: 6px 14px;">
+          🚜 2. Ítems Reclamados (Stand-by, Nómina, IPP)
+        </button>
+        <button id="tabBtnEquilibrioHistorial" class="filter-pill" style="font-size: 0.78rem; padding: 6px 14px;">
+          📂 3. Historial de Reclamaciones
+        </button>
+      </div>
+
+      <!-- ================= PESTAÑA 1: SIMULADOR Y LIQUIDACIÓN ================= -->
+      <div id="tabContentEquilibrioSimulador">
+        <!-- Parámetros Contractuales y Tipología -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+          <div style="font-size: 0.8rem; font-weight: 700; color: #ef4444; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+            <span>📋 Fundamento Fáctico y Tipología Jurídica</span>
+            <span style="font-size: 0.7rem; color: var(--text-faint);">Doctrina Consejo de Estado Sección Tercera</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin-bottom: 10px;">
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Número de Contrato:</label>
+              <input type="text" id="eqContratoNum" placeholder="Ej. CTO-2026-045" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Número de Proceso:</label>
+              <input type="text" id="eqProcesoNum" placeholder="Ej. LP-OBRA-2026-001" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Entidad Convocada:</label>
+              <input type="text" id="eqEntidadNombre" placeholder="Ej. Instituto de Desarrollo Urbano" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Contratista Convocante:</label>
+              <input type="text" id="eqContratistaNombre" placeholder="Ej. Consorcio Vial Colombia" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Tipología Jurídica del Desequilibrio:</label>
+              <select id="eqTipologia" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">
+                <option value="MAYOR_PERMANENCIA_OBRA" selected>Mayor Permanencia en Obra (Suspensión / Prórroga no imputable)</option>
+                <option value="TEORIA_IMPREVISION">Teoría de la Imprevisión (Punto de no pérdida - Art. 868 C.Co)</option>
+                <option value="HECHO_DEL_PRINCIPE">Hecho del Príncipe (Acto general de la Entidad - Indemnización plena)</option>
+                <option value="IUS_VARIANDI">Ius Variandi (Modificaciones unilaterales imprevistas)</option>
+                <option value="INCUMPLIMIENTO_ENTIDAD">Incumplimiento Contractual Entidad (Mora en pagos / predios)</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Valor Inicial Contrato (COP):</label>
+              <input type="number" id="eqValorContrato" value="2500000000" step="1000000" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Plazo Original (Días):</label>
+              <input type="number" id="eqPlazoDias" value="180" min="1" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Días Afectación / Suspensión:</label>
+              <input type="number" id="eqDiasAfectacion" value="60" min="0" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">IPC DANE Inicial (Fecha Hecho):</label>
+              <input type="number" id="eqIpcInicial" value="142.5" step="0.1" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">IPC DANE Final (Fecha Reclamación):</label>
+              <input type="number" id="eqIpcFinal" value="158.2" step="0.1" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+          </div>
+
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Descripción de Hechos Generadores del Desequilibrio:</label>
+            <textarea id="eqHechosGeneradores" rows="2" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">Retrasos y suspensiones de obra por no entrega del corredor predial y demoras en el trámite de la licencia de aprovechamiento forestal imputables exclusivamente a la Entidad Contratante.</textarea>
+          </div>
+
+          <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+            <button id="btnRecalcularEquilibrio" class="btn-action" style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; font-size: 0.78rem; font-weight: 700; padding: 6px 14px;">
+              ⚡ Liquidar Perjuicios & Indexación
+            </button>
+          </div>
+        </div>
+
+        <!-- Cockpit de Métricas Periciales -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 14px;">
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #ef4444;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Total Reclamado Actualizado</div>
+            <div id="statEqTotalReclamado" style="font-size: 1.1rem; font-weight: 800; color: #f87171; margin-top: 2px;">$ 0</div>
+            <div id="statEqImpactoBadge" style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">0.00% del contrato</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #3b82f6;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Daño Emergente Histórico</div>
+            <div id="statEqDanoEmergente" style="font-size: 1.1rem; font-weight: 800; color: #60a5fa; margin-top: 2px;">$ 0</div>
+            <div style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Costos directos y nómina</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #f59e0b;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Actualización Monetaria IPC</div>
+            <div id="statEqIndexacionIpc" style="font-size: 1.1rem; font-weight: 800; color: #fbbf24; margin-top: 2px;">$ 0</div>
+            <div id="statEqFactorBadge" style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Fórmula Consejo de Estado</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #10b981;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Lucro Cesante Reconocido</div>
+            <div id="statEqLucroCesante" style="font-size: 1.1rem; font-weight: 800; color: #34d399; margin-top: 2px;">$ 0</div>
+            <div id="statEqLucroBadge" style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Según régimen de la tipología</div>
+          </div>
+        </div>
+
+        <!-- Banner de Viabilidad Procesal / Procuraduría -->
+        <div id="eqViabilidadBanner" class="card-glass" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+          <div style="display: flex; gap: 8px; align-items: flex-start;">
+            <span style="font-size: 1.1rem;">⚖️</span>
+            <div>
+              <div id="eqViabilidadTitulo" style="font-size: 0.78rem; font-weight: 700; color: #34d399;">
+                Dictamen Pericial de Viabilidad Procesal: ALTA
+              </div>
+              <div id="eqViabilidadTexto" style="font-size: 0.7rem; color: var(--text-faint); margin-top: 2px;">
+                La solicitud reúne los presupuestos probatorios para radicación directa de audiencia de conciliación prejudicial ante la Procuraduría Judicial.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PESTAÑA 2: ÍTEMS RECLAMADOS ================= -->
+      <div id="tabContentEquilibrioItems" style="display: none;">
+        <!-- Formulario para Añadir Ítem -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+          <div style="font-size: 0.75rem; font-weight: 700; color: var(--champagne); margin-bottom: 8px;">
+            ➕ Agregar Concepto de Sobrecosto al Peritaje
+          </div>
+          <div style="display: grid; grid-template-columns: 1.5fr 2fr 1fr 1fr auto; gap: 8px; align-items: flex-end;">
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Tipo de Perjuicio:</label>
+              <select id="eqNuevoItemTipo" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">
+                <option value="EQUIPO_STANDBY">Equipo en Stand-by (40% s/Tarifa Plena)</option>
+                <option value="NOMINA_PERSONAL">Nómina Técnica y Operativa de Permanencia</option>
+                <option value="DESFASE_MATERIALES_IPP">Desfase Inflacionario de Materiales (IPP DANE)</option>
+                <option value="COSTO_GENERAL">Otros Sobrecostos Administrativos Acreditados</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Descripción / Detalle del Rubro:</label>
+              <input type="text" id="eqNuevoItemDesc" placeholder="Ej. Retroexcavadora CAT 320 parada en frente 1" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Valor Histórico (COP):</label>
+              <input type="number" id="eqNuevoItemValor" placeholder="Ej. 15000000" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Soporte Anexo:</label>
+              <input type="text" id="eqNuevoItemSoporte" placeholder="Ej. Bitácora de Obra N° 12" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <button id="btnAgregarItemEquilibrio" class="btn-action" style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; font-size: 0.72rem; padding: 5px 12px; height: 30px;">
+                + Agregar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabla de Ítems Liquidados -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+          <div style="overflow-x: auto;">
+            <table class="table-styled" style="width: 100%; font-size: 0.72rem;">
+              <thead>
+                <tr style="background: rgba(239, 68, 68, 0.15); color: #fca5a5;">
+                  <th style="padding: 6px 8px;">Concepto / Rubro</th>
+                  <th style="padding: 6px 8px;">Método Pericial</th>
+                  <th style="padding: 6px 8px; text-align: right;">Valor Base</th>
+                  <th style="padding: 6px 8px; text-align: right;">Indexación IPC</th>
+                  <th style="padding: 6px 8px; text-align: right;">Total Indexado</th>
+                  <th style="padding: 6px 8px; text-align: center;">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyItemsEquilibrio">
+                <!-- Inyección JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PESTAÑA 3: HISTORIAL ================= -->
+      <div id="tabContentEquilibrioHistorial" style="display: none;">
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span style="font-size: 0.78rem; font-weight: 700; color: var(--champagne);">
+              Historial de Reclamaciones Contractuales Registradas
+            </span>
+            <button id="btnRecargarHistorialEquilibrio" class="btn-action" style="font-size: 0.7rem; padding: 4px 10px;">
+              🔄 Actualizar Lista
+            </button>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="table-styled" style="width: 100%; font-size: 0.72rem;">
+              <thead>
+                <tr style="background: rgba(255, 255, 255, 0.05); color: var(--text-faint);">
+                  <th style="padding: 6px 8px;">Contrato / Proceso</th>
+                  <th style="padding: 6px 8px;">Entidad</th>
+                  <th style="padding: 6px 8px;">Tipología</th>
+                  <th style="padding: 6px 8px; text-align: right;">Total Reclamado</th>
+                  <th style="padding: 6px 8px; text-align: center;">Impacto</th>
+                  <th style="padding: 6px 8px; text-align: center;">Estado</th>
+                  <th style="padding: 6px 8px; text-align: center;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyHistorialEquilibrio">
+                <!-- Inyección JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer y Acciones -->
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-top: 1px solid var(--hairline); padding-top: 12px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button id="btnDownloadEquilibrioPdf" class="btn-action" style="font-size: 0.78rem; padding: 6px 14px; background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; font-weight: 700;">
+            📄 Dictamen Pericial & Conciliación (PDF)
+          </button>
+          <button id="btnDownloadEquilibrioExcel" class="btn-action" style="font-size: 0.78rem; padding: 6px 14px; background: rgba(59, 130, 246, 0.15); border: 1px solid #3b82f6; color: #93c5fd; font-weight: 700;">
+            📊 Memoria Excel (.xlsx)
+          </button>
+          <button id="btnSaveEquilibrioPlan" class="btn-action" style="font-size: 0.78rem; padding: 6px 14px; background: rgba(212, 175, 55, 0.15); border: 1px solid var(--gold); color: var(--champagne); font-weight: 700;">
+            💾 Guardar Reclamación en Base de Datos
+          </button>
+        </div>
+        <div>
+          <button id="btnCloseEquilibrioModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL LIQUIDACIÓN FINAL DE CONTRATOS (LEY 80 ART. 60) ================= -->
+  <div id="liquidacionModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 1040px; max-height: 92vh; overflow-y: auto;">
+      <div class="modal-header" style="border-bottom: 1px solid var(--hairline); padding-bottom: 12px; margin-bottom: 14px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 1.3rem;">📜</span>
+              <h2 style="font-size: 1.15rem; font-weight: 800; color: #059669; margin: 0;">
+                Módulo de Liquidación Final del Contrato y Cierre de Balances
+              </h2>
+              <span class="badge" style="background: rgba(5, 150, 105, 0.2); color: #6ee7b7; font-size: 0.7rem; font-weight: 700;">
+                Ley 80/1993 Art. 60 • Ley 1150 Art. 11
+              </span>
+            </div>
+            <p style="font-size: 0.72rem; color: var(--text-faint); margin: 3px 0 0 0;">
+              Acta de Liquidación Bilateral • Conciliación de Pagos & Anticipos • Retenciones en Garantía • Amparos Poscontractuales (5 años)
+            </p>
+          </div>
+          <button id="btnCloseLiquidacionModal" class="btn-icon" title="Cerrar modal" style="color: var(--text-faint);">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <!-- Pestañas de Navegación -->
+      <div style="display: flex; gap: 8px; border-bottom: 1px solid var(--hairline); padding-bottom: 10px; margin-bottom: 16px;">
+        <button id="tabBtnLiqBalance" class="filter-pill active" style="font-size: 0.78rem; padding: 6px 14px; font-weight: 700;">
+          📊 1. Balance Financiero & Conciliación
+        </button>
+        <button id="tabBtnLiqAmparos" class="filter-pill" style="font-size: 0.78rem; padding: 6px 14px;">
+          🛡️ 2. Amparos Poscontractuales & Salvedades
+        </button>
+        <button id="tabBtnLiqHistorial" class="filter-pill" style="font-size: 0.78rem; padding: 6px 14px;">
+          📂 3. Historial de Liquidaciones
+        </button>
+      </div>
+
+      <!-- ================= PESTAÑA 1: BALANCE FINANCIERO ================= -->
+      <div id="tabContentLiqBalance">
+        <!-- Parámetros del Contrato y Finanzas -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+          <div style="font-size: 0.8rem; font-weight: 700; color: #059669; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+            <span>📋 Conciliación Económica y Cuentas de Cobro</span>
+            <span style="font-size: 0.7rem; color: var(--text-faint);">Término de Liquidación Bilateral: 4 Meses</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin-bottom: 10px;">
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Número de Contrato:</label>
+              <input type="text" id="liqContratoNum" placeholder="Ej. CTO-2026-045" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Número de Proceso:</label>
+              <input type="text" id="liqProcesoNum" placeholder="Ej. LP-OBRA-2026-001" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Entidad Estatal:</label>
+              <input type="text" id="liqEntidadNombre" placeholder="Ej. Instituto Nacional de Vías" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Contratista Ejecutor:</label>
+              <input type="text" id="liqContratistaNombre" placeholder="Ej. Consorcio Vial Andino" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Tipo de Liquidación:</label>
+              <select id="liqTipoLiquidacion" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">
+                <option value="MUTUO_ACUERDO_BILATERAL" selected>Mutuo Acuerdo Bilateral (Art. 60 Ley 80 / Art. 11 Ley 1150)</option>
+                <option value="UNILATERAL_ADMINISTRATIVA">Unilateral por Acto Administrativo (Art. 11 Ley 1150)</option>
+                <option value="JUDICIAL">Judicial / Arbitral</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Interventoría / Supervisión:</label>
+              <input type="text" id="liqInterventorNombre" value="INTERVENTORÍA INTEGRAL TÉCNICA S.A.S." style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Fecha Terminación Contrato:</label>
+              <input type="date" id="liqFechaTerminacion" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Fecha Acta de Liquidación:</label>
+              <input type="date" id="liqFechaLiquidacion" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Valor Inicial Contrato (COP):</label>
+              <input type="number" id="liqValorInicial" value="1000000000" step="1000000" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Adiciones en Valor (COP):</label>
+              <input type="number" id="liqValorAdiciones" value="200000000" step="1000000" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Total Ejecutado en Actas (COP):</label>
+              <input type="number" id="liqValorEjecutado" value="1200000000" step="1000000" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Total Pagado por Tesorería (COP):</label>
+              <input type="number" id="liqValorPagado" value="1100000000" step="1000000" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Anticipo Concedido (COP):</label>
+              <input type="number" id="liqAnticipoConcedido" value="240000000" step="1000000" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Anticipo Amortizado en Actas (COP):</label>
+              <input type="number" id="liqAnticipoAmortizado" value="240000000" step="1000000" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Retenciones en Garantía a Devolver (COP):</label>
+              <input type="number" id="liqRetencionesGarantia" value="30000000" step="100000" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Descuentos por Multas/Sanciones (COP):</label>
+              <input type="number" id="liqMultasDeducciones" value="5000000" step="100000" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+          </div>
+
+          <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+            <button id="btnRecalcularLiquidacion" class="btn-action" style="background: rgba(5, 150, 105, 0.2); border: 1px solid #059669; color: #6ee7b7; font-size: 0.78rem; font-weight: 700; padding: 6px 14px;">
+              ⚡ Conciliar Balance de Liquidación
+            </button>
+          </div>
+        </div>
+
+        <!-- Cockpit de Cuentas y Saldo Neto de Liquidación -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 14px;">
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #059669;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Saldo Neto de Liquidación</div>
+            <div id="statLiqSaldoNeto" style="font-size: 1.1rem; font-weight: 800; color: #34d399; margin-top: 2px;">$ 0</div>
+            <div id="statLiqDireccionBadge" style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">A favor del Contratista</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #3b82f6;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Valor Definitivo del Contrato</div>
+            <div id="statLiqValorDefinitivo" style="font-size: 1.1rem; font-weight: 800; color: #60a5fa; margin-top: 2px;">$ 0</div>
+            <div style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Inicial + Adiciones</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #f59e0b;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Ejecución vs Facturado</div>
+            <div id="statLiqPctEjecucion" style="font-size: 1.1rem; font-weight: 800; color: #fbbf24; margin-top: 2px;">100.00%</div>
+            <div id="statLiqEjecutadoMonto" style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">$ 0 ejecutados</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #a855f7;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Estado del Anticipo</div>
+            <div id="statLiqAnticipoEstado" style="font-size: 1.1rem; font-weight: 800; color: #c084fc; margin-top: 2px;">100% Amortizado</div>
+            <div style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Saldo anticipo: $ 0</div>
+          </div>
+        </div>
+
+        <!-- Banner de Dictamen de Paz y Salvo -->
+        <div id="liqPazYSalvoBanner" class="card-glass" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+          <div style="display: flex; gap: 8px; align-items: flex-start;">
+            <span style="font-size: 1.1rem;">🤝</span>
+            <div>
+              <div id="liqPazYSalvoTitulo" style="font-size: 0.78rem; font-weight: 700; color: #34d399;">
+                Declaración de Paz y Salvo Recíproco
+              </div>
+              <div id="liqPazYSalvoTexto" style="font-size: 0.7rem; color: var(--text-faint); margin-top: 2px;">
+                Existe un saldo neto a favor del Contratista que debe ser cancelado por la Entidad Estatal para perfeccionar el cierre definitivo.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PESTAÑA 2: AMPAROS Y SALVEDADES ================= -->
+      <div id="tabContentLiqAmparos" style="display: none;">
+        <!-- Salvedades del Contratista -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+          <div style="font-size: 0.78rem; font-weight: 700; color: var(--champagne); margin-bottom: 8px;">
+            ✍️ Constancia sobre Salvedades u Observaciones del Contratista
+          </div>
+          <p style="font-size: 0.68rem; color: var(--text-faint); margin: 0 0 6px 0;">
+            Conforme a reiterada jurisprudencia del Consejo de Estado, cualquier reclamo de mayores costos o desequilibrio económico DEBE quedar expresamente consignado en el acta de liquidación, so pena de renuncia tácita.
+          </p>
+          <textarea id="liqSalvedadesContratista" rows="3" placeholder="Ej. El contratista se reserva el derecho de reclamar mayores costos por mayor permanencia en obra..." style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">Sin salvedades. Las partes suscriben de mutuo acuerdo y se declaran a paz y salvo total por todo concepto derivado del contrato.</textarea>
+        </div>
+
+        <!-- Tabla de Amparos Poscontractuales Exigidos -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+          <div style="font-size: 0.78rem; font-weight: 700; color: #059669; margin-bottom: 10px;">
+            🛡️ Amparos de la Garantía Poscontractual Obligatorios (Decreto 1082 de 2015)
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="table-styled" style="width: 100%; font-size: 0.72rem;">
+              <thead>
+                <tr style="background: rgba(5, 150, 105, 0.15); color: #6ee7b7;">
+                  <th style="padding: 6px 8px;">Amparo Poscontractual</th>
+                  <th style="padding: 6px 8px; text-align: center;">% Exigido</th>
+                  <th style="padding: 6px 8px;">Vigencia Obligatoria</th>
+                  <th style="padding: 6px 8px; text-align: right;">Valor Asegurado (COP)</th>
+                  <th style="padding: 6px 8px; text-align: center;">Estado Póliza</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyLiqAmparos">
+                <!-- Inyección JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PESTAÑA 3: HISTORIAL ================= -->
+      <div id="tabContentLiqHistorial" style="display: none;">
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span style="font-size: 0.78rem; font-weight: 700; color: var(--champagne);">
+              Historial de Actas de Liquidación Guardadas
+            </span>
+            <button id="btnRecargarHistorialLiq" class="btn-action" style="font-size: 0.7rem; padding: 4px 10px;">
+              🔄 Actualizar Lista
+            </button>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="table-styled" style="width: 100%; font-size: 0.72rem;">
+              <thead>
+                <tr style="background: rgba(255, 255, 255, 0.05); color: var(--text-faint);">
+                  <th style="padding: 6px 8px;">Contrato / Proceso</th>
+                  <th style="padding: 6px 8px;">Entidad</th>
+                  <th style="padding: 6px 8px; text-align: right;">Valor Final</th>
+                  <th style="padding: 6px 8px; text-align: right;">Saldo Neto Final</th>
+                  <th style="padding: 6px 8px; text-align: center;">Dirección Saldo</th>
+                  <th style="padding: 6px 8px; text-align: center;">Estado</th>
+                  <th style="padding: 6px 8px; text-align: center;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyHistorialLiquidaciones">
+                <!-- Inyección JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer y Acciones -->
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-top: 1px solid var(--hairline); padding-top: 12px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button id="btnDownloadLiqPdf" class="btn-action" style="font-size: 0.78rem; padding: 6px 14px; background: rgba(5, 150, 105, 0.2); border: 1px solid #059669; color: #6ee7b7; font-weight: 700;">
+            📄 Acta de Liquidación (PDF)
+          </button>
+          <button id="btnDownloadLiqExcel" class="btn-action" style="font-size: 0.78rem; padding: 6px 14px; background: rgba(59, 130, 246, 0.15); border: 1px solid #3b82f6; color: #93c5fd; font-weight: 700;">
+            📊 Balance Excel (.xlsx)
+          </button>
+          <button id="btnSaveLiqPlan" class="btn-action" style="font-size: 0.78rem; padding: 6px 14px; background: rgba(212, 175, 55, 0.15); border: 1px solid var(--gold); color: var(--champagne); font-weight: 700;">
+            💾 Guardar Acta en Base de Datos
+          </button>
+        </div>
+        <div>
+          <button id="btnCloseLiquidacionModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL SUPERVISIÓN E INTERVENTORÍA CONTRACTUAL (LEY 1474 ARTS. 82-85) ================= -->
+  <div id="interventoriaModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 1040px; max-height: 92vh; overflow-y: auto;">
+      <div class="modal-header" style="border-bottom: 1px solid var(--hairline); padding-bottom: 12px; margin-bottom: 14px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 1.3rem;">🔍</span>
+              <h2 style="font-size: 1.15rem; font-weight: 800; color: #6366f1; margin: 0;">
+                Módulo de Auditoría de Supervisión e Interventoría Técnica
+              </h2>
+              <span class="badge" style="background: rgba(99, 102, 241, 0.2); color: #a5b4fc; font-size: 0.7rem; font-weight: 700;">
+                Ley 1474/2011 Arts. 82-85
+              </span>
+            </div>
+            <p style="font-size: 0.72rem; color: var(--text-faint); margin: 3px 0 0 0;">
+              Bitácora Digital de Campo • Control de Calidad de Ensayos (NSR-10 / INVIAS) • Curva S & Desempeño SPI • Visado de Actas
+            </p>
+          </div>
+          <button id="btnCloseInterventoriaModal" class="btn-icon" title="Cerrar modal" style="color: var(--text-faint);">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <!-- Pestañas de Navegación -->
+      <div style="display: flex; gap: 8px; border-bottom: 1px solid var(--hairline); padding-bottom: 10px; margin-bottom: 16px;">
+        <button id="tabBtnIntDesempeno" class="filter-pill active" style="font-size: 0.78rem; padding: 6px 14px; font-weight: 700;">
+          📈 1. Desempeño de Cronograma & Curva S
+        </button>
+        <button id="tabBtnIntBitacora" class="filter-pill" style="font-size: 0.78rem; padding: 6px 14px;">
+          📝 2. Bitácora Digital de Obra
+        </button>
+        <button id="tabBtnIntEnsayos" class="filter-pill" style="font-size: 0.78rem; padding: 6px 14px;">
+          🧪 3. Control de Calidad de Ensayos
+        </button>
+      </div>
+
+      <!-- ================= PESTAÑA 1: DESEMPEÑO Y CRONOGRAMA ================= -->
+      <div id="tabContentIntDesempeno">
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+          <div style="font-size: 0.8rem; font-weight: 700; color: #6366f1; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+            <span>📋 Metadatos del Contrato y Parámetros de Supervisión</span>
+            <span style="font-size: 0.7rem; color: var(--text-faint);">Responsabilidad Solidaria Art. 83 Ley 1474</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin-bottom: 10px;">
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Número de Contrato:</label>
+              <input type="text" id="intContratoNum" placeholder="Ej. CTO-2026-045" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Número de Proceso:</label>
+              <input type="text" id="intProcesoNum" placeholder="Ej. LP-OBRA-2026-001" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Entidad Estatal:</label>
+              <input type="text" id="intEntidadNombre" placeholder="Ej. Instituto Nacional de Vías" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Contratista de Obra:</label>
+              <input type="text" id="intContratistaNombre" placeholder="Ej. Consorcio Vial Andino" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Firma de Interventoría:</label>
+              <input type="text" id="intInterventorNombre" value="INTERVENTORÍA INTEGRAL TÉCNICA S.A.S." style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Período Evaluado:</label>
+              <input type="text" id="intPeriodoInforme" value="Mes 03 (Octubre 2026)" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">% Avance Físico Programado:</label>
+              <input type="number" id="intProgPct" value="50" min="0" max="100" step="0.5" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">% Avance Físico Real Ejecutado:</label>
+              <input type="number" id="intRealPct" value="52" min="0" max="100" step="0.5" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+          </div>
+
+          <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+            <button id="btnRecalcularInterventoria" class="btn-action" style="background: rgba(99, 102, 241, 0.2); border: 1px solid #6366f1; color: #a5b4fc; font-size: 0.78rem; font-weight: 700; padding: 6px 14px;">
+              ⚡ Evaluar Desempeño & SPI
+            </button>
+          </div>
+        </div>
+
+        <!-- Cockpit de Métricas SPI y Calidad -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 14px;">
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #6366f1;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Índice de Desempeño SPI</div>
+            <div id="statIntSpi" style="font-size: 1.1rem; font-weight: 800; color: #818cf8; margin-top: 2px;">1.040</div>
+            <div id="statIntSpiBadge" style="font-size: 0.65rem; color: #34d399; margin-top: 2px;">En Cronograma</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #10b981;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Desviación de Avance</div>
+            <div id="statIntDesviacion" style="font-size: 1.1rem; font-weight: 800; color: #34d399; margin-top: 2px;">+2.00%</div>
+            <div style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Real vs Programado</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #3b82f6;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Índice de Calidad Global</div>
+            <div id="statIntCalidadGlobal" style="font-size: 1.1rem; font-weight: 800; color: #60a5fa; margin-top: 2px;">100.0%</div>
+            <div id="statIntEnsayosCountBadge" style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Ensayos conformes</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #f59e0b;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Recomendación de Pago</div>
+            <div id="statIntRecomendacionPago" style="font-size: 1.1rem; font-weight: 800; color: #fbbf24; margin-top: 2px;">FAVORABLE</div>
+            <div style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Aprobado para acta parcial</div>
+          </div>
+        </div>
+
+        <!-- Banner de Concepto de Supervisión -->
+        <div id="intConceptoBanner" class="card-glass" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+          <div style="display: flex; gap: 8px; align-items: flex-start;">
+            <span style="font-size: 1.1rem;">📝</span>
+            <div>
+              <div id="intConceptoTitulo" style="font-size: 0.78rem; font-weight: 700; color: #34d399;">
+                Concepto Técnico de la Interventoría: EN CRONOGRAMA
+              </div>
+              <div id="intConceptoTexto" style="font-size: 0.7rem; color: var(--text-faint); margin-top: 2px;">
+                La obra avanza al ritmo programado con indicadores de calidad conformes según NSR-10 e INVIAS.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PESTAÑA 2: BITÁCORA DIGITAL ================= -->
+      <div id="tabContentIntBitacora" style="display: none;">
+        <!-- Formulario Evento de Bitácora -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+          <div style="font-size: 0.75rem; font-weight: 700; color: var(--champagne); margin-bottom: 8px;">
+            ➕ Registrar Evento Diario en Bitácora de Campo
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-bottom: 8px;">
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Fecha del Evento:</label>
+              <input type="date" id="intBitFecha" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Condición Climática:</label>
+              <select id="intBitClima" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">
+                <option value="SOLEADO">☀️ Soleado / Óptimo</option>
+                <option value="LLUVIA_LEVE">🌦️ Lluvia Leve (Rendimiento parcial)</option>
+                <option value="LLUVIA_FUERTE_SUSPENSION">⛈️ Lluvia Fuerte (Suspensión de jornada)</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Personal Total en Obra:</label>
+              <input type="number" id="intBitPersonal" value="24" min="0" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Maquinaria Activa:</label>
+              <input type="number" id="intBitMaquinaria" value="6" min="0" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Frente de Trabajo:</label>
+              <input type="text" id="intBitFrente" value="Frente 1 - Estructuras" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Actividades Ejecutadas:</label>
+              <textarea id="intBitActividades" rows="2" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">Vaciado de concreto en zapatas eje 4 y compactación de terraplén.</textarea>
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Instrucción / Orden de Interventoría:</label>
+              <textarea id="intBitInstruccion" rows="2" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">Se autoriza fundida tras verificar armado de acero y recubrimientos mínimos.</textarea>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end;">
+            <button id="btnAgregarEventoBitacora" class="btn-action" style="background: rgba(99, 102, 241, 0.2); border: 1px solid #6366f1; color: #a5b4fc; font-size: 0.72rem; padding: 5px 14px;">
+              + Registrar en Bitácora
+            </button>
+          </div>
+        </div>
+
+        <!-- Tabla de Eventos de Bitácora -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+          <div style="overflow-x: auto;">
+            <table class="table-styled" style="width: 100%; font-size: 0.72rem;">
+              <thead>
+                <tr style="background: rgba(99, 102, 241, 0.15); color: #a5b4fc;">
+                  <th style="padding: 6px 8px;">Fecha / Clima</th>
+                  <th style="padding: 6px 8px;">Recursos</th>
+                  <th style="padding: 6px 8px;">Frente de Obra</th>
+                  <th style="padding: 6px 8px;">Actividades Ejecutadas</th>
+                  <th style="padding: 6px 8px;">Instrucción de Interventoría</th>
+                  <th style="padding: 6px 8px; text-align: center;">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyBitacoraEventos">
+                <!-- Inyección JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PESTAÑA 3: CONTROL DE CALIDAD ================= -->
+      <div id="tabContentIntEnsayos" style="display: none;">
+        <!-- Formulario Ensayo -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+          <div style="font-size: 0.75rem; font-weight: 700; color: var(--champagne); margin-bottom: 8px;">
+            ➕ Registrar Ensayo de Calidad de Laboratorio
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-bottom: 8px;">
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Tipo de Ensayo:</label>
+              <select id="intEnsTipo" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">
+                <option value="COMPRESION_CONCRETO_28D" selected>Compresión de Concreto 28D (NSR-10 / NTC 673)</option>
+                <option value="DENSIDAD_SUELOS_PROCTOR">Densidad de Suelos Proctor (INVIAS Art. 210)</option>
+                <option value="ASENTAMIENTO_SLUMP">Asentamiento Slump (NTC 396)</option>
+                <option value="ACERO_TRACCION">Tracción y Fluencia de Acero (NTC 2289)</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Localización Muestra:</label>
+              <input type="text" id="intEnsLocalizacion" value="Columna Eje 3-B" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Valor Exigido:</label>
+              <input type="number" id="intEnsValorExigido" value="3000" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Valor Obtenido Laboratorio:</label>
+              <input type="number" id="intEnsValorObtenido" value="3150" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Laboratorio Certificado:</label>
+              <input type="text" id="intEnsLaboratorio" value="Laboratorio Colombiano de Geotecnia y Concretos S.A.S." style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end;">
+            <button id="btnAgregarEnsayoCalidad" class="btn-action" style="background: rgba(99, 102, 241, 0.2); border: 1px solid #6366f1; color: #a5b4fc; font-size: 0.72rem; padding: 5px 14px;">
+              + Registrar Ensayo
+            </button>
+          </div>
+        </div>
+
+        <!-- Tabla de Ensayos -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+          <div style="overflow-x: auto;">
+            <table class="table-styled" style="width: 100%; font-size: 0.72rem;">
+              <thead>
+                <tr style="background: rgba(99, 102, 241, 0.15); color: #a5b4fc;">
+                  <th style="padding: 6px 8px;">Tipo de Ensayo</th>
+                  <th style="padding: 6px 8px;">Localización</th>
+                  <th style="padding: 6px 8px; text-align: right;">Exigido</th>
+                  <th style="padding: 6px 8px; text-align: right;">Obtenido</th>
+                  <th style="padding: 6px 8px; text-align: right;">% Conformidad</th>
+                  <th style="padding: 6px 8px; text-align: center;">Resultado</th>
+                  <th style="padding: 6px 8px; text-align: center;">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyEnsayosCalidad">
+                <!-- Inyección JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer y Acciones -->
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-top: 1px solid var(--hairline); padding-top: 12px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button id="btnDownloadIntPdf" class="btn-action" style="font-size: 0.78rem; padding: 6px 14px; background: rgba(99, 102, 241, 0.2); border: 1px solid #6366f1; color: #a5b4fc; font-weight: 700;">
+            📄 Informe Interventoría (PDF)
+          </button>
+          <button id="btnDownloadIntExcel" class="btn-action" style="font-size: 0.78rem; padding: 6px 14px; background: rgba(59, 130, 246, 0.15); border: 1px solid #3b82f6; color: #93c5fd; font-weight: 700;">
+            📊 Libro Bitácora & Calidad (.xlsx)
+          </button>
+        </div>
+        <div>
+          <button id="btnCloseInterventoriaModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
             Cerrar
           </button>
         </div>

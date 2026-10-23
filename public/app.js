@@ -9857,6 +9857,1301 @@ document.getElementById('btnDownloadAnticipoExcel')?.addEventListener('click', a
   }
 });
 
+// ====================================================================
+// MÓDULO DE RECLAMACIONES Y EQUILIBRIO ECONÓMICO (LEY 80 ART. 27)
+// ====================================================================
+
+let currentEquilibrioCalculo = null;
+let currentEquilibrioItems = [];
+let currentEquilibrioId = null;
+
+function abrirModalEquilibrio() {
+  const opp = oportunidades.find(o => o.id === activeModalId) || {};
+  const lider = (userCompanies && userCompanies.length > 0) ? (userCompanies.find(c => c.es_propia) || userCompanies[0]) : null;
+
+  const ctoEl = document.getElementById('eqContratoNum');
+  if (ctoEl) ctoEl.value = opp.referencia ? `CTO-${opp.referencia.replace(/[^a-zA-Z0-9]/g, '')}` : 'CTO-2026-045';
+
+  const procEl = document.getElementById('eqProcesoNum');
+  if (procEl) procEl.value = opp.referencia || opp.id || 'LP-OBRA-2026-001';
+
+  const entEl = document.getElementById('eqEntidadNombre');
+  if (entEl) entEl.value = opp.entidad || 'Entidad Convocada Estatal';
+
+  const contNomEl = document.getElementById('eqContratistaNombre');
+  if (contNomEl) contNomEl.value = lider ? lider.razon_social : 'CONSORCIO MOVILIDAD BOGOTÁ 2026';
+
+  const valCtoEl = document.getElementById('eqValorContrato');
+  const precio = opp.precio_base || opp.cuantia || 2500000000;
+  if (valCtoEl) valCtoEl.value = precio;
+
+  // Ítems iniciales de prueba representativos
+  currentEquilibrioItems = [
+    {
+      tipo: 'EQUIPO_STANDBY',
+      descripcion: 'Retroexcavadora CAT 320 en stand-by por suspensión de frente',
+      tarifaDiariaPlena: 1200000,
+      standByPct: 40.0,
+      diasAfectados: 60,
+      soporte: 'Bitácora N° 08'
+    },
+    {
+      tipo: 'NOMINA_PERSONAL',
+      descripcion: 'Residente Técnico de Obra e Inspector en permanencia',
+      salarioBaseMensual: 8000000,
+      factorPrestacional: 1.52,
+      diasAfectados: 60,
+      soporte: 'Planilla PILA Diciembre-Enero'
+    }
+  ];
+
+  cambiarTabEquilibrio('tabContentEquilibrioSimulador', 'tabBtnEquilibrioSimulador');
+
+  document.getElementById('detailModal')?.classList.remove('open');
+  document.getElementById('equilibrioEconomicoModal')?.classList.add('open');
+
+  recalcularEquilibrio();
+  renderItemsEquilibrio();
+}
+
+function cambiarTabEquilibrio(tabContentId, tabBtnId) {
+  ['tabContentEquilibrioSimulador', 'tabContentEquilibrioItems', 'tabContentEquilibrioHistorial'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = (id === tabContentId) ? 'block' : 'none';
+  });
+
+  ['tabBtnEquilibrioSimulador', 'tabBtnEquilibrioItems', 'tabBtnEquilibrioHistorial'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      if (id === tabBtnId) btn.classList.add('active');
+      else btn.classList.remove('active');
+    }
+  });
+
+  if (tabContentId === 'tabContentEquilibrioHistorial') {
+    cargarHistorialEquilibrio();
+  } else if (tabContentId === 'tabContentEquilibrioItems') {
+    renderItemsEquilibrio();
+  }
+}
+
+document.getElementById('tabBtnEquilibrioSimulador')?.addEventListener('click', () => {
+  cambiarTabEquilibrio('tabContentEquilibrioSimulador', 'tabBtnEquilibrioSimulador');
+});
+document.getElementById('tabBtnEquilibrioItems')?.addEventListener('click', () => {
+  cambiarTabEquilibrio('tabContentEquilibrioItems', 'tabBtnEquilibrioItems');
+});
+document.getElementById('tabBtnEquilibrioHistorial')?.addEventListener('click', () => {
+  cambiarTabEquilibrio('tabContentEquilibrioHistorial', 'tabBtnEquilibrioHistorial');
+});
+
+// Eventos de apertura y cierre
+document.getElementById('modalBtnEquilibrioEconomico')?.addEventListener('click', abrirModalEquilibrio);
+document.getElementById('btnCloseEquilibrioModal')?.addEventListener('click', () => {
+  document.getElementById('equilibrioEconomicoModal')?.classList.remove('open');
+});
+document.getElementById('btnCloseEquilibrioModalBtn')?.addEventListener('click', () => {
+  document.getElementById('equilibrioEconomicoModal')?.classList.remove('open');
+});
+document.getElementById('equilibrioEconomicoModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'equilibrioEconomicoModal') {
+    document.getElementById('equilibrioEconomicoModal')?.classList.remove('open');
+  }
+});
+
+// Recalcular simulación pericial
+async function recalcularEquilibrio() {
+  const tipologia = document.getElementById('eqTipologia')?.value || 'MAYOR_PERMANENCIA_OBRA';
+  const valorContrato = parseFloat(document.getElementById('eqValorContrato')?.value || 0);
+  const plazoInicialDias = parseInt(document.getElementById('eqPlazoDias')?.value || 180, 10);
+  const diasMayorPermanencia = parseInt(document.getElementById('eqDiasAfectacion')?.value || 60, 10);
+  const ipcInicial = parseFloat(document.getElementById('eqIpcInicial')?.value || 142.5);
+  const ipcFinal = parseFloat(document.getElementById('eqIpcFinal')?.value || 158.2);
+
+  try {
+    const res = await fetch('/api/equilibrio-economico/calcular', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tipologia,
+        valorContrato,
+        plazoInicialDias,
+        diasMayorPermanencia,
+        items: currentEquilibrioItems,
+        ipcInicial,
+        ipcFinal,
+        margenUtilidadEsperadaPct: 5.0
+      })
+    });
+
+    const data = await res.json();
+    if (!data.success) {
+      showToast(`Error al calcular: ${data.error}`);
+      return;
+    }
+
+    currentEquilibrioCalculo = data.calculo;
+    renderResultadosEquilibrio(data.calculo);
+  } catch (err) {
+    console.error('Error calculando peritaje de equilibrio:', err);
+    showToast('Error de conexión al calcular peritaje de equilibrio');
+  }
+}
+
+document.getElementById('btnRecalcularEquilibrio')?.addEventListener('click', recalcularEquilibrio);
+
+// Renderizar métricas y resultados
+function renderResultadosEquilibrio(calc) {
+  const liq = calc.liquidacion || {};
+  const peritaje = calc.dictamen_pericial || {};
+
+  const elTot = document.getElementById('statEqTotalReclamado');
+  if (elTot) elTot.textContent = `$ ${Number(liq.monto_total_reclamado || 0).toLocaleString('es-CO')}`;
+
+  const elImpacto = document.getElementById('statEqImpactoBadge');
+  if (elImpacto) elImpacto.textContent = `${Number(liq.porcentaje_impacto_contrato || 0).toFixed(2)}% del valor del contrato`;
+
+  const elDano = document.getElementById('statEqDanoEmergente');
+  if (elDano) elDano.textContent = `$ ${Number(liq.dano_emergente_historico || 0).toLocaleString('es-CO')}`;
+
+  const elIndex = document.getElementById('statEqIndexacionIpc');
+  if (elIndex) elIndex.textContent = `$ ${Number(liq.indexacion_ipc_total || 0).toLocaleString('es-CO')}`;
+
+  const elLucro = document.getElementById('statEqLucroCesante');
+  if (elLucro) elLucro.textContent = `$ ${Number(liq.lucro_cesante_actualizado || 0).toLocaleString('es-CO')}`;
+
+  const elLucroBadge = document.getElementById('statEqLucroBadge');
+  if (elLucroBadge) {
+    if (liq.lucro_cesante_actualizado > 0) {
+      elLucroBadge.textContent = 'Reconocido (Indemnización Integral)';
+      elLucroBadge.style.color = '#34d399';
+    } else {
+      elLucroBadge.textContent = 'No aplica (Punto de No Pérdida)';
+      elLucroBadge.style.color = 'var(--text-faint)';
+    }
+  }
+
+  // Banner viabilidad
+  const titViab = document.getElementById('eqViabilidadTitulo');
+  const txtViab = document.getElementById('eqViabilidadTexto');
+  if (titViab) titViab.textContent = `Dictamen Pericial de Viabilidad Procesal: ${peritaje.viabilidad}`;
+  if (txtViab) txtViab.textContent = peritaje.dictamen;
+}
+
+// Renderizado de ítems en tabla
+function renderItemsEquilibrio() {
+  const tbody = document.getElementById('tbodyItemsEquilibrio');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+  const items = currentEquilibrioCalculo ? (currentEquilibrioCalculo.items_liquidados || []) : currentEquilibrioItems;
+
+  items.forEach((it, idx) => {
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
+    tr.innerHTML = `
+      <td style="padding: 6px 8px; font-weight: 600;">
+        <div>${it.descripcion}</div>
+        <div style="font-size: 0.65rem; color: var(--text-faint);">${it.soporte_anexo || it.soporte || 'Soporte de obra'}</div>
+      </td>
+      <td style="padding: 6px 8px; font-size: 0.68rem; color: #38bdf8;">${it.metodo_calculo || 'Costos directos'}</td>
+      <td style="padding: 6px 8px; text-align: right; font-weight: 700;">$ ${Number(it.valor_historico_base || it.valorHistorico || 0).toLocaleString('es-CO')}</td>
+      <td style="padding: 6px 8px; text-align: right; color: #fbbf24;">$ ${Number(it.monto_indexacion || 0).toLocaleString('es-CO')}</td>
+      <td style="padding: 6px 8px; text-align: right; font-weight: 700; color: #f87171;">$ ${Number(it.valor_indexado || it.valorHistorico || 0).toLocaleString('es-CO')}</td>
+      <td style="padding: 6px 8px; text-align: center;">
+        <button class="btn-icon" onclick="eliminarItemEquilibrio(${idx})" title="Eliminar ítem" style="color: #f87171; font-size: 0.8rem;">
+          🗑️
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+window.eliminarItemEquilibrio = function(idx) {
+  if (currentEquilibrioItems[idx]) {
+    currentEquilibrioItems.splice(idx, 1);
+    recalcularEquilibrio();
+    renderItemsEquilibrio();
+  }
+};
+
+document.getElementById('btnAgregarItemEquilibrio')?.addEventListener('click', () => {
+  const tipo = document.getElementById('eqNuevoItemTipo')?.value || 'COSTO_GENERAL';
+  const desc = document.getElementById('eqNuevoItemDesc')?.value || 'Concepto pericial';
+  const val = parseFloat(document.getElementById('eqNuevoItemValor')?.value || 0);
+  const sop = document.getElementById('eqNuevoItemSoporte')?.value || 'Bitácora de obra';
+
+  if (val <= 0) {
+    showToast('Ingrese un valor histórico válido');
+    return;
+  }
+
+  currentEquilibrioItems.push({
+    tipo,
+    descripcion: desc,
+    valorHistorico: val,
+    soporte: sop
+  });
+
+  if (document.getElementById('eqNuevoItemDesc')) document.getElementById('eqNuevoItemDesc').value = '';
+  if (document.getElementById('eqNuevoItemValor')) document.getElementById('eqNuevoItemValor').value = '';
+
+  recalcularEquilibrio();
+  renderItemsEquilibrio();
+  showToast('Ítem agregado a la reclamación pericial');
+});
+
+// Guardar Reclamación en Base de Datos PostgreSQL
+document.getElementById('btnSaveEquilibrioPlan')?.addEventListener('click', async () => {
+  if (!currentEquilibrioCalculo) {
+    await recalcularEquilibrio();
+  }
+
+  const liq = currentEquilibrioCalculo ? currentEquilibrioCalculo.liquidacion : {};
+  const payload = {
+    proceso_numero: document.getElementById('eqProcesoNum')?.value || 'SECOP-II-2026',
+    contrato_numero: document.getElementById('eqContratoNum')?.value || 'CTO-2026-001',
+    entidad_nombre: document.getElementById('eqEntidadNombre')?.value || 'Entidad Convocada',
+    contratista_nombre: document.getElementById('eqContratistaNombre')?.value || 'Contratista Reclamante',
+    contratista_nit: '901.456.789-1',
+    tipologia_reclamacion: document.getElementById('eqTipologia')?.value || 'MAYOR_PERMANENCIA_OBRA',
+    fundamento_juridico: 'Art. 27 Ley 80 de 1993 y Sentencia Consejo de Estado Rad. 18080',
+    hechos_generadores: document.getElementById('eqHechosGeneradores')?.value || 'Hechos generadores de desequilibrio',
+    valor_contrato_inicial: parseFloat(document.getElementById('eqValorContrato')?.value || 0),
+    plazo_inicial_dias: parseInt(document.getElementById('eqPlazoDias')?.value || 180, 10),
+    plazo_adicional_suspension_dias: parseInt(document.getElementById('eqDiasAfectacion')?.value || 60, 10),
+    items_reclamacion: currentEquilibrioItems,
+    monto_dano_emergente: liq.dano_emergente_actualizado || 0,
+    monto_lucro_cesante: liq.lucro_cesante_actualizado || 0,
+    monto_indexacion_ipc: liq.indexacion_ipc_total || 0,
+    monto_total_reclamado: liq.monto_total_reclamado || 0,
+    porcentaje_impacto_contrato: liq.porcentaje_impacto_contrato || 0,
+    estado: 'SOLICITADA_CONCILIACION',
+    observaciones: 'Estructurada bajo Ley 2220 de 2022'
+  };
+
+  try {
+    const res = await fetch('/api/equilibrio-economico/guardar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const json = await res.json();
+    if (json.success) {
+      currentEquilibrioId = json.reclamacion.id;
+      showToast('✅ Reclamación guardada en PostgreSQL');
+    } else {
+      showToast(`Error al guardar: ${json.error}`);
+    }
+  } catch (err) {
+    showToast('Error de conexión al guardar la reclamación');
+  }
+});
+
+// Cargar Historial de Reclamaciones
+async function cargarHistorialEquilibrio() {
+  const tbody = document.getElementById('tbodyHistorialEquilibrio');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 12px; color: var(--text-faint);">Cargando historial de reclamaciones...</td></tr>';
+
+  try {
+    const res = await fetch('/api/equilibrio-economico/historial');
+    const json = await res.json();
+    if (!json.success || json.data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 12px; color: var(--text-faint);">No hay reclamaciones registradas aún.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = '';
+    json.data.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
+      tr.innerHTML = `
+        <td style="padding: 6px 8px; font-weight: 700;">
+          <div>${r.contrato_numero}</div>
+          <div style="font-size: 0.65rem; color: var(--text-faint);">${r.proceso_numero || 'Sin ref'}</div>
+        </td>
+        <td style="padding: 6px 8px; font-size: 0.68rem;">${r.entidad_nombre}</td>
+        <td style="padding: 6px 8px; font-size: 0.68rem; color: #fca5a5;">${r.tipologia_reclamacion}</td>
+        <td style="padding: 6px 8px; text-align: right; font-weight: 700; color: #f87171;">
+          $ ${Number(r.monto_total_reclamado).toLocaleString('es-CO')}
+        </td>
+        <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #fbbf24;">
+          ${Number(r.porcentaje_impacto_contrato).toFixed(1)}%
+        </td>
+        <td style="padding: 6px 8px; text-align: center;">
+          <span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #fca5a5; font-size: 0.65rem;">
+            ${r.estado}
+          </span>
+        </td>
+        <td style="padding: 6px 8px; text-align: center;">
+          <div style="display: flex; gap: 4px; justify-content: center;">
+            <button class="btn-action" style="padding: 3px 6px; font-size: 0.65rem;" onclick="descargarEquilibrioPdfDb(${r.id})">📄 PDF</button>
+            <button class="btn-action" style="padding: 3px 6px; font-size: 0.65rem;" onclick="descargarEquilibrioExcelDb(${r.id})">📊 Excel</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 12px; color: #f87171;">Error al consultar historial.</td></tr>';
+  }
+}
+
+document.getElementById('btnRecargarHistorialEquilibrio')?.addEventListener('click', cargarHistorialEquilibrio);
+
+window.descargarEquilibrioPdfDb = function(id) {
+  window.open(`/api/equilibrio-economico/exportar-pdf/${id}`, '_blank');
+};
+window.descargarEquilibrioExcelDb = function(id) {
+  window.open(`/api/equilibrio-economico/exportar-excel/${id}`, '_blank');
+};
+
+// Descargar PDF Directo
+document.getElementById('btnDownloadEquilibrioPdf')?.addEventListener('click', async () => {
+  if (!currentEquilibrioCalculo) {
+    await recalcularEquilibrio();
+  }
+
+  const payload = {
+    proceso_numero: document.getElementById('eqProcesoNum')?.value || 'SECOP-II-2026',
+    contrato_numero: document.getElementById('eqContratoNum')?.value || 'CTO-2026-001',
+    entidad_nombre: document.getElementById('eqEntidadNombre')?.value || 'Entidad Convocada',
+    contratista_nombre: document.getElementById('eqContratistaNombre')?.value || 'Contratista Reclamante',
+    contratista_nit: '901.456.789-1',
+    hechos_generadores: document.getElementById('eqHechosGeneradores')?.value || 'Hechos generadores de desequilibrio',
+    calculo: currentEquilibrioCalculo
+  };
+
+  try {
+    showToast('Generando Dictamen Pericial & Solicitud de Conciliación en PDF...');
+    const res = await fetch('/api/equilibrio-economico/exportar-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error('Error al generar PDF en el servidor');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Dictamen_Pericial_Equilibrio_${payload.contrato_numero.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    showToast('✅ Dictamen PDF descargado exitosamente');
+  } catch (err) {
+    showToast('Error al descargar el PDF pericial');
+  }
+});
+
+// Descargar Excel Directo
+document.getElementById('btnDownloadEquilibrioExcel')?.addEventListener('click', async () => {
+  if (!currentEquilibrioCalculo) {
+    await recalcularEquilibrio();
+  }
+
+  const payload = {
+    proceso_numero: document.getElementById('eqProcesoNum')?.value || 'SECOP-II-2026',
+    contrato_numero: document.getElementById('eqContratoNum')?.value || 'CTO-2026-001',
+    entidad_nombre: document.getElementById('eqEntidadNombre')?.value || 'Entidad Convocada',
+    contratista_nombre: document.getElementById('eqContratistaNombre')?.value || 'Contratista Reclamante',
+    contratista_nit: '901.456.789-1',
+    calculo: currentEquilibrioCalculo
+  };
+
+  try {
+    showToast('Generando Memoria de Cálculo Pericial en Excel...');
+    const res = await fetch('/api/equilibrio-economico/exportar-excel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error('Error al generar Excel en el servidor');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Memoria_Pericial_Equilibrio_${payload.contrato_numero.replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    showToast('✅ Memoria Excel descargada exitosamente');
+  } catch (err) {
+    showToast('Error al descargar el archivo Excel pericial');
+  }
+});
+
+// ====================================================================
+// MÓDULO DE LIQUIDACIÓN FINAL DE CONTRATOS (LEY 80 ART. 60)
+// ====================================================================
+
+let currentLiquidacionCalculo = null;
+let currentLiquidacionId = null;
+
+function abrirModalLiquidacion() {
+  const opp = oportunidades.find(o => o.id === activeModalId) || {};
+  const lider = (userCompanies && userCompanies.length > 0) ? (userCompanies.find(c => c.es_propia) || userCompanies[0]) : null;
+
+  const ctoEl = document.getElementById('liqContratoNum');
+  if (ctoEl) ctoEl.value = opp.referencia ? `CTO-${opp.referencia.replace(/[^a-zA-Z0-9]/g, '')}` : 'CTO-2026-045';
+
+  const procEl = document.getElementById('liqProcesoNum');
+  if (procEl) procEl.value = opp.referencia || opp.id || 'LP-OBRA-2026-001';
+
+  const entEl = document.getElementById('liqEntidadNombre');
+  if (entEl) entEl.value = opp.entidad || 'Entidad Estatal Contratante';
+
+  const contNomEl = document.getElementById('liqContratistaNombre');
+  if (contNomEl) contNomEl.value = lider ? lider.razon_social : 'CONSORCIO VIAL ANDINO';
+
+  const precio = opp.precio_base || opp.cuantia || 1000000000;
+  const valIniEl = document.getElementById('liqValorInicial');
+  if (valIniEl) valIniEl.value = precio;
+
+  const valEjecEl = document.getElementById('liqValorEjecutado');
+  if (valEjecEl) valEjecEl.value = precio + 200000000;
+
+  const hoyStr = new Date().toISOString().split('T')[0];
+  const fechaLiqEl = document.getElementById('liqFechaLiquidacion');
+  if (fechaLiqEl) fechaLiqEl.value = hoyStr;
+
+  const fechaTermEl = document.getElementById('liqFechaTerminacion');
+  if (fechaTermEl) {
+    const dTerm = new Date();
+    dTerm.setMonth(dTerm.getMonth() - 1);
+    fechaTermEl.value = dTerm.toISOString().split('T')[0];
+  }
+
+  cambiarTabLiquidacion('tabContentLiqBalance', 'tabBtnLiqBalance');
+
+  document.getElementById('detailModal')?.classList.remove('open');
+  document.getElementById('liquidacionModal')?.classList.add('open');
+
+  recalcularLiquidacion();
+}
+
+function cambiarTabLiquidacion(tabContentId, tabBtnId) {
+  ['tabContentLiqBalance', 'tabContentLiqAmparos', 'tabContentLiqHistorial'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = (id === tabContentId) ? 'block' : 'none';
+  });
+
+  ['tabBtnLiqBalance', 'tabBtnLiqAmparos', 'tabBtnLiqHistorial'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      if (id === tabBtnId) btn.classList.add('active');
+      else btn.classList.remove('active');
+    }
+  });
+
+  if (tabContentId === 'tabContentLiqHistorial') {
+    cargarHistorialLiquidaciones();
+  }
+}
+
+document.getElementById('tabBtnLiqBalance')?.addEventListener('click', () => {
+  cambiarTabLiquidacion('tabContentLiqBalance', 'tabBtnLiqBalance');
+});
+document.getElementById('tabBtnLiqAmparos')?.addEventListener('click', () => {
+  cambiarTabLiquidacion('tabContentLiqAmparos', 'tabBtnLiqAmparos');
+});
+document.getElementById('tabBtnLiqHistorial')?.addEventListener('click', () => {
+  cambiarTabLiquidacion('tabContentLiqHistorial', 'tabBtnLiqHistorial');
+});
+
+// Eventos de apertura y cierre
+document.getElementById('modalBtnLiquidacion')?.addEventListener('click', abrirModalLiquidacion);
+document.getElementById('btnCloseLiquidacionModal')?.addEventListener('click', () => {
+  document.getElementById('liquidacionModal')?.classList.remove('open');
+});
+document.getElementById('btnCloseLiquidacionModalBtn')?.addEventListener('click', () => {
+  document.getElementById('liquidacionModal')?.classList.remove('open');
+});
+document.getElementById('liquidacionModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'liquidacionModal') {
+    document.getElementById('liquidacionModal')?.classList.remove('open');
+  }
+});
+
+// Recalcular balance
+async function recalcularLiquidacion() {
+  const valorInicial = parseFloat(document.getElementById('liqValorInicial')?.value || 0);
+  const adiciones = parseFloat(document.getElementById('liqValorAdiciones')?.value || 0);
+  const valorEjecutado = parseFloat(document.getElementById('liqValorEjecutado')?.value || 0);
+  const valorPagado = parseFloat(document.getElementById('liqValorPagado')?.value || 0);
+  const anticipoConcedido = parseFloat(document.getElementById('liqAnticipoConcedido')?.value || 0);
+  const anticipoAmortizado = parseFloat(document.getElementById('liqAnticipoAmortizado')?.value || 0);
+  const retencionesGarantia = parseFloat(document.getElementById('liqRetencionesGarantia')?.value || 0);
+  const multasODeducciones = parseFloat(document.getElementById('liqMultasDeducciones')?.value || 0);
+  const salvedades = document.getElementById('liqSalvedadesContratista')?.value || '';
+
+  try {
+    const res = await fetch('/api/liquidaciones/calcular-balance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        valorInicial,
+        adiciones,
+        valorEjecutado,
+        valorPagado,
+        anticipoConcedido,
+        anticipoAmortizado,
+        retencionesGarantia,
+        multasODeducciones,
+        salvedades
+      })
+    });
+
+    const data = await res.json();
+    if (!data.success) {
+      showToast(`Error calculando balance: ${data.error}`);
+      return;
+    }
+
+    currentLiquidacionCalculo = data.liquidacion;
+    renderResultadosLiquidacion(data.liquidacion);
+  } catch (err) {
+    console.error('Error calculando balance de liquidación:', err);
+    showToast('Error de conexión al calcular balance de liquidación');
+  }
+}
+
+document.getElementById('btnRecalcularLiquidacion')?.addEventListener('click', recalcularLiquidacion);
+
+// Renderizar métricas en pantalla
+function renderResultadosLiquidacion(liq) {
+  const bf = liq.balance_financiero || {};
+  const cf = liq.cierre_financiero || {};
+  const ant = liq.anticipo_balance || {};
+  const amparos = liq.amparos_poscontractuales || [];
+
+  const elNeto = document.getElementById('statLiqSaldoNeto');
+  if (elNeto) elNeto.textContent = `$ ${Number(cf.saldo_neto_final || 0).toLocaleString('es-CO')}`;
+
+  const elDir = document.getElementById('statLiqDireccionBadge');
+  if (elDir) {
+    if (cf.direccion_saldo === 'A_FAVOR_CONTRATISTA') {
+      elDir.textContent = 'A favor del Contratista';
+      elDir.style.color = '#34d399';
+    } else if (cf.direccion_saldo === 'A_FAVOR_ENTIDAD') {
+      elDir.textContent = 'A favor de la Entidad Estatal';
+      elDir.style.color = '#f87171';
+    } else {
+      elDir.textContent = 'Paz y Salvo Total ($0.00)';
+      elDir.style.color = '#60a5fa';
+    }
+  }
+
+  const elDef = document.getElementById('statLiqValorDefinitivo');
+  if (elDef) elDef.textContent = `$ ${Number(bf.valor_contrato_final || 0).toLocaleString('es-CO')}`;
+
+  const elPct = document.getElementById('statLiqPctEjecucion');
+  if (elPct) elPct.textContent = `${Number(bf.porcentaje_ejecucion || 0).toFixed(2)}%`;
+
+  const elEjec = document.getElementById('statLiqEjecutadoMonto');
+  if (elEjec) elEjec.textContent = `$ ${Number(bf.valor_total_ejecutado || 0).toLocaleString('es-CO')} ejecutados`;
+
+  const elAnt = document.getElementById('statLiqAnticipoEstado');
+  if (elAnt) {
+    elAnt.textContent = ant.totalmente_amortizado ? '100% Amortizado' : `Pendiente $ ${Number(ant.anticipo_pendiente || 0).toLocaleString('es-CO')}`;
+    elAnt.style.color = ant.totalmente_amortizado ? '#34d399' : '#fbbf24';
+  }
+
+  // Banner Paz y Salvo
+  const titPaz = document.getElementById('liqPazYSalvoTitulo');
+  const txtPaz = document.getElementById('liqPazYSalvoTexto');
+  if (titPaz) titPaz.textContent = `Balance de Cierre: ${cf.direccion_saldo}`;
+  if (txtPaz) txtPaz.textContent = cf.dictamen_saldo;
+
+  // Renderizar tabla de amparos poscontractuales
+  const tbodyAmp = document.getElementById('tbodyLiqAmparos');
+  if (!tbodyAmp) return;
+
+  tbodyAmp.innerHTML = '';
+  amparos.forEach(amp => {
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
+    tr.innerHTML = `
+      <td style="padding: 6px 8px; font-weight: 600;">${amp.nombre}</td>
+      <td style="padding: 6px 8px; text-align: center; color: #38bdf8; font-weight: 700;">${amp.porcentaje}%</td>
+      <td style="padding: 6px 8px; font-size: 0.68rem; color: var(--text-faint);">${amp.vigenciaTexto}</td>
+      <td style="padding: 6px 8px; text-align: right; font-weight: 700; color: #34d399;">$ ${Number(amp.valorAsegurado).toLocaleString('es-CO')}</td>
+      <td style="padding: 6px 8px; text-align: center;">
+        <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; font-size: 0.65rem;">EXIGIDO</span>
+      </td>
+    `;
+    tbodyAmp.appendChild(tr);
+  });
+}
+
+// Guardar Acta de Liquidación en PostgreSQL
+document.getElementById('btnSaveLiqPlan')?.addEventListener('click', async () => {
+  if (!currentLiquidacionCalculo) {
+    await recalcularLiquidacion();
+  }
+
+  const bf = currentLiquidacionCalculo ? currentLiquidacionCalculo.balance_financiero : {};
+  const cf = currentLiquidacionCalculo ? currentLiquidacionCalculo.cierre_financiero : {};
+  const ant = currentLiquidacionCalculo ? currentLiquidacionCalculo.anticipo_balance : {};
+
+  const payload = {
+    proceso_numero: document.getElementById('liqProcesoNum')?.value || 'SECOP-II-2026',
+    contrato_numero: document.getElementById('liqContratoNum')?.value || 'CTO-2026-001',
+    entidad_nombre: document.getElementById('liqEntidadNombre')?.value || 'Entidad Contratante',
+    contratista_nombre: document.getElementById('liqContratistaNombre')?.value || 'Contratista Ejecutor',
+    contratista_nit: '901.456.789-1',
+    tipo_liquidacion: document.getElementById('liqTipoLiquidacion')?.value || 'MUTUO_ACUERDO_BILATERAL',
+    fecha_terminacion_contrato: document.getElementById('liqFechaTerminacion')?.value || new Date().toISOString().split('T')[0],
+    fecha_acta_liquidacion: document.getElementById('liqFechaLiquidacion')?.value || new Date().toISOString().split('T')[0],
+    valor_contrato_inicial: bf.valor_contrato_inicial || 0,
+    valor_adiciones: bf.valor_adiciones || 0,
+    valor_contrato_final: bf.valor_contrato_final || 0,
+    valor_total_ejecutado: bf.valor_total_ejecutado || 0,
+    valor_total_pagado: bf.valor_total_pagado || 0,
+    valor_anticipo_concedido: ant.anticipo_concedido || 0,
+    valor_anticipo_amortizado: ant.anticipo_amortizado || 0,
+    valor_anticipo_pendiente: ant.anticipo_pendiente || 0,
+    valor_retenciones_garantia: parseFloat(document.getElementById('liqRetencionesGarantia')?.value || 0),
+    valor_descuentos_sanciones: parseFloat(document.getElementById('liqMultasDeducciones')?.value || 0),
+    saldo_neto_final: cf.saldo_neto_final || 0,
+    direccion_saldo: cf.direccion_saldo || 'A_PAZ_Y_SALVO_CERO',
+    amparos_poscontractuales: currentLiquidacionCalculo ? currentLiquidacionCalculo.amparos_poscontractuales : [],
+    salvedades_contratista: document.getElementById('liqSalvedadesContratista')?.value || 'Sin salvedades expresas',
+    estado: 'FIRMADA',
+    observaciones: 'Liquidación conforme a Ley 80 Art. 60'
+  };
+
+  try {
+    const res = await fetch('/api/liquidaciones/guardar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const json = await res.json();
+    if (json.success) {
+      currentLiquidacionId = json.liquidacion.id;
+      showToast('✅ Acta de Liquidación guardada en PostgreSQL');
+    } else {
+      showToast(`Error al guardar: ${json.error}`);
+    }
+  } catch (err) {
+    showToast('Error de conexión al guardar el acta de liquidación');
+  }
+});
+
+// Cargar Historial de Liquidaciones
+async function cargarHistorialLiquidaciones() {
+  const tbody = document.getElementById('tbodyHistorialLiquidaciones');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 12px; color: var(--text-faint);">Cargando historial de liquidaciones...</td></tr>';
+
+  try {
+    const res = await fetch('/api/liquidaciones/historial');
+    const json = await res.json();
+    if (!json.success || json.data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 12px; color: var(--text-faint);">No hay liquidaciones registradas aún.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = '';
+    json.data.forEach(l => {
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
+      tr.innerHTML = `
+        <td style="padding: 6px 8px; font-weight: 700;">
+          <div>${l.contrato_numero}</div>
+          <div style="font-size: 0.65rem; color: var(--text-faint);">${l.proceso_numero || 'Sin ref'}</div>
+        </td>
+        <td style="padding: 6px 8px; font-size: 0.68rem;">${l.entidad_nombre}</td>
+        <td style="padding: 6px 8px; text-align: right; font-weight: 700;">$ ${Number(l.valor_contrato_final).toLocaleString('es-CO')}</td>
+        <td style="padding: 6px 8px; text-align: right; font-weight: 700; color: #34d399;">$ ${Number(l.saldo_neto_final).toLocaleString('es-CO')}</td>
+        <td style="padding: 6px 8px; text-align: center; font-size: 0.68rem; color: #38bdf8;">${l.direccion_saldo}</td>
+        <td style="padding: 6px 8px; text-align: center;">
+          <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; font-size: 0.65rem;">
+            ${l.estado}
+          </span>
+        </td>
+        <td style="padding: 6px 8px; text-align: center;">
+          <div style="display: flex; gap: 4px; justify-content: center;">
+            <button class="btn-action" style="padding: 3px 6px; font-size: 0.65rem;" onclick="descargarLiquidacionPdfDb(${l.id})">📄 PDF</button>
+            <button class="btn-action" style="padding: 3px 6px; font-size: 0.65rem;" onclick="descargarLiquidacionExcelDb(${l.id})">📊 Excel</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 12px; color: #f87171;">Error al consultar historial.</td></tr>';
+  }
+}
+
+document.getElementById('btnRecargarHistorialLiq')?.addEventListener('click', cargarHistorialLiquidaciones);
+
+window.descargarLiquidacionPdfDb = function(id) {
+  window.open(`/api/liquidaciones/exportar-pdf/${id}`, '_blank');
+};
+window.descargarLiquidacionExcelDb = function(id) {
+  window.open(`/api/liquidaciones/exportar-excel/${id}`, '_blank');
+};
+
+// Descargar PDF Directo
+document.getElementById('btnDownloadLiqPdf')?.addEventListener('click', async () => {
+  if (!currentLiquidacionCalculo) {
+    await recalcularLiquidacion();
+  }
+
+  const payload = {
+    proceso_numero: document.getElementById('liqProcesoNum')?.value || 'SECOP-II-2026',
+    contrato_numero: document.getElementById('liqContratoNum')?.value || 'CTO-2026-001',
+    entidad_nombre: document.getElementById('liqEntidadNombre')?.value || 'Entidad Contratante',
+    contratista_nombre: document.getElementById('liqContratistaNombre')?.value || 'Contratista Ejecutor',
+    contratista_nit: '901.456.789-1',
+    interventor_nombre: document.getElementById('liqInterventorNombre')?.value || 'Interventoría y Supervisión Técnica',
+    fecha_terminacion: document.getElementById('liqFechaTerminacion')?.value || '2026-09-30',
+    fecha_liquidacion: document.getElementById('liqFechaLiquidacion')?.value || new Date().toISOString().split('T')[0],
+    liquidacion: currentLiquidacionCalculo
+  };
+
+  try {
+    showToast('Generando Acta Formal de Liquidación en PDF...');
+    const res = await fetch('/api/liquidaciones/exportar-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error('Error al generar PDF en el servidor');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Acta_Liquidacion_Bilateral_${payload.contrato_numero.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    showToast('✅ Acta de Liquidación PDF descargada exitosamente');
+  } catch (err) {
+    showToast('Error al descargar el PDF de liquidación');
+  }
+});
+
+// Descargar Excel Directo
+document.getElementById('btnDownloadLiqExcel')?.addEventListener('click', async () => {
+  if (!currentLiquidacionCalculo) {
+    await recalcularLiquidacion();
+  }
+
+  const payload = {
+    proceso_numero: document.getElementById('liqProcesoNum')?.value || 'SECOP-II-2026',
+    contrato_numero: document.getElementById('liqContratoNum')?.value || 'CTO-2026-001',
+    entidad_nombre: document.getElementById('liqEntidadNombre')?.value || 'Entidad Contratante',
+    contratista_nombre: document.getElementById('liqContratistaNombre')?.value || 'Contratista Ejecutor',
+    contratista_nit: '901.456.789-1',
+    interventor_nombre: document.getElementById('liqInterventorNombre')?.value || 'Interventoría y Supervisión Técnica',
+    fecha_terminacion: document.getElementById('liqFechaTerminacion')?.value || '2026-09-30',
+    fecha_liquidacion: document.getElementById('liqFechaLiquidacion')?.value || new Date().toISOString().split('T')[0],
+    liquidacion: currentLiquidacionCalculo
+  };
+
+  try {
+    showToast('Generando Balance de Liquidación en Excel...');
+    const res = await fetch('/api/liquidaciones/exportar-excel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error('Error al generar Excel en el servidor');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Balance_Liquidacion_${payload.contrato_numero.replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    showToast('✅ Balance Excel descargado exitosamente');
+  } catch (err) {
+    showToast('Error al descargar el archivo Excel de liquidación');
+  }
+});
+
+// ====================================================================
+// MÓDULO DE SUPERVISIÓN E INTERVENTORÍA CONTRACTUAL (LEY 1474 ARTS. 82-85)
+// ====================================================================
+
+let currentInterventoriaDesempeno = null;
+let currentBitacoraEventos = [];
+let currentEnsayosCalidad = [];
+
+function abrirModalInterventoria() {
+  const opp = oportunidades.find(o => o.id === activeModalId) || {};
+  const lider = (userCompanies && userCompanies.length > 0) ? (userCompanies.find(c => c.es_propia) || userCompanies[0]) : null;
+
+  const ctoEl = document.getElementById('intContratoNum');
+  if (ctoEl) ctoEl.value = opp.referencia ? `CTO-${opp.referencia.replace(/[^a-zA-Z0-9]/g, '')}` : 'CTO-2026-045';
+
+  const procEl = document.getElementById('intProcesoNum');
+  if (procEl) procEl.value = opp.referencia || opp.id || 'LP-OBRA-2026-001';
+
+  const entEl = document.getElementById('intEntidadNombre');
+  if (entEl) entEl.value = opp.entidad || 'Instituto Nacional de Vías';
+
+  const contNomEl = document.getElementById('intContratistaNombre');
+  if (contNomEl) contNomEl.value = lider ? lider.razon_social : 'CONSORCIO VIAL ANDINO';
+
+  const fechaBitEl = document.getElementById('intBitFecha');
+  if (fechaBitEl) fechaBitEl.value = new Date().toISOString().split('T')[0];
+
+  // Eventos de bitácora iniciales
+  currentBitacoraEventos = [
+    {
+      fecha_registro: new Date().toISOString().split('T')[0],
+      condicion_climatica: 'SOLEADO',
+      personal_total: 24,
+      maquinaria_activa: 6,
+      frente_obra: 'Frente 1 - Estructuras',
+      actividades_ejecutadas: 'Vaciado de concreto en zapatas eje 4 y compactación de terraplén.',
+      instrucciones_interventor: 'Se autoriza fundida tras verificar armado de acero y recubrimientos mínimos.'
+    }
+  ];
+
+  // Ensayos de calidad iniciales
+  currentEnsayosCalidad = [
+    {
+      tipo_ensayo: 'COMPRESION_CONCRETO_28D',
+      nombre_ensayo: 'Resistencia a la Compresión Concreto 28D',
+      localizacion_muestra: 'Columna Eje 3-B',
+      valor_diseno_exigido: 3000,
+      valor_obtenido_laboratorio: 3150,
+      unidad_medida: 'PSI',
+      porcentaje_conformidad: 105.0,
+      resultado_tecnico: 'CONFORME',
+      laboratorio_nombre: 'Laboratorio de Concretos S.A.S.'
+    },
+    {
+      tipo_ensayo: 'DENSIDAD_SUELOS_PROCTOR',
+      nombre_ensayo: 'Compactación Proctor Modificado',
+      localizacion_muestra: 'Terraplén K1+200',
+      valor_diseno_exigido: 95.0,
+      valor_obtenido_laboratorio: 96.5,
+      unidad_medida: '%',
+      porcentaje_conformidad: 101.58,
+      resultado_tecnico: 'CONFORME',
+      laboratorio_nombre: 'Laboratorio Geotécnico Andino'
+    }
+  ];
+
+  cambiarTabInterventoria('tabContentIntDesempeno', 'tabBtnIntDesempeno');
+
+  document.getElementById('detailModal')?.classList.remove('open');
+  document.getElementById('interventoriaModal')?.classList.add('open');
+
+  recalcularInterventoria();
+  renderBitacora();
+  renderEnsayosCalidad();
+}
+
+function cambiarTabInterventoria(tabContentId, tabBtnId) {
+  ['tabContentIntDesempeno', 'tabContentIntBitacora', 'tabContentIntEnsayos'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = (id === tabContentId) ? 'block' : 'none';
+  });
+
+  ['tabBtnIntDesempeno', 'tabBtnIntBitacora', 'tabBtnIntEnsayos'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      if (id === tabBtnId) btn.classList.add('active');
+      else btn.classList.remove('active');
+    }
+  });
+
+  if (tabContentId === 'tabContentIntBitacora') {
+    renderBitacora();
+  } else if (tabContentId === 'tabContentIntEnsayos') {
+    renderEnsayosCalidad();
+  }
+}
+
+document.getElementById('tabBtnIntDesempeno')?.addEventListener('click', () => {
+  cambiarTabInterventoria('tabContentIntDesempeno', 'tabBtnIntDesempeno');
+});
+document.getElementById('tabBtnIntBitacora')?.addEventListener('click', () => {
+  cambiarTabInterventoria('tabContentIntBitacora', 'tabBtnIntBitacora');
+});
+document.getElementById('tabBtnIntEnsayos')?.addEventListener('click', () => {
+  cambiarTabInterventoria('tabContentIntEnsayos', 'tabBtnIntEnsayos');
+});
+
+// Eventos de apertura y cierre
+document.getElementById('modalBtnInterventoria')?.addEventListener('click', abrirModalInterventoria);
+document.getElementById('btnCloseInterventoriaModal')?.addEventListener('click', () => {
+  document.getElementById('interventoriaModal')?.classList.remove('open');
+});
+document.getElementById('btnCloseInterventoriaModalBtn')?.addEventListener('click', () => {
+  document.getElementById('interventoriaModal')?.classList.remove('open');
+});
+document.getElementById('interventoriaModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'interventoriaModal') {
+    document.getElementById('interventoriaModal')?.classList.remove('open');
+  }
+});
+
+// Recalcular desempeño
+async function recalcularInterventoria() {
+  const progPct = parseFloat(document.getElementById('intProgPct')?.value || 50);
+  const realPct = parseFloat(document.getElementById('intRealPct')?.value || 52);
+
+  try {
+    const res = await fetch('/api/interventoria/calcular-desempeno', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        programadoPct: progPct,
+        realPct: realPct,
+        ensayos: currentEnsayosCalidad
+      })
+    });
+
+    const data = await res.json();
+    if (!data.success) {
+      showToast(`Error: ${data.error}`);
+      return;
+    }
+
+    currentInterventoriaDesempeno = data.desempeno;
+    renderResultadosInterventoria(data.desempeno);
+  } catch (err) {
+    console.error('Error calculando desempeño de interventoría:', err);
+    showToast('Error de conexión al calcular auditoría de interventoría');
+  }
+}
+
+document.getElementById('btnRecalcularInterventoria')?.addEventListener('click', recalcularInterventoria);
+
+function renderResultadosInterventoria(des) {
+  const cal = des.control_calidad || {};
+
+  const elSpi = document.getElementById('statIntSpi');
+  if (elSpi) elSpi.textContent = Number(des.spi_schedule_performance_index || 1.0).toFixed(3);
+
+  const elSpiBadge = document.getElementById('statIntSpiBadge');
+  if (elSpiBadge) {
+    if (des.semaforo_tiempo === 'EN_CRONOGRAMA') {
+      elSpiBadge.textContent = 'En Cronograma (Ritmo Óptimo)';
+      elSpiBadge.style.color = '#34d399';
+    } else if (des.semaforo_tiempo === 'ATRASO_LEVE') {
+      elSpiBadge.textContent = 'Atraso Leve';
+      elSpiBadge.style.color = '#fbbf24';
+    } else {
+      elSpiBadge.textContent = 'Atraso Crítico (Exige Plan de Contingencia)';
+      elSpiBadge.style.color = '#f87171';
+    }
+  }
+
+  const elDesv = document.getElementById('statIntDesviacion');
+  if (elDesv) {
+    const signo = des.desviacion_pct >= 0 ? '+' : '';
+    elDesv.textContent = `${signo}${des.desviacion_pct}%`;
+    elDesv.style.color = des.desviacion_pct >= 0 ? '#34d399' : '#f87171';
+  }
+
+  const elCal = document.getElementById('statIntCalidadGlobal');
+  if (elCal) elCal.textContent = `${cal.indice_calidad_pct || 100}%`;
+
+  const elCount = document.getElementById('statIntEnsayosCountBadge');
+  if (elCount) elCount.textContent = `${cal.conformes || 0} de ${cal.total_ensayos || 0} conformes`;
+
+  const elRec = document.getElementById('statIntRecomendacionPago');
+  if (elRec) {
+    if (cal.no_conformes === 0 && des.spi_schedule_performance_index >= 0.85) {
+      elRec.textContent = 'FAVORABLE (Visado OK)';
+      elRec.style.color = '#34d399';
+    } else {
+      elRec.textContent = 'CONDICIONADO';
+      elRec.style.color = '#fbbf24';
+    }
+  }
+
+  const elTit = document.getElementById('intConceptoTitulo');
+  const elTxt = document.getElementById('intConceptoTexto');
+  if (elTit) elTit.textContent = `Concepto de Supervisión: ${des.semaforo_tiempo}`;
+  if (elTxt) elTxt.textContent = des.dictamen_cronograma;
+}
+
+// Renderizado de Bitácora
+function renderBitacora() {
+  const tbody = document.getElementById('tbodyBitacoraEventos');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+  currentBitacoraEventos.forEach((b, idx) => {
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
+    tr.innerHTML = `
+      <td style="padding: 6px 8px; font-weight: 700;">
+        <div>${b.fecha_registro}</div>
+        <div style="font-size: 0.65rem; color: #38bdf8;">${b.condicion_climatica}</div>
+      </td>
+      <td style="padding: 6px 8px; font-size: 0.68rem;">
+        <div>${b.personal_total} Trabajadores</div>
+        <div style="color: var(--text-faint);">${b.maquinaria_activa} Equipos</div>
+      </td>
+      <td style="padding: 6px 8px; font-size: 0.68rem; font-weight: 600;">${b.frente_obra}</td>
+      <td style="padding: 6px 8px; font-size: 0.68rem;">${b.actividades_ejecutadas}</td>
+      <td style="padding: 6px 8px; font-size: 0.68rem; color: #a5b4fc;">${b.instrucciones_interventor}</td>
+      <td style="padding: 6px 8px; text-align: center;">
+        <button class="btn-icon" onclick="eliminarEventoBitacora(${idx})" title="Eliminar" style="color: #f87171; font-size: 0.8rem;">
+          🗑️
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+window.eliminarEventoBitacora = function(idx) {
+  if (currentBitacoraEventos[idx]) {
+    currentBitacoraEventos.splice(idx, 1);
+    renderBitacora();
+  }
+};
+
+document.getElementById('btnAgregarEventoBitacora')?.addEventListener('click', async () => {
+  const fecha = document.getElementById('intBitFecha')?.value || new Date().toISOString().split('T')[0];
+  const clima = document.getElementById('intBitClima')?.value || 'SOLEADO';
+  const pers = parseInt(document.getElementById('intBitPersonal')?.value || 20, 10);
+  const maq = parseInt(document.getElementById('intBitMaquinaria')?.value || 5, 10);
+  const frente = document.getElementById('intBitFrente')?.value || 'Frente General';
+  const act = document.getElementById('intBitActividades')?.value || 'Actividades de obra';
+  const inst = document.getElementById('intBitInstruccion')?.value || 'Sin observaciones';
+
+  const nuevoEvento = {
+    contrato_numero: document.getElementById('intContratoNum')?.value || 'CTO-2026-001',
+    fecha_registro: fecha,
+    condicion_climatica: clima,
+    personal_total: pers,
+    maquinaria_activa: maq,
+    frente_obra: frente,
+    actividades_ejecutadas: act,
+    instrucciones_interventor: inst
+  };
+
+  currentBitacoraEventos.unshift(nuevoEvento);
+  renderBitacora();
+
+  // Guardar en DB en segundo plano
+  fetch('/api/interventoria/guardar-bitacora', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(nuevoEvento)
+  }).catch(e => console.warn('Aviso bitacora save:', e.message));
+
+  showToast('✅ Evento registrado en la Bitácora Digital de Obra');
+});
+
+// Renderizado de Ensayos
+function renderEnsayosCalidad() {
+  const tbody = document.getElementById('tbodyEnsayosCalidad');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+  currentEnsayosCalidad.forEach((e, idx) => {
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
+    const colorRes = e.resultado_tecnico === 'CONFORME' ? '#34d399' : (e.resultado_tecnico === 'OBSERVADO' ? '#fbbf24' : '#f87171');
+
+    tr.innerHTML = `
+      <td style="padding: 6px 8px; font-weight: 600;">
+        <div>${e.nombre_ensayo || e.tipo_ensayo}</div>
+        <div style="font-size: 0.65rem; color: var(--text-faint);">${e.laboratorio_nombre || 'Laboratorio'}</div>
+      </td>
+      <td style="padding: 6px 8px; font-size: 0.68rem;">${e.localizacion_muestra}</td>
+      <td style="padding: 6px 8px; text-align: right; font-weight: 700;">${e.valor_diseno_exigido} ${e.unidad_medida}</td>
+      <td style="padding: 6px 8px; text-align: right; font-weight: 700; color: #818cf8;">${e.valor_obtenido_laboratorio} ${e.unidad_medida}</td>
+      <td style="padding: 6px 8px; text-align: right; font-weight: 700; color: ${colorRes};">${e.porcentaje_conformidad}%</td>
+      <td style="padding: 6px 8px; text-align: center;">
+        <span class="badge" style="background: rgba(255,255,255,0.06); color: ${colorRes}; font-size: 0.65rem; font-weight: 700;">
+          ${e.resultado_tecnico}
+        </span>
+      </td>
+      <td style="padding: 6px 8px; text-align: center;">
+        <button class="btn-icon" onclick="eliminarEnsayoCalidad(${idx})" title="Eliminar" style="color: #f87171; font-size: 0.8rem;">
+          🗑️
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+window.eliminarEnsayoCalidad = function(idx) {
+  if (currentEnsayosCalidad[idx]) {
+    currentEnsayosCalidad.splice(idx, 1);
+    recalcularInterventoria();
+    renderEnsayosCalidad();
+  }
+};
+
+document.getElementById('btnAgregarEnsayoCalidad')?.addEventListener('click', async () => {
+  const tipo = document.getElementById('intEnsTipo')?.value || 'COMPRESION_CONCRETO_28D';
+  const loc = document.getElementById('intEnsLocalizacion')?.value || 'Frente de obra';
+  const vExig = parseFloat(document.getElementById('intEnsValorExigido')?.value || 3000);
+  const vObt = parseFloat(document.getElementById('intEnsValorObtenido')?.value || 3000);
+  const lab = document.getElementById('intEnsLaboratorio')?.value || 'Laboratorio Técnico';
+
+  let unidad = 'PSI';
+  if (tipo === 'DENSIDAD_SUELOS_PROCTOR') unidad = '%';
+  else if (tipo === 'ASENTAMIENTO_SLUMP') unidad = 'Pulgadas';
+  else if (tipo === 'ACERO_TRACCION') unidad = 'MPa';
+
+  try {
+    const evalRes = await fetch('/api/interventoria/evaluar-ensayo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tipoEnsayo: tipo,
+        valorExigido: vExig,
+        valorObtenido: vObt,
+        unidadMedida: unidad
+      })
+    });
+
+    const evalData = await evalRes.json();
+    const ev = evalData.evaluacion;
+
+    const nuevoEnsayo = {
+      contrato_numero: document.getElementById('intContratoNum')?.value || 'CTO-2026-001',
+      tipo_ensayo: tipo,
+      nombre_ensayo: ev.nombre_ensayo,
+      localizacion_muestra: loc,
+      fecha_toma_muestra: new Date().toISOString().split('T')[0],
+      fecha_resultado: new Date().toISOString().split('T')[0],
+      valor_diseno_exigido: vExig,
+      valor_obtenido_laboratorio: vObt,
+      unidad_medida: unidad,
+      porcentaje_conformidad: ev.porcentaje_conformidad,
+      resultado_tecnico: ev.resultado_tecnico,
+      laboratorio_nombre: lab
+    };
+
+    currentEnsayosCalidad.unshift(nuevoEnsayo);
+    recalcularInterventoria();
+    renderEnsayosCalidad();
+
+    // Guardar en DB en segundo plano
+    fetch('/api/interventoria/guardar-ensayo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(nuevoEnsayo)
+    }).catch(e => console.warn('Aviso ensayo save:', e.message));
+
+    showToast(`✅ Ensayo evaluado y registrado: ${ev.resultado_tecnico} (${ev.porcentaje_conformidad}%)`);
+  } catch (err) {
+    showToast('Error evaluando ensayo de calidad');
+  }
+});
+
+// Descargar PDF de Interventoría
+document.getElementById('btnDownloadIntPdf')?.addEventListener('click', async () => {
+  if (!currentInterventoriaDesempeno) {
+    await recalcularInterventoria();
+  }
+
+  const payload = {
+    proceso_numero: document.getElementById('intProcesoNum')?.value || 'SECOP-II-2026',
+    contrato_numero: document.getElementById('intContratoNum')?.value || 'CTO-2026-001',
+    entidad_nombre: document.getElementById('intEntidadNombre')?.value || 'Entidad Contratante',
+    contratista_nombre: document.getElementById('intContratistaNombre')?.value || 'Contratista de Obra',
+    interventor_nombre: document.getElementById('intInterventorNombre')?.value || 'Interventoría Técnica',
+    periodo_informe: document.getElementById('intPeriodoInforme')?.value || 'Mes 03 (Octubre 2026)',
+    desempeno: currentInterventoriaDesempeno,
+    bitacora: currentBitacoraEventos,
+    ensayos: currentEnsayosCalidad
+  };
+
+  try {
+    showToast('Generando Informe Oficial de Interventoría en PDF...');
+    const res = await fetch('/api/interventoria/exportar-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error('Error generando PDF en el servidor');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Informe_Interventoria_${payload.contrato_numero.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    showToast('✅ Informe PDF descargado exitosamente');
+  } catch (err) {
+    showToast('Error al descargar el PDF de interventoría');
+  }
+});
+
+// Descargar Excel de Interventoría
+document.getElementById('btnDownloadIntExcel')?.addEventListener('click', async () => {
+  if (!currentInterventoriaDesempeno) {
+    await recalcularInterventoria();
+  }
+
+  const payload = {
+    proceso_numero: document.getElementById('intProcesoNum')?.value || 'SECOP-II-2026',
+    contrato_numero: document.getElementById('intContratoNum')?.value || 'CTO-2026-001',
+    entidad_nombre: document.getElementById('intEntidadNombre')?.value || 'Entidad Contratante',
+    contratista_nombre: document.getElementById('intContratistaNombre')?.value || 'Contratista de Obra',
+    interventor_nombre: document.getElementById('intInterventorNombre')?.value || 'Interventoría Técnica',
+    periodo_informe: document.getElementById('intPeriodoInforme')?.value || 'Mes 03 (Octubre 2026)',
+    desempeno: currentInterventoriaDesempeno,
+    bitacora: currentBitacoraEventos,
+    ensayos: currentEnsayosCalidad
+  };
+
+  try {
+    showToast('Generando Libro Excel de Bitácora y Calidad...');
+    const res = await fetch('/api/interventoria/exportar-excel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error('Error generando Excel en el servidor');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Libro_Interventoria_Calidad_${payload.contrato_numero.replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    showToast('✅ Libro Excel descargado exitosamente');
+  } catch (err) {
+    showToast('Error al descargar el archivo Excel de interventoría');
+  }
+});
+
 // ==================== INICIALIZACIÓN ====================
 window.addEventListener('DOMContentLoaded', () => {
   checkUserSession();

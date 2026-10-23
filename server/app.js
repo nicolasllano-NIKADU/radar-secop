@@ -38,6 +38,9 @@ const apuEngine = require('./apuEngine');
 const economicProposalEngine = require('./economicProposalEngine');
 const criteriosDiferencialesEngine = require('./criteriosDiferencialesEngine');
 const anticiposFiduciaEngine = require('./anticiposFiduciaEngine');
+const equilibrioEconomicoEngine = require('./equilibrioEconomicoEngine');
+const contractLiquidationEngine = require('./contractLiquidationEngine');
+const supervisionInterventoriaEngine = require('./supervisionInterventoriaEngine');
 const initDb = require('./initDb');
 
 const app = express();
@@ -3575,6 +3578,772 @@ app.get('/api/anticipos/exportar-excel/:id', async (req, res) => {
     res.send(xlsxBuffer);
   } catch (err) {
     console.error('Error generando Excel de anticipo por ID:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== MÓDULO DE RECLAMACIONES Y EQUILIBRIO ECONÓMICO (LEY 80 ART. 27) ====================
+
+// 1. Simulación y cálculo pericial de perjuicios e indexación
+app.post('/api/equilibrio-economico/calcular', (req, res) => {
+  try {
+    const {
+      tipologia,
+      valorContrato,
+      plazoInicialDias,
+      diasMayorPermanencia,
+      items,
+      ipcInicial,
+      ipcFinal,
+      margenUtilidadEsperadaPct
+    } = req.body;
+
+    const resultado = equilibrioEconomicoEngine.calcularRestablecimientoEquilibrio({
+      tipologia,
+      valorContrato: Number(valorContrato) || 0,
+      plazoInicialDias: Number(plazoInicialDias) || 180,
+      diasMayorPermanencia: Number(diasMayorPermanencia) || 0,
+      items: Array.isArray(items) ? items : [],
+      ipcInicial: Number(ipcInicial) || 142.5,
+      ipcFinal: Number(ipcFinal) || 158.2,
+      margenUtilidadEsperadaPct: Number(margenUtilidadEsperadaPct) || 5.0
+    });
+
+    res.json({ success: true, calculo: resultado });
+  } catch (err) {
+    console.error('Error calculando equilibrio económico:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 2. Guardar Reclamación en PostgreSQL
+app.post('/api/equilibrio-economico/guardar', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const {
+      proceso_numero,
+      contrato_numero,
+      entidad_nombre,
+      contratista_nombre,
+      contratista_nit,
+      tipologia_reclamacion,
+      fundamento_juridico,
+      hechos_generadores,
+      valor_contrato_inicial,
+      plazo_inicial_dias,
+      plazo_adicional_suspension_dias,
+      fecha_ocurrencia_hechos,
+      items_reclamacion,
+      monto_dano_emergente,
+      monto_lucro_cesante,
+      monto_indexacion_ipc,
+      monto_total_reclamado,
+      porcentaje_impacto_contrato,
+      estado,
+      observaciones
+    } = req.body;
+
+    const insertSql = `
+      INSERT INTO reclamaciones_equilibrio_economico (
+        proceso_numero, contrato_numero, entidad_nombre, contratista_nombre,
+        contratista_nit, tipologia_reclamacion, fundamento_juridico,
+        hechos_generadores, valor_contrato_inicial, plazo_inicial_dias,
+        plazo_adicional_suspension_dias, fecha_ocurrencia_hechos,
+        items_reclamacion, monto_dano_emergente, monto_lucro_cesante,
+        monto_indexacion_ipc, monto_total_reclamado, porcentaje_impacto_contrato,
+        estado, observaciones
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+      RETURNING *;
+    `;
+
+    const params = [
+      proceso_numero || 'SIN-PROCESO',
+      contrato_numero || 'SIN-CONTRATO',
+      entidad_nombre || 'Entidad Contratante',
+      contratista_nombre || 'Contratista Reclamante',
+      contratista_nit || '000000000-0',
+      tipologia_reclamacion || 'MAYOR_PERMANENCIA_OBRA',
+      fundamento_juridico || 'Art. 27 Ley 80 de 1993',
+      hechos_generadores || 'Sobrecostos y mayor permanencia por causas imputables a la entidad.',
+      Number(valor_contrato_inicial) || 0,
+      parseInt(plazo_inicial_dias, 10) || 180,
+      parseInt(plazo_adicional_suspension_dias, 10) || 0,
+      fecha_ocurrencia_hechos || new Date().toISOString().split('T')[0],
+      JSON.stringify(items_reclamacion || []),
+      Number(monto_dano_emergente) || 0,
+      Number(monto_lucro_cesante) || 0,
+      Number(monto_indexacion_ipc) || 0,
+      Number(monto_total_reclamado) || 0,
+      Number(porcentaje_impacto_contrato) || 0,
+      estado || 'BORRADOR',
+      observaciones || 'Reclamación estructurada conforme a Ley 2220/2022'
+    ];
+
+    const result = await dbPostgres.query(insertSql, params);
+    res.json({
+      success: true,
+      mensaje: 'Reclamación económica registrada con éxito en PostgreSQL',
+      reclamacion: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Error guardando reclamación económica:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 3. Historial de Reclamaciones
+app.get('/api/equilibrio-economico/historial', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const { search, limit = 50 } = req.query;
+
+    let querySql = `
+      SELECT r.*,
+        (SELECT COUNT(*) FROM reclamaciones_anexos_soporte a WHERE a.reclamacion_id = r.id) as total_anexos
+      FROM reclamaciones_equilibrio_economico r
+    `;
+    const params = [];
+
+    if (search && search.trim() !== '') {
+      querySql += ` WHERE r.proceso_numero ILIKE $1 OR r.contrato_numero ILIKE $1 OR r.entidad_nombre ILIKE $1 OR r.contratista_nombre ILIKE $1 `;
+      params.push(`%${search.trim()}%`);
+    }
+
+    querySql += ` ORDER BY r.created_at DESC LIMIT $${params.length + 1}`;
+    params.push(parseInt(limit, 10));
+
+    const result = await dbPostgres.query(querySql, params);
+    res.json({ success: true, count: result.rows.length, data: result.rows });
+  } catch (err) {
+    console.error('Error consultando historial de reclamaciones:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 4. Detalle individual de una Reclamación
+app.get('/api/equilibrio-economico/detalle/:id', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const id = parseInt(req.params.id, 10);
+
+    const q = await dbPostgres.query('SELECT * FROM reclamaciones_equilibrio_economico WHERE id = $1', [id]);
+    if (q.rows.length === 0) return res.status(404).json({ success: false, error: 'Reclamación no encontrada' });
+
+    const anexosQ = await dbPostgres.query('SELECT * FROM reclamaciones_anexos_soporte WHERE reclamacion_id = $1 ORDER BY id ASC', [id]);
+
+    res.json({
+      success: true,
+      reclamacion: q.rows[0],
+      anexos: anexosQ.rows
+    });
+  } catch (err) {
+    console.error('Error obteniendo detalle de reclamación:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 5. Descargar Dictamen Pericial Oficial en PDF (Vía POST directo)
+app.post('/api/equilibrio-economico/exportar-pdf', async (req, res) => {
+  try {
+    const data = req.body;
+    const pdfBuffer = await equilibrioEconomicoEngine.generarDictamenReclamacionPdf(data);
+    const safeRef = (data.contrato_numero || 'RECLAMACION').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Dictamen_Pericial_Equilibrio_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error exportando PDF de reclamación:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 6. Descargar Dictamen Pericial Oficial en PDF (Vía GET por ID)
+app.get('/api/equilibrio-economico/exportar-pdf/:id', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const id = parseInt(req.params.id, 10);
+
+    const q = await dbPostgres.query('SELECT * FROM reclamaciones_equilibrio_economico WHERE id = $1', [id]);
+    if (q.rows.length === 0) return res.status(404).json({ success: false, error: 'Reclamación no encontrada' });
+
+    const rec = q.rows[0];
+    let items = [];
+    try {
+      items = typeof rec.items_reclamacion === 'string' ? JSON.parse(rec.items_reclamacion) : (rec.items_reclamacion || []);
+    } catch (_) {}
+
+    const calculo = equilibrioEconomicoEngine.calcularRestablecimientoEquilibrio({
+      tipologia: rec.tipologia_reclamacion,
+      valorContrato: parseFloat(rec.valor_contrato_inicial),
+      plazoInicialDias: parseInt(rec.plazo_inicial_dias, 10),
+      diasMayorPermanencia: parseInt(rec.plazo_adicional_suspension_dias, 10),
+      items: items
+    });
+
+    const pdfData = {
+      proceso_numero: rec.proceso_numero,
+      contrato_numero: rec.contrato_numero,
+      entidad_nombre: rec.entidad_nombre,
+      contratista_nombre: rec.contratista_nombre,
+      contratista_nit: rec.contratista_nit,
+      hechos_generadores: rec.hechos_generadores,
+      calculo: calculo
+    };
+
+    const pdfBuffer = await equilibrioEconomicoEngine.generarDictamenReclamacionPdf(pdfData);
+    const safeRef = (rec.contrato_numero || 'RECLAMACION').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Dictamen_Pericial_Equilibrio_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF de reclamación por ID:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 7. Descargar Cuadro y Memoria de Cálculo en Excel (.xlsx) (Vía POST directo)
+app.post('/api/equilibrio-economico/exportar-excel', async (req, res) => {
+  try {
+    const data = req.body;
+    const xlsxBuffer = await equilibrioEconomicoEngine.generarCuadroLiquidacionExcel(data);
+    const safeRef = (data.contrato_numero || 'RECLAMACION').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="Memoria_Pericial_Equilibrio_${safeRef}.xlsx"`);
+    res.send(xlsxBuffer);
+  } catch (err) {
+    console.error('Error exportando Excel de reclamación:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 8. Descargar Cuadro y Memoria de Cálculo en Excel (.xlsx) (Vía GET por ID)
+app.get('/api/equilibrio-economico/exportar-excel/:id', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const id = parseInt(req.params.id, 10);
+
+    const q = await dbPostgres.query('SELECT * FROM reclamaciones_equilibrio_economico WHERE id = $1', [id]);
+    if (q.rows.length === 0) return res.status(404).json({ success: false, error: 'Reclamación no encontrada' });
+
+    const rec = q.rows[0];
+    let items = [];
+    try {
+      items = typeof rec.items_reclamacion === 'string' ? JSON.parse(rec.items_reclamacion) : (rec.items_reclamacion || []);
+    } catch (_) {}
+
+    const calculo = equilibrioEconomicoEngine.calcularRestablecimientoEquilibrio({
+      tipologia: rec.tipologia_reclamacion,
+      valorContrato: parseFloat(rec.valor_contrato_inicial),
+      plazoInicialDias: parseInt(rec.plazo_inicial_dias, 10),
+      diasMayorPermanencia: parseInt(rec.plazo_adicional_suspension_dias, 10),
+      items: items
+    });
+
+    const excelData = {
+      proceso_numero: rec.proceso_numero,
+      contrato_numero: rec.contrato_numero,
+      entidad_nombre: rec.entidad_nombre,
+      contratista_nombre: rec.contratista_nombre,
+      contratista_nit: rec.contratista_nit,
+      calculo: calculo
+    };
+
+    const xlsxBuffer = await equilibrioEconomicoEngine.generarCuadroLiquidacionExcel(excelData);
+    const safeRef = (rec.contrato_numero || 'RECLAMACION').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="Memoria_Pericial_Equilibrio_${safeRef}.xlsx"`);
+    res.send(xlsxBuffer);
+  } catch (err) {
+    console.error('Error generando Excel de reclamación por ID:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== MÓDULO DE LIQUIDACIÓN DE CONTRATOS (LEY 80 ART. 60) ====================
+
+// 1. Simulación y cálculo de balance contable de liquidación
+app.post('/api/liquidaciones/calcular-balance', (req, res) => {
+  try {
+    const {
+      valorInicial,
+      adiciones,
+      valorEjecutado,
+      valorPagado,
+      anticipoConcedido,
+      anticipoAmortizado,
+      retencionesGarantia,
+      multasODeducciones,
+      salvedades
+    } = req.body;
+
+    const balance = contractLiquidationEngine.liquidarContratoBalance({
+      valorInicial: Number(valorInicial) || 0,
+      adiciones: Number(adiciones) || 0,
+      valorEjecutado: Number(valorEjecutado) || 0,
+      valorPagado: Number(valorPagado) || 0,
+      anticipoConcedido: Number(anticipoConcedido) || 0,
+      anticipoAmortizado: Number(anticipoAmortizado) || 0,
+      retencionesGarantia: Number(retencionesGarantia) || 0,
+      multasODeducciones: Number(multasODeducciones) || 0,
+      salvedades
+    });
+
+    res.json({ success: true, liquidacion: balance });
+  } catch (err) {
+    console.error('Error calculando balance de liquidación:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 2. Guardar Acta de Liquidación en PostgreSQL
+app.post('/api/liquidaciones/guardar', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const {
+      proceso_numero,
+      contrato_numero,
+      entidad_nombre,
+      contratista_nombre,
+      contratista_nit,
+      tipo_liquidacion,
+      fecha_terminacion_contrato,
+      fecha_acta_liquidacion,
+      valor_contrato_inicial,
+      valor_adiciones,
+      valor_contrato_final,
+      valor_total_ejecutado,
+      valor_total_pagado,
+      valor_anticipo_concedido,
+      valor_anticipo_amortizado,
+      valor_anticipo_pendiente,
+      valor_retenciones_garantia,
+      valor_descuentos_sanciones,
+      saldo_neto_final,
+      direccion_saldo,
+      amparos_poscontractuales,
+      salvedades_contratista,
+      estado,
+      observaciones
+    } = req.body;
+
+    const insertSql = `
+      INSERT INTO contratos_liquidaciones_finales (
+        proceso_numero, contrato_numero, entidad_nombre, contratista_nombre,
+        contratista_nit, tipo_liquidacion, fecha_terminacion_contrato,
+        fecha_acta_liquidacion, valor_contrato_inicial, valor_adiciones,
+        valor_contrato_final, valor_total_ejecutado, valor_total_pagado,
+        valor_anticipo_concedido, valor_anticipo_amortizado, valor_anticipo_pendiente,
+        valor_retenciones_garantia, valor_descuentos_sanciones, saldo_neto_final,
+        direccion_saldo, amparos_poscontractuales, salvedades_contratista,
+        estado, observaciones
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
+      RETURNING *;
+    `;
+
+    const params = [
+      proceso_numero || 'SIN-PROCESO',
+      contrato_numero || 'SIN-CONTRATO',
+      entidad_nombre || 'Entidad Contratante',
+      contratista_nombre || 'Contratista Ejecutor',
+      contratista_nit || '000000000-0',
+      tipo_liquidacion || 'MUTUO_ACUERDO_BILATERAL',
+      fecha_terminacion_contrato || new Date().toISOString().split('T')[0],
+      fecha_acta_liquidacion || new Date().toISOString().split('T')[0],
+      Number(valor_contrato_inicial) || 0,
+      Number(valor_adiciones) || 0,
+      Number(valor_contrato_final) || 0,
+      Number(valor_total_ejecutado) || 0,
+      Number(valor_total_pagado) || 0,
+      Number(valor_anticipo_concedido) || 0,
+      Number(valor_anticipo_amortizado) || 0,
+      Number(valor_anticipo_pendiente) || 0,
+      Number(valor_retenciones_garantia) || 0,
+      Number(valor_descuentos_sanciones) || 0,
+      Number(saldo_neto_final) || 0,
+      direccion_saldo || 'A_PAZ_Y_SALVO_CERO',
+      JSON.stringify(amparos_poscontractuales || []),
+      salvedades_contratista || 'Sin salvedades expresas',
+      estado || 'FIRMADA',
+      observaciones || 'Liquidación realizada conforme a Ley 80 Art. 60'
+    ];
+
+    const result = await dbPostgres.query(insertSql, params);
+    res.json({
+      success: true,
+      mensaje: 'Acta de liquidación guardada exitosamente en PostgreSQL',
+      liquidacion: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Error guardando acta de liquidación:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 3. Historial de Liquidaciones
+app.get('/api/liquidaciones/historial', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const { search, limit = 50 } = req.query;
+
+    let querySql = 'SELECT * FROM contratos_liquidaciones_finales';
+    const params = [];
+
+    if (search && search.trim() !== '') {
+      querySql += ' WHERE proceso_numero ILIKE $1 OR contrato_numero ILIKE $1 OR entidad_nombre ILIKE $1 OR contratista_nombre ILIKE $1 ';
+      params.push(`%${search.trim()}%`);
+    }
+
+    querySql += ` ORDER BY created_at DESC LIMIT $${params.length + 1}`;
+    params.push(parseInt(limit, 10));
+
+    const result = await dbPostgres.query(querySql, params);
+    res.json({ success: true, count: result.rows.length, data: result.rows });
+  } catch (err) {
+    console.error('Error consultando historial de liquidaciones:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 4. Detalle individual de una Liquidación
+app.get('/api/liquidaciones/detalle/:id', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const id = parseInt(req.params.id, 10);
+
+    const q = await dbPostgres.query('SELECT * FROM contratos_liquidaciones_finales WHERE id = $1', [id]);
+    if (q.rows.length === 0) return res.status(404).json({ success: false, error: 'Liquidación no encontrada' });
+
+    res.json({ success: true, liquidacion: q.rows[0] });
+  } catch (err) {
+    console.error('Error obteniendo detalle de liquidación:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 5. Descargar Acta Oficial en PDF (Vía POST directo)
+app.post('/api/liquidaciones/exportar-pdf', async (req, res) => {
+  try {
+    const data = req.body;
+    const pdfBuffer = await contractLiquidationEngine.generarActaLiquidacionPdf(data);
+    const safeRef = (data.contrato_numero || 'LIQUIDACION').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Acta_Liquidacion_Bilateral_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error exportando PDF de liquidación:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 6. Descargar Acta Oficial en PDF (Vía GET por ID)
+app.get('/api/liquidaciones/exportar-pdf/:id', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const id = parseInt(req.params.id, 10);
+
+    const q = await dbPostgres.query('SELECT * FROM contratos_liquidaciones_finales WHERE id = $1', [id]);
+    if (q.rows.length === 0) return res.status(404).json({ success: false, error: 'Liquidación no encontrada' });
+
+    const row = q.rows[0];
+    const balanceCalculado = contractLiquidationEngine.liquidarContratoBalance({
+      valorInicial: parseFloat(row.valor_contrato_inicial),
+      adiciones: parseFloat(row.valor_adiciones),
+      valorEjecutado: parseFloat(row.valor_total_ejecutado),
+      valorPagado: parseFloat(row.valor_total_pagado),
+      anticipoConcedido: parseFloat(row.valor_anticipo_concedido),
+      anticipoAmortizado: parseFloat(row.valor_anticipo_amortizado),
+      retencionesGarantia: parseFloat(row.valor_retenciones_garantia),
+      multasODeducciones: parseFloat(row.valor_descuentos_sanciones),
+      salvedades: row.salvedades_contratista
+    });
+
+    const pdfData = {
+      proceso_numero: row.proceso_numero,
+      contrato_numero: row.contrato_numero,
+      entidad_nombre: row.entidad_nombre,
+      contratista_nombre: row.contratista_nombre,
+      contratista_nit: row.contratista_nit,
+      interventor_nombre: 'Interventoría y Supervisión Técnica',
+      fecha_terminacion: row.fecha_terminacion_contrato ? new Date(row.fecha_terminacion_contrato).toISOString().split('T')[0] : '',
+      fecha_liquidacion: row.fecha_acta_liquidacion ? new Date(row.fecha_acta_liquidacion).toISOString().split('T')[0] : '',
+      liquidacion: balanceCalculado
+    };
+
+    const pdfBuffer = await contractLiquidationEngine.generarActaLiquidacionPdf(pdfData);
+    const safeRef = (row.contrato_numero || 'LIQUIDACION').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Acta_Liquidacion_Bilateral_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF de liquidación por ID:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 7. Descargar Balance en Excel (.xlsx) (Vía POST directo)
+app.post('/api/liquidaciones/exportar-excel', async (req, res) => {
+  try {
+    const data = req.body;
+    const xlsxBuffer = await contractLiquidationEngine.generarBalanceLiquidacionExcel(data);
+    const safeRef = (data.contrato_numero || 'LIQUIDACION').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="Balance_Liquidacion_${safeRef}.xlsx"`);
+    res.send(xlsxBuffer);
+  } catch (err) {
+    console.error('Error exportando Excel de liquidación:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 8. Descargar Balance en Excel (.xlsx) (Vía GET por ID)
+app.get('/api/liquidaciones/exportar-excel/:id', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const id = parseInt(req.params.id, 10);
+
+    const q = await dbPostgres.query('SELECT * FROM contratos_liquidaciones_finales WHERE id = $1', [id]);
+    if (q.rows.length === 0) return res.status(404).json({ success: false, error: 'Liquidación no encontrada' });
+
+    const row = q.rows[0];
+    const balanceCalculado = contractLiquidationEngine.liquidarContratoBalance({
+      valorInicial: parseFloat(row.valor_contrato_inicial),
+      adiciones: parseFloat(row.valor_adiciones),
+      valorEjecutado: parseFloat(row.valor_total_ejecutado),
+      valorPagado: parseFloat(row.valor_total_pagado),
+      anticipoConcedido: parseFloat(row.valor_anticipo_concedido),
+      anticipoAmortizado: parseFloat(row.valor_anticipo_amortizado),
+      retencionesGarantia: parseFloat(row.valor_retenciones_garantia),
+      multasODeducciones: parseFloat(row.valor_descuentos_sanciones),
+      salvedades: row.salvedades_contratista
+    });
+
+    const excelData = {
+      proceso_numero: row.proceso_numero,
+      contrato_numero: row.contrato_numero,
+      entidad_nombre: row.entidad_nombre,
+      contratista_nombre: row.contratista_nombre,
+      contratista_nit: row.contratista_nit,
+      interventor_nombre: 'Interventoría y Supervisión Técnica',
+      fecha_terminacion: row.fecha_terminacion_contrato ? new Date(row.fecha_terminacion_contrato).toISOString().split('T')[0] : '',
+      fecha_liquidacion: row.fecha_acta_liquidacion ? new Date(row.fecha_acta_liquidacion).toISOString().split('T')[0] : '',
+      liquidacion: balanceCalculado
+    };
+
+    const xlsxBuffer = await contractLiquidationEngine.generarBalanceLiquidacionExcel(excelData);
+    const safeRef = (row.contrato_numero || 'LIQUIDACION').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="Balance_Liquidacion_${safeRef}.xlsx"`);
+    res.send(xlsxBuffer);
+  } catch (err) {
+    console.error('Error generando Excel de liquidación por ID:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== MÓDULO DE SUPERVISIÓN E INTERVENTORÍA TÉCNICA (LEY 1474 ARTS. 82-85) ====================
+
+// 1. Evaluación técnica de ensayos de laboratorio (concreto, suelos, slump)
+app.post('/api/interventoria/evaluar-ensayo', (req, res) => {
+  try {
+    const { tipoEnsayo, valorExigido, valorObtenido, unidadMedida } = req.body;
+    const resultado = supervisionInterventoriaEngine.evaluarConformidadEnsayo({
+      tipoEnsayo,
+      valorExigido: Number(valorExigido) || 0,
+      valorObtenido: Number(valorObtenido) || 0,
+      unidadMedida: unidadMedida || 'PSI'
+    });
+    res.json({ success: true, evaluacion: resultado });
+  } catch (err) {
+    console.error('Error evaluando ensayo de calidad:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 2. Registrar evento diario en la Bitácora Digital de Obra
+app.post('/api/interventoria/guardar-bitacora', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const {
+      contrato_numero,
+      fecha_registro,
+      condicion_climatica,
+      personal_total,
+      maquinaria_activa,
+      frente_obra,
+      actividades_ejecutadas,
+      instrucciones_interventor,
+      estado_orden
+    } = req.body;
+
+    const insertSql = `
+      INSERT INTO interventoria_bitacora_diaria (
+        contrato_numero, fecha_registro, condicion_climatica,
+        personal_total, maquinaria_activa, frente_obra,
+        actividades_ejecutadas, instrucciones_interventor, estado_orden
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING *;
+    `;
+
+    const params = [
+      contrato_numero || 'SIN-CONTRATO',
+      fecha_registro || new Date().toISOString().split('T')[0],
+      condicion_climatica || 'SOLEADO',
+      parseInt(personal_total, 10) || 0,
+      parseInt(maquinaria_activa, 10) || 0,
+      frente_obra || 'Frente General',
+      actividades_ejecutadas || 'Actividades rutinarias de obra',
+      instrucciones_interventor || 'Sin observaciones especiales',
+      estado_orden || 'CUMPLIDA'
+    ];
+
+    const result = await dbPostgres.query(insertSql, params);
+    res.json({ success: true, mensaje: 'Evento registrado en bitácora digital', bitacora: result.rows[0] });
+  } catch (err) {
+    console.error('Error guardando en bitácora diaria:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 3. Consultar eventos de Bitácora por Contrato
+app.get('/api/interventoria/bitacora/:contrato', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const contrato = req.params.contrato;
+
+    const result = await dbPostgres.query(
+      'SELECT * FROM interventoria_bitacora_diaria WHERE contrato_numero = $1 ORDER BY fecha_registro DESC LIMIT 50',
+      [contrato]
+    );
+
+    res.json({ success: true, count: result.rows.length, data: result.rows });
+  } catch (err) {
+    console.error('Error consultando bitácora:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 4. Guardar Ensayo de Calidad de Laboratorio
+app.post('/api/interventoria/guardar-ensayo', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const {
+      contrato_numero,
+      tipo_ensayo,
+      localizacion_muestra,
+      fecha_toma_muestra,
+      fecha_resultado,
+      valor_diseno_exigido,
+      valor_obtenido_laboratorio,
+      unidad_medida,
+      porcentaje_conformidad,
+      resultado_tecnico,
+      laboratorio_nombre,
+      observaciones
+    } = req.body;
+
+    const insertSql = `
+      INSERT INTO interventoria_control_calidad_ensayos (
+        contrato_numero, tipo_ensayo, localizacion_muestra,
+        fecha_toma_muestra, fecha_resultado, valor_diseno_exigido,
+        valor_obtenido_laboratorio, unidad_medida, porcentaje_conformidad,
+        resultado_tecnico, laboratorio_nombre, observaciones
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING *;
+    `;
+
+    const params = [
+      contrato_numero || 'SIN-CONTRATO',
+      tipo_ensayo || 'COMPRESION_CONCRETO_28D',
+      localizacion_muestra || 'Frente 1',
+      fecha_toma_muestra || new Date().toISOString().split('T')[0],
+      fecha_resultado || new Date().toISOString().split('T')[0],
+      Number(valor_diseno_exigido) || 3000,
+      Number(valor_obtenido_laboratorio) || 3000,
+      unidad_medida || 'PSI',
+      Number(porcentaje_conformidad) || 100,
+      resultado_tecnico || 'CONFORME',
+      laboratorio_nombre || 'Laboratorio Técnico de Materiales',
+      observaciones || 'Ensayo validado por interventoría'
+    ];
+
+    const result = await dbPostgres.query(insertSql, params);
+    res.json({ success: true, mensaje: 'Ensayo de laboratorio registrado exitosamente', ensayo: result.rows[0] });
+  } catch (err) {
+    console.error('Error guardando ensayo de laboratorio:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 5. Consultar Ensayos de Calidad por Contrato
+app.get('/api/interventoria/ensayos/:contrato', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const contrato = req.params.contrato;
+
+    const result = await dbPostgres.query(
+      'SELECT * FROM interventoria_control_calidad_ensayos WHERE contrato_numero = $1 ORDER BY fecha_resultado DESC',
+      [contrato]
+    );
+
+    res.json({ success: true, count: result.rows.length, data: result.rows });
+  } catch (err) {
+    console.error('Error consultando ensayos de calidad:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 6. Calcular métricas de avance y desempeño SPI
+app.post('/api/interventoria/calcular-desempeno', (req, res) => {
+  try {
+    const { programadoPct, realPct, ensayos } = req.body;
+    const desempeno = supervisionInterventoriaEngine.calcularAvanceYDesempeno({
+      programadoPct: Number(programadoPct) || 0,
+      realPct: Number(realPct) || 0,
+      ensayos: Array.isArray(ensayos) ? ensayos : []
+    });
+    res.json({ success: true, desempeno });
+  } catch (err) {
+    console.error('Error calculando desempeño de interventoría:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 7. Descargar Informe Periódico de Interventoría en PDF
+app.post('/api/interventoria/exportar-pdf', async (req, res) => {
+  try {
+    const data = req.body;
+    const pdfBuffer = await supervisionInterventoriaEngine.generarInformeInterventoriaPdf(data);
+    const safeRef = (data.contrato_numero || 'INTERVENTORIA').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Informe_Interventoria_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error exportando PDF de interventoría:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 8. Descargar Informe y Libro de Bitácora en Excel (.xlsx)
+app.post('/api/interventoria/exportar-excel', async (req, res) => {
+  try {
+    const data = req.body;
+    const xlsxBuffer = await supervisionInterventoriaEngine.generarInformeInterventoriaExcel(data);
+    const safeRef = (data.contrato_numero || 'INTERVENTORIA').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="Informe_Interventoria_${safeRef}.xlsx"`);
+    res.send(xlsxBuffer);
+  } catch (err) {
+    console.error('Error exportando Excel de interventoría:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
