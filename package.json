@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node server/app.js",
     "dev": "node --watch server/app.js",
-    "scan": "node -e \"require('./server/scanner').runScheduledScan()\""
+    "scan": "node -e \"require('./server/scanner').runScheduledScan()\"",
+    "test": "node scripts/run_ecosystem_realworld_benchmark.js"
   },
   "keywords": [
     "secop",
