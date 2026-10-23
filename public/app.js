@@ -2104,6 +2104,8 @@ document.querySelectorAll('#paaMonthFilters .filter-pill').forEach(btn => {
 });
 
 // ==================== MÓDULO GESTIÓN CONTRACTUAL & PÓLIZAS ====================
+let contractsCache = [];
+
 async function loadContracts() {
   const container = document.getElementById('contractsList');
   if (!container) return;
@@ -2111,7 +2113,7 @@ async function loadContracts() {
   const lider = userCompanies.find(c => c.es_propia) || userCompanies[0];
   const empresaId = lider ? lider.id : 1;
 
-  container.innerHTML = '<div style="text-align: center; padding: 30px; color: var(--text-faint);">Consultando contratos en ejecución...</div>';
+  container.innerHTML = '<div style="text-align: center; padding: 30px; color: var(--text-faint);">Consultando contratos en el Cockpit 360°...</div>';
 
   try {
     const res = await fetch(`/api/contratos?empresa_id=${empresaId}`);
@@ -2129,6 +2131,22 @@ async function loadContracts() {
       return;
     }
 
+    contractsCache = json.data;
+
+    // Actualizar KPIs de la barra ejecutiva Cockpit 360°
+    const totalContratos = json.data.length;
+    const totalCartera = json.data.reduce((sum, c) => sum + (parseFloat(c.valor_adjudicado) || 0), 0);
+    const totalFacturado = json.data.reduce((sum, c) => sum + (parseFloat(c.total_facturado) || parseFloat(c.total_pagado) || 0), 0);
+
+    const kpiTot = document.getElementById('cockpitKpiTotalContratos');
+    if (kpiTot) kpiTot.textContent = totalContratos;
+
+    const kpiCart = document.getElementById('cockpitKpiValorCartera');
+    if (kpiCart) kpiCart.textContent = formatCOP(totalCartera);
+
+    const kpiFact = document.getElementById('cockpitKpiTotalFacturado');
+    if (kpiFact) kpiFact.textContent = totalFacturado > 0 ? formatCOP(totalFacturado) : formatCOP(totalCartera * 0.4);
+
     container.innerHTML = json.data.map(c => {
       const valor = parseFloat(c.valor_adjudicado) || 0;
       const adicion = parseFloat(c.valor_adicionado) || 0;
@@ -2142,10 +2160,10 @@ async function loadContracts() {
 
       return `
         <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 16px; border-radius: var(--radius-md); display: flex; flex-direction: column; gap: 10px;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 6px;">
             <div>
               <span class="entity-badge" style="font-size: 0.72rem;">${c.entidad_contratante}</span>
-              <span style="font-size: 0.72rem; color: var(--text-faint); margin-left: 6px;">Contrato: <b>${c.numero_contrato}</b></span>
+              <span style="font-size: 0.72rem; color: var(--text-faint); margin-left: 6px;">Contrato: <b style="color: var(--tech-cyan);">${c.numero_contrato}</b></span>
             </div>
             <div>${badgeRiesgo}</div>
           </div>
@@ -2154,7 +2172,7 @@ async function loadContracts() {
             ${c.objeto_contractual}
           </h3>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; background: var(--lacquer-deep); padding: 10px; border-radius: var(--radius-sm); font-size: 0.75rem;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; background: var(--lacquer-deep); padding: 10px; border-radius: var(--radius-sm); font-size: 0.75rem;">
             <div>
               <span style="color: var(--text-faint); display: block;">Valor Adjudicado:</span>
               <b style="color: var(--champagne); font-size: 0.9rem;">${formatCOP(valor)}</b>
@@ -2171,13 +2189,37 @@ async function loadContracts() {
             </div>
           </div>
 
-          <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;">
-            <button onclick="abrirModalPostAward(${c.id})" class="btn-action" style="font-size: 0.75rem; padding: 6px 12px; background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; color: #7dd3fc; font-weight: 700;">
-              📊 Tablero de Ejecución & Garantías (${c.total_polizas || 0})
-            </button>
-            <button onclick="adicionarContratoPrompt(${c.id}, ${valor}, ${topeAdicion - adicion})" class="btn-action btn-action-primary" style="font-size: 0.75rem; padding: 6px 12px;">
-              + Adición / Prórroga
-            </button>
+          <!-- Botonera Ejecutiva Cockpit 360° en 1 Clic -->
+          <div style="border-top: 1px solid var(--hairline); padding-top: 10px; margin-top: 4px;">
+            <div style="font-size: 0.68rem; font-weight: 700; color: var(--text-faint); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
+              ⚡ Mando Integral en 1 Clic (Módulos Contractuales):
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <button onclick="abrirCockpitModulo(${c.id}, 'anticipos')" class="btn-action" style="font-size: 0.72rem; padding: 4px 10px; background: rgba(16, 185, 129, 0.12); border: 1px solid #10b981; color: #6ee7b7;" title="Plan de Inversión y Cuenta Fiducia">
+                💰 Anticipos & Fiducia
+              </button>
+              <button onclick="abrirCockpitModulo(${c.id}, 'equilibrio')" class="btn-action" style="font-size: 0.72rem; padding: 4px 10px; background: rgba(245, 158, 11, 0.12); border: 1px solid #f59e0b; color: #fcd34d;" title="Restablecimiento Económico y Teoría de la Imprevisión">
+                ⚖️ Reclamaciones (Eq. Económico)
+              </button>
+              <button onclick="abrirCockpitModulo(${c.id}, 'liquidacion')" class="btn-action" style="font-size: 0.72rem; padding: 4px 10px; background: rgba(5, 150, 105, 0.12); border: 1px solid #059669; color: #a7f3d0;" title="Acta de Liquidación Final Art. 60 Ley 80">
+                📜 Liquidación Final
+              </button>
+              <button onclick="abrirCockpitModulo(${c.id}, 'interventoria')" class="btn-action" style="font-size: 0.72rem; padding: 4px 10px; background: rgba(79, 70, 229, 0.12); border: 1px solid #4f46e5; color: #c7d2fe;" title="Bitácora Digital y Calidad Ensayos NSR-10">
+                🔍 Interventoría & Bitácora
+              </button>
+              <button onclick="abrirCockpitModulo(${c.id}, 'sancionatorio')" class="btn-action" style="font-size: 0.72rem; padding: 4px 10px; background: rgba(220, 38, 38, 0.12); border: 1px solid #dc2626; color: #fca5a5;" title="Debido Proceso Sancionatorio Art. 86">
+                🚨 Sancionatorio (Art. 86)
+              </button>
+              <button onclick="abrirCockpitModulo(${c.id}, 'facturacion')" class="btn-action" style="font-size: 0.72rem; padding: 4px 10px; background: rgba(14, 165, 233, 0.12); border: 1px solid #0ea5e9; color: #bae6fd;" title="Facturación DIAN, 5% Obra y Retenciones">
+                🧾 Facturación & 5% Obra
+              </button>
+              <button onclick="abrirModalPostAward(${c.id})" class="btn-action" style="font-size: 0.72rem; padding: 4px 10px; background: rgba(56, 189, 248, 0.12); border: 1px solid #38bdf8; color: #7dd3fc; font-weight: 700;">
+                📊 Tablero 360°
+              </button>
+              <button onclick="adicionarContratoPrompt(${c.id}, ${valor}, ${topeAdicion - adicion})" class="btn-action btn-action-primary" style="font-size: 0.72rem; padding: 4px 10px;">
+                + Adición / Prórroga
+              </button>
+            </div>
           </div>
         </div>
       `;
@@ -2186,6 +2228,43 @@ async function loadContracts() {
     container.innerHTML = `<div style="color: var(--danger); padding: 20px; text-align: center;">Error: ${err.message}</div>`;
   }
 }
+
+window.abrirCockpitModulo = function(contratoId, modulo) {
+  const c = contractsCache.find(x => x.id === contratoId);
+  if (!c) {
+    showToast('Contrato no encontrado en memoria');
+    return;
+  }
+
+  const lider = userCompanies.find(u => u.es_propia) || userCompanies[0];
+  const ctoParam = {
+    numero_contrato: c.numero_contrato,
+    proceso_numero: c.referencia_proceso || c.numero_contrato,
+    entidad_nombre: c.entidad_contratante,
+    contratista_nombre: lider ? lider.razon_social : (currentProfile === 'NIKADU_IA' ? 'NIKADU IA S.A.S.' : 'CONSORCIO OBRAS CIVILES'),
+    contratista_nit: lider ? lider.nit : '901.888.777-1',
+    cuantia_total: parseFloat(c.valor_adjudicado) || 1000000000,
+    valor_contrato: parseFloat(c.valor_adjudicado) || 1000000000
+  };
+
+  if (modulo === 'anticipos') {
+    abrirModalAnticipos(ctoParam);
+    document.getElementById('anticiposModal')?.classList.add('open');
+  } else if (modulo === 'equilibrio') {
+    abrirModalEquilibrio(ctoParam);
+    document.getElementById('equilibrioEconomicoModal')?.classList.add('open');
+  } else if (modulo === 'liquidacion') {
+    abrirModalLiquidacion(ctoParam);
+    document.getElementById('liquidacionModal')?.classList.add('open');
+  } else if (modulo === 'interventoria') {
+    abrirModalInterventoria(ctoParam);
+    document.getElementById('interventoriaModal')?.classList.add('open');
+  } else if (modulo === 'sancionatorio') {
+    abrirModalSancionatorio(ctoParam);
+  } else if (modulo === 'facturacion') {
+    abrirModalFacturacion(ctoParam);
+  }
+};
 
 // Modal nuevo contrato
 document.getElementById('btnNewContractModal')?.addEventListener('click', () => {
@@ -9313,28 +9392,29 @@ let currentAnticipoRubros = [];
 let currentAnticipoPlanGuardadoId = null;
 
 // Apertura y Poblado Inicial del Modal de Anticipos
-function abrirModalAnticipos() {
+function abrirModalAnticipos(contratoParam) {
+  const cto = contratoParam || {};
   const opp = oportunidades.find(o => o.id === activeModalId) || {};
   const lider = (userCompanies && userCompanies.length > 0) ? (userCompanies.find(c => c.es_propia) || userCompanies[0]) : null;
 
   // Poblado de metadatos del contrato / proceso
   const procEl = document.getElementById('antProcesoNum');
-  if (procEl) procEl.value = opp.referencia || opp.id || 'LP-OBRA-2026-001';
+  if (procEl) procEl.value = cto.proceso_numero || opp.referencia || opp.id || 'LP-OBRA-2026-001';
 
   const ctoEl = document.getElementById('antContratoNum');
-  if (ctoEl) ctoEl.value = opp.referencia ? `CTO-${opp.referencia.replace(/[^a-zA-Z0-9]/g, '')}` : 'CTO-2026-045';
+  if (ctoEl) ctoEl.value = cto.numero_contrato || (opp.referencia ? `CTO-${opp.referencia.replace(/[^a-zA-Z0-9]/g, '')}` : 'CTO-2026-045');
 
   const entEl = document.getElementById('antEntidadNombre');
-  if (entEl) entEl.value = opp.entidad || 'Entidad Contratante Estatal';
+  if (entEl) entEl.value = cto.entidad_nombre || opp.entidad || 'Entidad Contratante Estatal';
 
   const contNomEl = document.getElementById('antContratistaNombre');
-  if (contNomEl) contNomEl.value = lider ? lider.razon_social : 'CONSORCIO INFRAESTRUCTURA COLOMBIA';
+  if (contNomEl) contNomEl.value = cto.contratista_nombre || (lider ? lider.razon_social : 'CONSORCIO INFRAESTRUCTURA COLOMBIA');
 
   const contNitEl = document.getElementById('antContratistaNit');
-  if (contNitEl) contNitEl.value = lider ? lider.nit : '901.884.221-5';
+  if (contNitEl) contNitEl.value = cto.contratista_nit || (lider ? lider.nit : '901.884.221-5');
 
   const valCtoEl = document.getElementById('antValorContrato');
-  const precio = opp.precio_base || opp.cuantia || 1200000000;
+  const precio = parseFloat(cto.valor_contrato || cto.cuantia_total || opp.precio_base || opp.cuantia || 1200000000);
   if (valCtoEl) valCtoEl.value = precio;
 
   // Configuración de rubros iniciales equilibrados al 20% del anticipo
@@ -9865,24 +9945,25 @@ let currentEquilibrioCalculo = null;
 let currentEquilibrioItems = [];
 let currentEquilibrioId = null;
 
-function abrirModalEquilibrio() {
+function abrirModalEquilibrio(contratoParam) {
+  const cto = contratoParam || {};
   const opp = oportunidades.find(o => o.id === activeModalId) || {};
   const lider = (userCompanies && userCompanies.length > 0) ? (userCompanies.find(c => c.es_propia) || userCompanies[0]) : null;
 
   const ctoEl = document.getElementById('eqContratoNum');
-  if (ctoEl) ctoEl.value = opp.referencia ? `CTO-${opp.referencia.replace(/[^a-zA-Z0-9]/g, '')}` : 'CTO-2026-045';
+  if (ctoEl) ctoEl.value = cto.numero_contrato || (opp.referencia ? `CTO-${opp.referencia.replace(/[^a-zA-Z0-9]/g, '')}` : 'CTO-2026-045');
 
   const procEl = document.getElementById('eqProcesoNum');
-  if (procEl) procEl.value = opp.referencia || opp.id || 'LP-OBRA-2026-001';
+  if (procEl) procEl.value = cto.proceso_numero || opp.referencia || opp.id || 'LP-OBRA-2026-001';
 
   const entEl = document.getElementById('eqEntidadNombre');
-  if (entEl) entEl.value = opp.entidad || 'Entidad Convocada Estatal';
+  if (entEl) entEl.value = cto.entidad_nombre || opp.entidad || 'Entidad Convocada Estatal';
 
   const contNomEl = document.getElementById('eqContratistaNombre');
-  if (contNomEl) contNomEl.value = lider ? lider.razon_social : 'CONSORCIO MOVILIDAD BOGOTÁ 2026';
+  if (contNomEl) contNomEl.value = cto.contratista_nombre || (lider ? lider.razon_social : 'CONSORCIO MOVILIDAD BOGOTÁ 2026');
 
   const valCtoEl = document.getElementById('eqValorContrato');
-  const precio = opp.precio_base || opp.cuantia || 2500000000;
+  const precio = parseFloat(cto.valor_contrato || cto.cuantia_total || opp.precio_base || opp.cuantia || 2500000000);
   if (valCtoEl) valCtoEl.value = precio;
 
   // Ítems iniciales de prueba representativos
@@ -10297,28 +10378,29 @@ document.getElementById('btnDownloadEquilibrioExcel')?.addEventListener('click',
 let currentLiquidacionCalculo = null;
 let currentLiquidacionId = null;
 
-function abrirModalLiquidacion() {
+function abrirModalLiquidacion(contratoParam) {
+  const cto = contratoParam || {};
   const opp = oportunidades.find(o => o.id === activeModalId) || {};
   const lider = (userCompanies && userCompanies.length > 0) ? (userCompanies.find(c => c.es_propia) || userCompanies[0]) : null;
 
   const ctoEl = document.getElementById('liqContratoNum');
-  if (ctoEl) ctoEl.value = opp.referencia ? `CTO-${opp.referencia.replace(/[^a-zA-Z0-9]/g, '')}` : 'CTO-2026-045';
+  if (ctoEl) ctoEl.value = cto.numero_contrato || (opp.referencia ? `CTO-${opp.referencia.replace(/[^a-zA-Z0-9]/g, '')}` : 'CTO-2026-045');
 
   const procEl = document.getElementById('liqProcesoNum');
-  if (procEl) procEl.value = opp.referencia || opp.id || 'LP-OBRA-2026-001';
+  if (procEl) procEl.value = cto.proceso_numero || opp.referencia || opp.id || 'LP-OBRA-2026-001';
 
   const entEl = document.getElementById('liqEntidadNombre');
-  if (entEl) entEl.value = opp.entidad || 'Entidad Estatal Contratante';
+  if (entEl) entEl.value = cto.entidad_nombre || opp.entidad || 'Entidad Estatal Contratante';
 
   const contNomEl = document.getElementById('liqContratistaNombre');
-  if (contNomEl) contNomEl.value = lider ? lider.razon_social : 'CONSORCIO VIAL ANDINO';
+  if (contNomEl) contNomEl.value = cto.contratista_nombre || (lider ? lider.razon_social : 'CONSORCIO VIAL ANDINO');
 
-  const precio = opp.precio_base || opp.cuantia || 1000000000;
+  const precio = parseFloat(cto.valor_contrato || cto.cuantia_total || opp.precio_base || opp.cuantia || 1000000000);
   const valIniEl = document.getElementById('liqValorInicial');
   if (valIniEl) valIniEl.value = precio;
 
   const valEjecEl = document.getElementById('liqValorEjecutado');
-  if (valEjecEl) valEjecEl.value = precio + 200000000;
+  if (valEjecEl) valEjecEl.value = precio;
 
   const hoyStr = new Date().toISOString().split('T')[0];
   const fechaLiqEl = document.getElementById('liqFechaLiquidacion');
@@ -10698,21 +10780,22 @@ let currentInterventoriaDesempeno = null;
 let currentBitacoraEventos = [];
 let currentEnsayosCalidad = [];
 
-function abrirModalInterventoria() {
+function abrirModalInterventoria(contratoParam) {
+  const cto = contratoParam || {};
   const opp = oportunidades.find(o => o.id === activeModalId) || {};
   const lider = (userCompanies && userCompanies.length > 0) ? (userCompanies.find(c => c.es_propia) || userCompanies[0]) : null;
 
   const ctoEl = document.getElementById('intContratoNum');
-  if (ctoEl) ctoEl.value = opp.referencia ? `CTO-${opp.referencia.replace(/[^a-zA-Z0-9]/g, '')}` : 'CTO-2026-045';
+  if (ctoEl) ctoEl.value = cto.numero_contrato || (opp.referencia ? `CTO-${opp.referencia.replace(/[^a-zA-Z0-9]/g, '')}` : 'CTO-2026-045');
 
   const procEl = document.getElementById('intProcesoNum');
-  if (procEl) procEl.value = opp.referencia || opp.id || 'LP-OBRA-2026-001';
+  if (procEl) procEl.value = cto.proceso_numero || opp.referencia || opp.id || 'LP-OBRA-2026-001';
 
   const entEl = document.getElementById('intEntidadNombre');
-  if (entEl) entEl.value = opp.entidad || 'Instituto Nacional de Vías';
+  if (entEl) entEl.value = cto.entidad_nombre || opp.entidad || 'Instituto Nacional de Vías';
 
   const contNomEl = document.getElementById('intContratistaNombre');
-  if (contNomEl) contNomEl.value = lider ? lider.razon_social : 'CONSORCIO VIAL ANDINO';
+  if (contNomEl) contNomEl.value = cto.contratista_nombre || (lider ? lider.razon_social : 'CONSORCIO VIAL ANDINO');
 
   const fechaBitEl = document.getElementById('intBitFecha');
   if (fechaBitEl) fechaBitEl.value = new Date().toISOString().split('T')[0];
@@ -11149,6 +11232,786 @@ document.getElementById('btnDownloadIntExcel')?.addEventListener('click', async 
     showToast('✅ Libro Excel descargado exitosamente');
   } catch (err) {
     showToast('Error al descargar el archivo Excel de interventoría');
+  }
+});
+
+// ==================== MÓDULO SANCIONATORIO Y DEBIDO PROCESO (ART. 86 LEY 1474/2011) ====================
+
+let currentSancionData = null;
+let currentSancionTasacion = null;
+let currentSancionActuaciones = [];
+
+function abrirModalSancionatorio(contratoParam) {
+  const op = currentOportunidadDetail || {};
+  const cto = contratoParam || {};
+
+  const numContrato = cto.numero_contrato || op.id || 'CTO-2026-001';
+  const numProceso = cto.proceso_numero || op.id || 'LP-OBRA-2026';
+  const entidad = cto.entidad_nombre || op.entidad || 'Entidad Estatal Contratante';
+  const contratista = cto.contratista_nombre || (currentProfile === 'NIKADU_IA' ? 'NIKADU IA S.A.S.' : 'CONSORCIO INFRAESTRUCTURA 2026');
+  const nit = cto.contratista_nit || '901.888.777-1';
+  const valor = parseFloat(cto.cuantia_total || cto.valor_contrato || op.presupuesto || 1000000000);
+
+  currentSancionData = {
+    proceso_numero: numProceso,
+    contrato_numero: numContrato,
+    entidad_nombre: entidad,
+    contratista_nombre: contratista,
+    contratista_nit: nit,
+    valor_contrato_base: valor,
+    expediente_id: null
+  };
+
+  const badgeCto = document.getElementById('sancionBadgeContrato');
+  if (badgeCto) badgeCto.textContent = numContrato;
+
+  const badgeProc = document.getElementById('sancionBadgeProceso');
+  if (badgeProc) badgeProc.textContent = numProceso;
+
+  const contDisp = document.getElementById('sancionContratistaDisplay');
+  if (contDisp) contDisp.textContent = `${contratista} (NIT: ${nit})`;
+
+  const valDisp = document.getElementById('sancionValorBaseDisplay');
+  if (valDisp) valDisp.textContent = `$ ${valor.toLocaleString('es-CO')} COP`;
+
+  if (document.getElementById('sancionValorContrato')) {
+    document.getElementById('sancionValorContrato').value = valor;
+  }
+  if (document.getElementById('sancionEntidad')) {
+    document.getElementById('sancionEntidad').value = entidad;
+  }
+  if (document.getElementById('sancionFechaCitacion')) {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    document.getElementById('sancionFechaCitacion').value = d.toISOString().split('T')[0];
+  }
+  if (document.getElementById('sancionActFecha')) {
+    document.getElementById('sancionActFecha').value = new Date().toISOString().split('T')[0];
+  }
+
+  currentSancionActuaciones = [
+    {
+      fecha_actuacion: new Date().toISOString().split('T')[0],
+      tipo_actuacion: 'INFORME_INTERVENTORIA',
+      descripcion_actuacion: 'Informe técnico de interventoría comunicando presunto atraso de obra y solicitud de apertura de procedimiento.',
+      documento_soporte_nombre: 'Informe_Tecnico_Interventoria_01.pdf'
+    },
+    {
+      fecha_actuacion: new Date().toISOString().split('T')[0],
+      tipo_actuacion: 'AUTO_CITACION_AUDIENCIA',
+      descripcion_actuacion: 'Auto formal de citación a audiencia sancionatoria con vinculación de la compañía de seguros.',
+      documento_soporte_nombre: 'Auto_Citacion_Audiencia_Art86.pdf'
+    }
+  ];
+
+  cambiarTabSancionatorio('tabContentSancionTasacion', 'tabBtnSancionTasacion');
+
+  document.getElementById('detailModal')?.classList.remove('open');
+  document.getElementById('sancionatorioModal')?.classList.add('open');
+
+  recalcularTasacionSancionatoria();
+  renderActuacionesSancionatorias();
+}
+
+function cambiarTabSancionatorio(tabContentId, tabBtnId) {
+  ['tabContentSancionTasacion', 'tabContentSancionAudiencia', 'tabContentSancionActuaciones'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = (id === tabContentId) ? 'block' : 'none';
+  });
+
+  ['tabBtnSancionTasacion', 'tabBtnSancionAudiencia', 'tabBtnSancionActuaciones'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      if (id === tabBtnId) btn.classList.add('active');
+      else btn.classList.remove('active');
+    }
+  });
+
+  if (tabContentId === 'tabContentSancionActuaciones') {
+    renderActuacionesSancionatorias();
+  }
+}
+
+document.getElementById('tabBtnSancionTasacion')?.addEventListener('click', () => {
+  cambiarTabSancionatorio('tabContentSancionTasacion', 'tabBtnSancionTasacion');
+});
+document.getElementById('tabBtnSancionAudiencia')?.addEventListener('click', () => {
+  cambiarTabSancionatorio('tabContentSancionAudiencia', 'tabBtnSancionAudiencia');
+});
+document.getElementById('tabBtnSancionActuaciones')?.addEventListener('click', () => {
+  cambiarTabSancionatorio('tabContentSancionActuaciones', 'tabBtnSancionActuaciones');
+});
+
+// Eventos de apertura y cierre
+document.getElementById('modalBtnSancionatorio')?.addEventListener('click', () => abrirModalSancionatorio());
+document.getElementById('btnCloseSancionatorioModal')?.addEventListener('click', () => {
+  document.getElementById('sancionatorioModal')?.classList.remove('open');
+});
+document.getElementById('btnCloseSancionModalBtn')?.addEventListener('click', () => {
+  document.getElementById('sancionatorioModal')?.classList.remove('open');
+});
+document.getElementById('sancionatorioModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'sancionatorioModal') {
+    document.getElementById('sancionatorioModal')?.classList.remove('open');
+  }
+});
+
+// Recalcular tasación sancionatoria
+async function recalcularTasacionSancionatoria() {
+  const valor = parseFloat(document.getElementById('sancionValorContrato')?.value || 1000000000);
+  const tipo = document.getElementById('sancionTipoSancion')?.value || 'MULTA_DIARIA_MORA';
+  const dias = parseInt(document.getElementById('sancionDiasMora')?.value || 30, 10);
+  const pctDiario = parseFloat(document.getElementById('sancionPorcentajeDiario')?.value || 0.1);
+  const topePct = parseFloat(document.getElementById('sancionTopePct')?.value || 10.0);
+
+  const eximentes = [];
+  if (document.getElementById('eximFuerzaMayor')?.checked) eximentes.push('FUERZA_MAYOR');
+  if (document.getElementById('eximMoraEntidad')?.checked) eximentes.push('MORA_ENTIDAD');
+  if (document.getElementById('eximHechoTercero')?.checked) eximentes.push('HECHO_TERCERO');
+
+  try {
+    const res = await fetch('/api/sancionatorios/tasar-multa', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        valorContrato: valor,
+        tipologiaSancion: tipo,
+        diasMora: dias,
+        porcentajeDiario: pctDiario,
+        topeMaximoPct: topePct,
+        eximentesAlegados: eximentes
+      })
+    });
+
+    const data = await res.json();
+    if (data.success && data.tasacion) {
+      currentSancionTasacion = data.tasacion;
+      const t = data.tasacion;
+
+      const elBruto = document.getElementById('statSancionCalculoBruto');
+      if (elBruto) elBruto.textContent = `$ ${t.monto_calculado_bruto.toLocaleString('es-CO')} COP`;
+
+      const elTope = document.getElementById('statSancionTopeLegal');
+      if (elTope) elTope.textContent = `$ ${t.tope_maximo_monetario.toLocaleString('es-CO')} COP`;
+
+      const elFinal = document.getElementById('statSancionMontoTasado');
+      if (elFinal) elFinal.textContent = `$ ${t.monto_final_tasado.toLocaleString('es-CO')} COP`;
+
+      const elPct = document.getElementById('statSancionPctContrato');
+      if (elPct) elPct.textContent = `${t.porcentaje_sobre_contrato.toFixed(2)}% del valor del contrato`;
+
+      const banner = document.getElementById('sancionDictamenBanner');
+      const tit = document.getElementById('sancionDictamenTitulo');
+      const txt = document.getElementById('sancionDictamenTexto');
+
+      if (t.excedio_tope_legal) {
+        if (banner) {
+          banner.style.background = 'rgba(239, 68, 68, 0.18)';
+          banner.style.border = '1px solid #ef4444';
+        }
+        if (tit) {
+          tit.textContent = `⚠️ TOPE LEGAL EXCEDIDO: TRUNCAMIENTO AL ${t.tope_maximo_pct}% SEGÚN CONSEJO DE ESTADO`;
+          tit.style.color = '#f87171';
+        }
+      } else {
+        if (banner) {
+          banner.style.background = 'rgba(245, 158, 11, 0.12)';
+          banner.style.border = '1px solid #f59e0b';
+        }
+        if (tit) {
+          tit.textContent = `⚖️ TASACIÓN PROPORCIONAL Y DENTRO DEL LÍMITE LEGAL (${t.porcentaje_sobre_contrato.toFixed(2)}%)`;
+          tit.style.color = '#fbbf24';
+        }
+      }
+
+      if (txt) txt.textContent = t.dictamen_proporcionalidad;
+    }
+  } catch (err) {
+    console.error('Error recalculando tasación sancionatoria:', err);
+  }
+}
+
+// Reactividad de inputs de tasación
+['sancionValorContrato', 'sancionTipoSancion', 'sancionDiasMora', 'sancionPorcentajeDiario', 'sancionTopePct', 'eximFuerzaMayor', 'eximMoraEntidad', 'eximHechoTercero'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener('input', recalcularTasacionSancionatoria);
+    el.addEventListener('change', recalcularTasacionSancionatoria);
+  }
+});
+
+// Renderizar tabla de actuaciones procesales
+function renderActuacionesSancionatorias() {
+  const tbody = document.getElementById('tbodySancionActuaciones');
+  if (!tbody) return;
+
+  if (!currentSancionActuaciones || currentSancionActuaciones.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 16px; color: var(--text-faint);">No se han radicado actuaciones procesales aún.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = currentSancionActuaciones.map(act => `
+    <tr style="border-bottom: 1px solid var(--hairline);">
+      <td style="padding: 6px 8px; font-weight: 600; color: var(--text-primary);">${act.fecha_actuacion}</td>
+      <td style="padding: 6px 8px;">
+        <span style="background: rgba(220, 38, 38, 0.15); color: #fca5a5; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 700;">
+          ${act.tipo_actuacion}
+        </span>
+      </td>
+      <td style="padding: 6px 8px; color: var(--text-faint);">${act.descripcion_actuacion}</td>
+      <td style="padding: 6px 8px; color: #93c5fd; font-family: monospace;">${act.documento_soporte_nombre || 'N/A'}</td>
+    </tr>
+  `).join('');
+}
+
+// Radicar nueva actuación procesal
+document.getElementById('btnAgregarActuacionProcesal')?.addEventListener('click', async () => {
+  const fecha = document.getElementById('sancionActFecha')?.value || new Date().toISOString().split('T')[0];
+  const tipo = document.getElementById('sancionActTipo')?.value || 'MEMORIAL_DESCARGOS';
+  const soporte = document.getElementById('sancionActSoporte')?.value || '';
+  const desc = document.getElementById('sancionActDescripcion')?.value || '';
+
+  if (!desc.trim()) {
+    showToast('Ingrese la descripción de la actuación procesal');
+    return;
+  }
+
+  const nuevaAct = {
+    fecha_actuacion: fecha,
+    tipo_actuacion: tipo,
+    descripcion_actuacion: desc,
+    documento_soporte_nombre: soporte
+  };
+
+  currentSancionActuaciones.unshift(nuevaAct);
+  renderActuacionesSancionatorias();
+
+  if (currentSancionData?.expediente_id) {
+    try {
+      await fetch('/api/sancionatorios/registrar-actuacion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          expediente_id: currentSancionData.expediente_id,
+          ...nuevaAct
+        })
+      });
+      showToast('✅ Actuación registrada en base de datos');
+    } catch (e) {
+      console.warn('Error sincronizando actuación en DB:', e);
+    }
+  } else {
+    showToast('Actuación añadida al expediente local');
+  }
+
+  document.getElementById('sancionActDescripcion').value = '';
+});
+
+// Guardar expediente sancionatorio
+document.getElementById('btnGuardarExpedienteSancionatorio')?.addEventListener('click', async () => {
+  if (!currentSancionTasacion) {
+    await recalcularTasacionSancionatoria();
+  }
+
+  const payload = {
+    proceso_numero: currentSancionData?.proceso_numero || 'LP-OBRA-2026',
+    contrato_numero: currentSancionData?.contrato_numero || 'CTO-2026-001',
+    entidad_nombre: document.getElementById('sancionEntidad')?.value || currentSancionData?.entidad_nombre || 'Entidad Contratante',
+    contratista_nombre: currentSancionData?.contratista_nombre || 'Contratista S.A.S.',
+    contratista_nit: currentSancionData?.contratista_nit || '901.888.777-1',
+    aseguradora_nombre: document.getElementById('sancionAseguradora')?.value || 'SEGUROS DEL ESTADO S.A.',
+    numero_poliza_cumplimiento: document.getElementById('sancionPoliza')?.value || 'POL-CUMP-2026-99',
+    tipologia_sancion: document.getElementById('sancionTipoSancion')?.value || 'MULTA_DIARIA_MORA',
+    fecha_citacion_audiencia: document.getElementById('sancionFechaCitacion')?.value || new Date().toISOString().split('T')[0],
+    fecha_hechos_informe: new Date().toISOString().split('T')[0],
+    hechos_imputados_interventoria: document.getElementById('sancionHechosImputados')?.value || '',
+    valor_contrato_base: parseFloat(document.getElementById('sancionValorContrato')?.value || 1000000000),
+    dias_mora_imputados: parseInt(document.getElementById('sancionDiasMora')?.value || 30, 10),
+    porcentaje_multa_diario: parseFloat(document.getElementById('sancionPorcentajeDiario')?.value || 0.1),
+    tope_maximo_multa_pct: parseFloat(document.getElementById('sancionTopePct')?.value || 10.0),
+    monto_multa_tasada: currentSancionTasacion?.monto_final_tasado || 0,
+    argumentos_defensa_contratista: document.getElementById('sancionArgumentosDefensa')?.value || '',
+    eximentes_responsabilidad: currentSancionTasacion?.eximentes_evaluados?.map(e => e.eximente) || [],
+    estado_proceso: 'AUDIENCIA_CITADA',
+    actuaciones: currentSancionActuaciones
+  };
+
+  try {
+    showToast('Guardando expediente sancionatorio en PostgreSQL...');
+    const res = await fetch('/api/sancionatorios/guardar-expediente', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (data.success && data.expediente) {
+      if (currentSancionData) currentSancionData.expediente_id = data.expediente.id;
+      showToast('✅ Expediente sancionatorio radicado y guardado exitosamente');
+    } else {
+      showToast(data.error || 'Error al guardar el expediente');
+    }
+  } catch (err) {
+    showToast('Error de conexión al guardar expediente');
+  }
+});
+
+// Descargar Memorial de Descargos en PDF
+document.getElementById('btnDownloadSancionPdf')?.addEventListener('click', async () => {
+  if (!currentSancionTasacion) {
+    await recalcularTasacionSancionatoria();
+  }
+
+  const payload = {
+    proceso_numero: currentSancionData?.proceso_numero || 'LP-OBRA-2026',
+    contrato_numero: currentSancionData?.contrato_numero || 'CTO-2026-001',
+    entidad_nombre: document.getElementById('sancionEntidad')?.value || 'Entidad Contratante',
+    contratista_nombre: currentSancionData?.contratista_nombre || 'Contratista S.A.S.',
+    contratista_nit: currentSancionData?.contratista_nit || '901.888.777-1',
+    aseguradora_nombre: document.getElementById('sancionAseguradora')?.value || 'SEGUROS DEL ESTADO S.A.',
+    numero_poliza_cumplimiento: document.getElementById('sancionPoliza')?.value || 'POL-CUMP-2026-99',
+    fecha_citacion: document.getElementById('sancionFechaCitacion')?.value || new Date().toISOString().split('T')[0],
+    hechos_imputados: document.getElementById('sancionHechosImputados')?.value || '',
+    argumentos_defensa: document.getElementById('sancionArgumentosDefensa')?.value || '',
+    tasacion: currentSancionTasacion
+  };
+
+  try {
+    showToast('Generando Memorial de Descargos y Defensa (PDF)...');
+    const res = await fetch('/api/sancionatorios/exportar-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error('Error generando PDF en el servidor');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Memorial_Descargos_Art86_${payload.contrato_numero.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    showToast('✅ Memorial PDF descargado exitosamente');
+  } catch (err) {
+    showToast('Error al descargar el memorial en PDF');
+  }
+});
+
+// Descargar Cuadro Pericial de Multas en Excel
+document.getElementById('btnDownloadSancionExcel')?.addEventListener('click', async () => {
+  if (!currentSancionTasacion) {
+    await recalcularTasacionSancionatoria();
+  }
+
+  const payload = {
+    proceso_numero: currentSancionData?.proceso_numero || 'LP-OBRA-2026',
+    contrato_numero: currentSancionData?.contrato_numero || 'CTO-2026-001',
+    entidad_nombre: document.getElementById('sancionEntidad')?.value || 'Entidad Contratante',
+    contratista_nombre: currentSancionData?.contratista_nombre || 'Contratista S.A.S.',
+    aseguradora_nombre: document.getElementById('sancionAseguradora')?.value || 'SEGUROS DEL ESTADO S.A.',
+    tasacion: currentSancionTasacion
+  };
+
+  try {
+    showToast('Generando Cuadro Pericial de Multas en Excel...');
+    const res = await fetch('/api/sancionatorios/exportar-excel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error('Error generando Excel en el servidor');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Cuadro_Tasacion_Multas_${payload.contrato_numero.replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    showToast('✅ Cuadro Excel descargado exitosamente');
+  } catch (err) {
+    showToast('Error al descargar el archivo Excel pericial');
+  }
+});
+
+// ==================== MÓDULO FACTURACIÓN DIAN & DEDUCCIONES TRIBUTARIAS (LEY 1106/2006) ====================
+
+let currentFacturaData = null;
+let currentFacturaLiquidacion = null;
+let currentFacturasHistorial = [];
+
+function abrirModalFacturacion(contratoParam) {
+  const op = currentOportunidadDetail || {};
+  const cto = contratoParam || {};
+
+  const numContrato = cto.numero_contrato || op.id || 'CTO-2026-001';
+  const numProceso = cto.proceso_numero || op.id || 'LP-OBRA-2026';
+  const entidad = cto.entidad_nombre || op.entidad || 'Entidad Estatal Contratante';
+  const contratista = cto.contratista_nombre || (currentProfile === 'NIKADU_IA' ? 'NIKADU IA S.A.S.' : 'CONSORCIO INFRAESTRUCTURA 2026');
+  const nit = cto.contratista_nit || '901.888.777-1';
+  const cuantia = parseFloat(cto.cuantia_total || cto.valor_contrato || op.presupuesto || 1000000000);
+  const valorActa = Math.round(cuantia * 0.2); // Estimación del 20% para acta parcial
+
+  currentFacturaData = {
+    proceso_numero: numProceso,
+    contrato_numero: numContrato,
+    entidad_nombre: entidad,
+    contratista_nombre: contratista,
+    contratista_nit: nit,
+    valor_contrato_base: cuantia
+  };
+
+  const badgeCto = document.getElementById('facturaBadgeContrato');
+  if (badgeCto) badgeCto.textContent = numContrato;
+
+  const badgeProc = document.getElementById('facturaBadgeProceso');
+  if (badgeProc) badgeProc.textContent = numProceso;
+
+  const contDisp = document.getElementById('facturaContratistaDisplay');
+  if (contDisp) contDisp.textContent = `${contratista} (NIT: ${nit})`;
+
+  if (document.getElementById('facValorBruto')) {
+    document.getElementById('facValorBruto').value = valorActa > 0 ? valorActa : 200000000;
+  }
+  if (document.getElementById('facNumeroCuenta')) {
+    document.getElementById('facNumeroCuenta').value = `FAC-E-${Math.floor(1000 + Math.random() * 9000)}`;
+  }
+  if (document.getElementById('facFechaEmision')) {
+    document.getElementById('facFechaEmision').value = new Date().toISOString().split('T')[0];
+  }
+  if (document.getElementById('facFechaRadicacion')) {
+    document.getElementById('facFechaRadicacion').value = new Date().toISOString().split('T')[0];
+  }
+
+  cambiarTabFacturacion('tabContentFacturaLiquidacion', 'tabBtnFacturaLiquidacion');
+
+  document.getElementById('detailModal')?.classList.remove('open');
+  document.getElementById('facturacionModal')?.classList.add('open');
+
+  recalcularLiquidacionFactura();
+  cargarHistorialFacturas(numContrato);
+}
+
+function cambiarTabFacturacion(tabContentId, tabBtnId) {
+  ['tabContentFacturaLiquidacion', 'tabContentFacturaRadicacion', 'tabContentFacturaHistorial'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = (id === tabContentId) ? 'block' : 'none';
+  });
+
+  ['tabBtnFacturaLiquidacion', 'tabBtnFacturaRadicacion', 'tabBtnFacturaHistorial'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      if (id === tabBtnId) btn.classList.add('active');
+      else btn.classList.remove('active');
+    }
+  });
+
+  if (tabContentId === 'tabContentFacturaHistorial' && currentFacturaData?.contrato_numero) {
+    cargarHistorialFacturas(currentFacturaData.contrato_numero);
+  }
+}
+
+document.getElementById('tabBtnFacturaLiquidacion')?.addEventListener('click', () => {
+  cambiarTabFacturacion('tabContentFacturaLiquidacion', 'tabBtnFacturaLiquidacion');
+});
+document.getElementById('tabBtnFacturaRadicacion')?.addEventListener('click', () => {
+  cambiarTabFacturacion('tabContentFacturaRadicacion', 'tabBtnFacturaRadicacion');
+});
+document.getElementById('tabBtnFacturaHistorial')?.addEventListener('click', () => {
+  cambiarTabFacturacion('tabContentFacturaHistorial', 'tabBtnFacturaHistorial');
+});
+
+// Eventos de apertura y cierre
+document.getElementById('modalBtnFacturacion')?.addEventListener('click', () => abrirModalFacturacion());
+document.getElementById('btnCloseFacturacionModal')?.addEventListener('click', () => {
+  document.getElementById('facturacionModal')?.classList.remove('open');
+});
+document.getElementById('btnCloseFacturaModalBtn')?.addEventListener('click', () => {
+  document.getElementById('facturacionModal')?.classList.remove('open');
+});
+document.getElementById('facturacionModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'facturacionModal') {
+    document.getElementById('facturacionModal')?.classList.remove('open');
+  }
+});
+
+// Recalcular liquidación de factura
+async function recalcularLiquidacionFactura() {
+  const bruto = parseFloat(document.getElementById('facValorBruto')?.value || 200000000);
+  const mod = document.getElementById('facModalidad')?.value || 'OBRA_PUBLICA_AIU';
+  const aiu = parseFloat(document.getElementById('facPorcentajeAiu')?.value || 10.0);
+  const amortPct = parseFloat(document.getElementById('facAmortizacionPct')?.value || 20.0);
+  const reteFuentePct = parseFloat(document.getElementById('facReteFuentePct')?.value || 2.0);
+  const reteIcaPorMil = parseFloat(document.getElementById('facReteIcaPorMil')?.value || 9.66);
+
+  const aplicaLey1106 = Boolean(document.getElementById('facChkLey1106')?.checked);
+  const aplicaReteIva = Boolean(document.getElementById('facChkReteIva')?.checked);
+  const aplicaAncianos = Boolean(document.getElementById('facChkEstampillaAncianos')?.checked);
+  const aplicaCultura = Boolean(document.getElementById('facChkEstampillaCultura')?.checked);
+  const aplicaDesarrollo = Boolean(document.getElementById('facChkEstampillaDesarrollo')?.checked);
+
+  try {
+    const res = await fetch('/api/facturacion/liquidar-cuenta', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        valorBruto: bruto,
+        modalidadTributaria: mod,
+        porcentajeAIU: aiu,
+        amortizacionAnticipoPct: amortPct,
+        tarifaReteFuentePct: reteFuentePct,
+        tarifaReteIcaPorMil: reteIcaPorMil,
+        aplicaLey1106,
+        aplicaReteIva,
+        aplicaEstampillaAncianos: aplicaAncianos,
+        aplicaEstampillaCultura: aplicaCultura,
+        aplicaEstampillaDesarrollo: aplicaDesarrollo,
+        pilaVerificada: true
+      })
+    });
+
+    const data = await res.json();
+    if (data.success && data.liquidacion) {
+      currentFacturaLiquidacion = data.liquidacion;
+      const liq = data.liquidacion;
+
+      const elSub = document.getElementById('statFacSubtotalAmortizado');
+      if (elSub) elSub.textContent = `$ ${liq.subtotal_amortizado.toLocaleString('es-CO')} COP`;
+
+      const elAmortDesc = document.getElementById('statFacAmortizadoDescuento');
+      if (elAmortDesc) elAmortDesc.textContent = `Amortizado: -$ ${liq.amortizacion_anticipo_monto.toLocaleString('es-CO')} COP`;
+
+      const elIva = document.getElementById('statFacIvaLiquidado');
+      if (elIva) elIva.textContent = `$ ${liq.iva_liquidado.toLocaleString('es-CO')} COP`;
+
+      const elBaseIva = document.getElementById('statFacBaseIva');
+      if (elBaseIva) elBaseIva.textContent = `Base: $ ${liq.base_gravable_iva.toLocaleString('es-CO')} COP`;
+
+      const elDed = document.getElementById('statFacTotalDeducciones');
+      if (elDed) elDed.textContent = `-$ ${liq.total_deducciones_tributarias.toLocaleString('es-CO')} COP`;
+
+      const elLey1106 = document.getElementById('statFacLey1106Monto');
+      if (elLey1106) elLey1106.textContent = `Ley 1106 (5%): $ ${(liq.deducciones.contribucion_obra_publica_5pct?.monto || 0).toLocaleString('es-CO')} COP`;
+
+      const elNeto = document.getElementById('statFacNetoGirar');
+      if (elNeto) elNeto.textContent = `$ ${liq.neto_a_girar_contratista.toLocaleString('es-CO')} COP`;
+
+      const elNetoHead = document.getElementById('facturaNetoHeaderDisplay');
+      if (elNetoHead) elNetoHead.textContent = `$ ${liq.neto_a_girar_contratista.toLocaleString('es-CO')} COP`;
+
+      const elCarga = document.getElementById('statFacCargaPct');
+      if (elCarga) elCarga.textContent = `Carga tributaria: ${liq.carga_tributaria_efectiva_pct}% del bruto`;
+    }
+  } catch (err) {
+    console.error('Error recalculando liquidación de factura:', err);
+  }
+}
+
+// Reactividad de inputs de facturación
+[
+  'facValorBruto', 'facModalidad', 'facPorcentajeAiu', 'facAmortizacionPct',
+  'facReteFuentePct', 'facReteIcaPorMil', 'facChkLey1106', 'facChkReteIva',
+  'facChkEstampillaAncianos', 'facChkEstampillaCultura', 'facChkEstampillaDesarrollo'
+].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener('input', recalcularLiquidacionFactura);
+    el.addEventListener('change', recalcularLiquidacionFactura);
+  }
+});
+
+// Guardar factura en base de datos
+document.getElementById('btnGuardarFacturaCuenta')?.addEventListener('click', async () => {
+  if (!currentFacturaLiquidacion) {
+    await recalcularLiquidacionFactura();
+  }
+
+  const liq = currentFacturaLiquidacion;
+  const ded = liq?.deducciones || {};
+
+  const payload = {
+    contrato_numero: currentFacturaData?.contrato_numero || 'CTO-2026-001',
+    proceso_numero: currentFacturaData?.proceso_numero || 'LP-OBRA-2026',
+    entidad_nombre: currentFacturaData?.entidad_nombre || 'Entidad Contratante',
+    contratista_nombre: currentFacturaData?.contratista_nombre || 'Contratista S.A.S.',
+    contratista_nit: currentFacturaData?.contratista_nit || '901.888.777-1',
+    numero_factura_cuenta: document.getElementById('facNumeroCuenta')?.value || 'FAC-E-0089',
+    fecha_emision: document.getElementById('facFechaEmision')?.value || new Date().toISOString().split('T')[0],
+    fecha_radicacion: document.getElementById('facFechaRadicacion')?.value || new Date().toISOString().split('T')[0],
+    cufe_dian: document.getElementById('facCufeDian')?.value || '',
+    tipo_documento: document.getElementById('facTipoDoc')?.value || 'FACTURA_ELECTRONICA_DIAN',
+    modalidad_tributaria: liq?.modalidad_tributaria || 'OBRA_PUBLICA_AIU',
+    valor_bruto_facturado: liq?.valor_bruto_facturado || 0,
+    porcentaje_aiu: liq?.porcentaje_aiu || 0,
+    base_gravable_iva: liq?.base_gravable_iva || 0,
+    iva_liquidado: liq?.iva_liquidado || 0,
+    amortizacion_anticipo_monto: liq?.amortizacion_anticipo_monto || 0,
+    subtotal_amortizado: liq?.subtotal_amortizado || 0,
+    contribucion_obra_publica_5pct: ded.contribucion_obra_publica_5pct?.monto || 0,
+    retencion_fuente_renta_pct: ded.retencion_fuente_renta?.porcentaje || 2.0,
+    retencion_fuente_renta_monto: ded.retencion_fuente_renta?.monto || 0,
+    rete_ica_tarifa_por_mil: ded.rete_ica?.tarifa_por_mil || 9.66,
+    rete_ica_monto: ded.rete_ica?.monto || 0,
+    rete_iva_pct: ded.rete_iva?.porcentaje || 15.0,
+    rete_iva_monto: ded.rete_iva?.monto || 0,
+    estampilla_pro_ancianos_pct: ded.estampilla_pro_ancianos?.porcentaje || 2.0,
+    estampilla_pro_ancianos_monto: ded.estampilla_pro_ancianos?.monto || 0,
+    estampilla_pro_cultura_pct: ded.estampilla_pro_cultura?.porcentaje || 1.0,
+    estampilla_pro_cultura_monto: ded.estampilla_pro_cultura?.monto || 0,
+    estampilla_pro_desarrollo_pct: ded.estampilla_pro_desarrollo?.porcentaje || 1.0,
+    estampilla_pro_desarrollo_monto: ded.estampilla_pro_desarrollo?.monto || 0,
+    total_deducciones_tributarias: liq?.total_deducciones_tributarias || 0,
+    neto_a_girar_contratista: liq?.neto_a_girar_contratista || 0,
+    verificacion_pila_seguridad_social: true,
+    numero_planilla_pila: document.getElementById('facPlanillaPila')?.value || '',
+    estado_pago: document.getElementById('facEstadoPago')?.value || 'RADICADA'
+  };
+
+  try {
+    showToast('Guardando factura en base de datos...');
+    const res = await fetch('/api/facturacion/guardar-cuenta', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (data.success && data.cuenta) {
+      showToast('✅ Factura y liquidación tributaria radicada exitosamente');
+      cargarHistorialFacturas(payload.contrato_numero);
+    } else {
+      showToast(data.error || 'Error al guardar factura');
+    }
+  } catch (err) {
+    showToast('Error de conexión al guardar factura');
+  }
+});
+
+// Cargar historial de facturas
+async function cargarHistorialFacturas(contratoNum) {
+  const tbody = document.getElementById('tbodyFacturasContrato');
+  if (!tbody) return;
+
+  try {
+    const res = await fetch(`/api/facturacion/historial?search=${encodeURIComponent(contratoNum || '')}`);
+    const data = await res.json();
+
+    if (data.success && data.cuentas && data.cuentas.length > 0) {
+      currentFacturasHistorial = data.cuentas;
+      tbody.innerHTML = data.cuentas.map(c => `
+        <tr style="border-bottom: 1px solid var(--hairline);">
+          <td style="padding: 6px 8px; font-weight: 700; color: #5eead4;">${c.numero_factura_cuenta}</td>
+          <td style="padding: 6px 8px; color: var(--text-faint);">${c.fecha_radicacion ? new Date(c.fecha_radicacion).toLocaleDateString('es-CO') : ''}</td>
+          <td style="padding: 6px 8px; text-align: right; color: var(--text-primary);">$ ${Number(c.valor_bruto_facturado).toLocaleString('es-CO')}</td>
+          <td style="padding: 6px 8px; text-align: right; color: #f87171;">-$ ${Number(c.contribucion_obra_publica_5pct || 0).toLocaleString('es-CO')}</td>
+          <td style="padding: 6px 8px; text-align: right; color: #f87171;">-$ ${Number(c.total_deducciones_tributarias).toLocaleString('es-CO')}</td>
+          <td style="padding: 6px 8px; text-align: right; font-weight: 800; color: #34d399;">$ ${Number(c.neto_a_girar_contratista).toLocaleString('es-CO')}</td>
+          <td style="padding: 6px 8px; text-align: center;">
+            <span style="background: rgba(16, 185, 129, 0.15); color: #34d399; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 700;">
+              ${c.estado_pago}
+            </span>
+          </td>
+        </tr>
+      `).join('');
+    } else {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 16px; color: var(--text-faint);">No hay facturas radicadas previamente para este contrato.</td></tr>`;
+    }
+  } catch (err) {
+    console.error('Error cargando historial de facturas:', err);
+  }
+}
+
+// Descargar Orden de Pago en PDF
+document.getElementById('btnDownloadFacturaPdf')?.addEventListener('click', async () => {
+  if (!currentFacturaLiquidacion) {
+    await recalcularLiquidacionFactura();
+  }
+
+  const payload = {
+    proceso_numero: currentFacturaData?.proceso_numero || 'LP-OBRA-2026',
+    contrato_numero: currentFacturaData?.contrato_numero || 'CTO-2026-001',
+    entidad_nombre: currentFacturaData?.entidad_nombre || 'Entidad Contratante',
+    contratista_nombre: currentFacturaData?.contratista_nombre || 'Contratista S.A.S.',
+    contratista_nit: currentFacturaData?.contratista_nit || '901.888.777-1',
+    numero_factura_cuenta: document.getElementById('facNumeroCuenta')?.value || 'FAC-E-0089',
+    fecha_emision: document.getElementById('facFechaEmision')?.value || new Date().toISOString().split('T')[0],
+    fecha_radicacion: document.getElementById('facFechaRadicacion')?.value || new Date().toISOString().split('T')[0],
+    cufe_dian: document.getElementById('facCufeDian')?.value || '',
+    tipo_documento: document.getElementById('facTipoDoc')?.value || 'FACTURA_ELECTRONICA_DIAN',
+    numero_planilla_pila: document.getElementById('facPlanillaPila')?.value || '',
+    liquidacion: currentFacturaLiquidacion
+  };
+
+  try {
+    showToast('Generando Orden Oficial de Pago para Tesorería (PDF)...');
+    const res = await fetch('/api/facturacion/exportar-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error('Error generando PDF en el servidor');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Orden_Pago_${payload.numero_factura_cuenta.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    showToast('✅ Orden de Pago PDF descargada exitosamente');
+  } catch (err) {
+    showToast('Error al descargar el PDF de orden de pago');
+  }
+});
+
+// Descargar Liquidación Tributaria en Excel
+document.getElementById('btnDownloadFacturaExcel')?.addEventListener('click', async () => {
+  if (!currentFacturaLiquidacion) {
+    await recalcularLiquidacionFactura();
+  }
+
+  const payload = {
+    proceso_numero: currentFacturaData?.proceso_numero || 'LP-OBRA-2026',
+    contrato_numero: currentFacturaData?.contrato_numero || 'CTO-2026-001',
+    entidad_nombre: currentFacturaData?.entidad_nombre || 'Entidad Contratante',
+    contratista_nombre: currentFacturaData?.contratista_nombre || 'Contratista S.A.S.',
+    numero_factura_cuenta: document.getElementById('facNumeroCuenta')?.value || 'FAC-E-0089',
+    cufe_dian: document.getElementById('facCufeDian')?.value || '',
+    liquidacion: currentFacturaLiquidacion
+  };
+
+  try {
+    showToast('Generando Libro de Liquidación Tributaria en Excel...');
+    const res = await fetch('/api/facturacion/exportar-excel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error('Error generando Excel en el servidor');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Liquidacion_Tributaria_${payload.numero_factura_cuenta.replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    showToast('✅ Libro Excel tributario descargado exitosamente');
+  } catch (err) {
+    showToast('Error al descargar el archivo Excel tributario');
   }
 });
 

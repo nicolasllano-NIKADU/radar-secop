@@ -657,21 +657,53 @@
       </div>
     </section>
 
-    <!-- ================= VISTA 6: GESTIÓN CONTRACTUAL & PÓLIZAS ================= -->
+    <!-- ================= VISTA 6: CENTRO DE COMANDO CONTRACTUAL UNIFICADO (COCKPIT 360°) ================= -->
     <section id="view-contracts" class="view-section">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
         <div>
-          <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--champagne); margin-bottom: 4px;">Contratos en Ejecución & Pólizas</h2>
-          <p style="font-size: 0.8rem; color: var(--text-muted);">Supervisión de plazos, semáforo de vigencias de pólizas y control del tope legal del 50% de adición</p>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="entity-badge" style="background: var(--tech-cyan); color: #000; font-weight: 800;">COCKPIT 360°</div>
+            <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--champagne); margin: 0;">Centro de Comando Contractual Unificado</h2>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Mando integral en 1 clic: Anticipos & Fiducia, Reclamaciones, Liquidación, Interventoría, Sanciones Art. 86 y Facturación DIAN</p>
         </div>
         <button id="btnNewContractModal" class="btn-action btn-action-primary" style="padding: 8px 14px; font-size: 0.82rem;">
           + Registrar Contrato Adjudicado
         </button>
       </div>
 
-      <!-- Lista de Contratos -->
+      <!-- Barra de KPIs Ejecutivos del Cockpit 360° -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 16px;">
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid var(--tech-cyan);">
+          <div style="font-size: 0.68rem; color: var(--text-faint);">Contratos en Ejecución</div>
+          <div id="cockpitKpiTotalContratos" style="font-size: 1.25rem; font-weight: 800; color: var(--tech-cyan); margin-top: 2px;">0</div>
+          <div style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Monitoreo en tiempo real</div>
+        </div>
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid var(--champagne);">
+          <div style="font-size: 0.68rem; color: var(--text-faint);">Cartera Total Adjudicada</div>
+          <div id="cockpitKpiValorCartera" style="font-size: 1.15rem; font-weight: 800; color: var(--champagne); margin-top: 2px;">$ 0</div>
+          <div style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Valor contractual activo</div>
+        </div>
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #10b981;">
+          <div style="font-size: 0.68rem; color: var(--text-faint);">Desempeño Promedio SPI</div>
+          <div id="cockpitKpiSpiPromedio" style="font-size: 1.25rem; font-weight: 800; color: #34d399; margin-top: 2px;">1.04</div>
+          <div style="font-size: 0.65rem; color: #34d399; margin-top: 2px;">🟢 En Cronograma (SPI ≥ 1.0)</div>
+        </div>
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #3b82f6;">
+          <div style="font-size: 0.68rem; color: var(--text-faint);">Calidad Ensayos Obra</div>
+          <div id="cockpitKpiCalidadGlobal" style="font-size: 1.25rem; font-weight: 800; color: #60a5fa; margin-top: 2px;">98.5%</div>
+          <div style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">NSR-10 / INVIAS conformes</div>
+        </div>
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #0f766e;">
+          <div style="font-size: 0.68rem; color: var(--text-faint);">Facturación & 5% Obra</div>
+          <div id="cockpitKpiTotalFacturado" style="font-size: 1.15rem; font-weight: 800; color: #5eead4; margin-top: 2px;">$ 0</div>
+          <div style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Pagos DIAN y retenciones</div>
+        </div>
+      </div>
+
+      <!-- Lista de Contratos con Cockpit 360° -->
       <div id="contractsList" style="display: flex; flex-direction: column; gap: 14px;">
-        <div style="text-align: center; padding: 40px; color: var(--text-faint);">Cargando contratos en ejecución...</div>
+        <div style="text-align: center; padding: 40px; color: var(--text-faint);">Cargando contratos en el Cockpit 360°...</div>
       </div>
     </section>
 
@@ -1194,14 +1226,11 @@
       </svg>
       <span>Subsanabilidad</span>
     </button>
-    <button class="nav-item" data-target="view-contracts">
+    <button class="nav-item" data-target="view-contracts" title="Centro de Comando Contractual Unificado">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <polyline points="14 2 14 8 20 8"/>
-        <line x1="16" y1="13" x2="8" y2="13"/>
-        <line x1="16" y1="17" x2="8" y2="17"/>
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
       </svg>
-      <span>Contratos</span>
+      <span style="font-weight: 700;">Cockpit 360°</span>
     </button>
     <button class="nav-item" data-target="view-laft">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -1502,6 +1531,23 @@
             <path d="M9 15l2 2 4-4"/>
           </svg>
           <span>🔍 Interventoría & Bitácora (Ley 1474)</span>
+        </button>
+        <button id="modalBtnSancionatorio" class="btn-action" style="flex: 1; min-width: 140px; justify-content: center; background: rgba(220, 38, 38, 0.15); border: 1px solid #dc2626; color: #fca5a5;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <span>🚨 Debido Proceso (Art. 86)</span>
+        </button>
+        <button id="modalBtnFacturacion" class="btn-action" style="flex: 1; min-width: 140px; justify-content: center; background: rgba(14, 165, 233, 0.15); border: 1px solid #0ea5e9; color: #7dd3fc;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <rect x="2" y="4" width="20" height="16" rx="2"/>
+            <line x1="6" y1="8" x2="18" y2="8"/>
+            <line x1="6" y1="12" x2="14" y2="12"/>
+            <line x1="6" y1="16" x2="10" y2="16"/>
+          </svg>
+          <span>🧾 Facturación DIAN & 5% Obra</span>
         </button>
         <button id="modalNotifyBtn" class="btn-action btn-action-tele" style="flex: 1; min-width: 140px; justify-content: center;">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -5178,6 +5224,503 @@
         </div>
         <div>
           <button id="btnCloseInterventoriaModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Procedimientos Sancionatorios y Debido Proceso (Art. 86 Ley 1474 / CPACA) -->
+  <div id="sancionatorioModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="entity-badge" style="background: #dc2626; color: #fff;">ART. 86 LEY 1474</div>
+          <span style="font-size: 0.8rem; font-weight: 700; color: #fca5a5;">Debido Proceso Sancionatorio & Garantías Constitucionales</span>
+        </div>
+        <button class="modal-close" id="btnCloseSancionatorioModal">&times;</button>
+      </div>
+
+      <!-- Barra de Identificación del Contrato & Proceso -->
+      <div class="card-glass" style="background: rgba(220, 38, 38, 0.08); border: 1px solid rgba(220, 38, 38, 0.25); padding: 10px 14px; border-radius: var(--radius-sm); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <div>
+          <span id="sancionBadgeContrato" style="font-size: 0.75rem; font-weight: 800; color: #fca5a5; background: rgba(220, 38, 38, 0.2); padding: 2px 8px; border-radius: 4px;">CTO-2026-001</span>
+          <span id="sancionBadgeProceso" style="font-size: 0.72rem; color: var(--text-faint); margin-left: 6px;">LP-OBRA-2026</span>
+          <div id="sancionContratistaDisplay" style="font-size: 0.78rem; font-weight: 600; color: var(--text-primary); margin-top: 3px;">Consorcio / Contratista</div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-size: 0.65rem; color: var(--text-faint);">Cuantía Base Contrato</div>
+          <div id="sancionValorBaseDisplay" style="font-size: 0.95rem; font-weight: 800; color: var(--champagne);">$ 0 COP</div>
+        </div>
+      </div>
+
+      <!-- Pestañas del Módulo Sancionatorio -->
+      <div style="display: flex; gap: 6px; margin-bottom: 14px; border-bottom: 1px solid var(--hairline); padding-bottom: 6px;">
+        <button id="tabBtnSancionTasacion" class="btn-action active" style="font-size: 0.75rem; padding: 5px 12px; border-radius: var(--radius-sm);">
+          ⚖️ Tasación & Límite 10%
+        </button>
+        <button id="tabBtnSancionAudiencia" class="btn-action" style="font-size: 0.75rem; padding: 5px 12px; border-radius: var(--radius-sm);">
+          🏛️ Audiencia & Descargos
+        </button>
+        <button id="tabBtnSancionActuaciones" class="btn-action" style="font-size: 0.75rem; padding: 5px 12px; border-radius: var(--radius-sm);">
+          📜 Expediente & Actuaciones
+        </button>
+      </div>
+
+      <!-- ================= PESTAÑA 1: TASACIÓN Y TOPE LEGAL ================= -->
+      <div id="tabContentSancionTasacion">
+        <!-- Panel de Parámetros de Tasación -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 12px;">
+          <div style="font-size: 0.75rem; font-weight: 700; color: var(--champagne); margin-bottom: 8px;">
+            🧮 Parámetros de Liquidación de la Sanción
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-bottom: 10px;">
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Valor del Contrato Base:</label>
+              <input type="number" id="sancionValorContrato" value="1000000000" min="1" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Tipología de Sanción:</label>
+              <select id="sancionTipoSancion" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">
+                <option value="MULTA_DIARIA_MORA" selected>Multa Diaria por Mora (Conminatoria de Apremio)</option>
+                <option value="MULTA_INCUMPLIMIENTO_PARCIAL">Multa por Incumplimiento Parcial de Hito</option>
+                <option value="CLAUSULA_PENAL_PECUNIARIA">Cláusula Penal Pecuniaria (10% - Indemnizatoria)</option>
+                <option value="DECLARATORIA_CADUCIDAD">Declaratoria de Caducidad (Art. 18 Ley 80/93)</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Días de Mora Imputados:</label>
+              <input type="number" id="sancionDiasMora" value="30" min="0" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">% Multa Diario (Pactado):</label>
+              <input type="number" id="sancionPorcentajeDiario" value="0.1" step="0.01" min="0" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Tope Máximo Legal (% Contrato):</label>
+              <input type="number" id="sancionTopePct" value="10.0" step="0.5" min="1" max="100" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+          </div>
+
+          <!-- Selector de Eximentes de Responsabilidad -->
+          <div style="border-top: 1px dashed var(--hairline); padding-top: 8px;">
+            <div style="font-size: 0.68rem; font-weight: 700; color: #fca5a5; margin-bottom: 4px;">
+              🛡️ Eximentes de Responsabilidad Contractual (Rompimiento de Imputación):
+            </div>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; font-size: 0.7rem; color: var(--text-faint);">
+              <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                <input type="checkbox" id="eximFuerzaMayor" checked /> Fuerza Mayor / Caso Fortuito (Art. 64 C.C.)
+              </label>
+              <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                <input type="checkbox" id="eximMoraEntidad" checked /> Mora o Incumplimiento de la Entidad (Exceptio non adimpleti)
+              </label>
+              <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                <input type="checkbox" id="eximHechoTercero" /> Hecho de un Tercero / Paro Comunitario
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPIs de Tasación -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px;">
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #64748b;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Cálculo Bruto de Multa</div>
+            <div id="statSancionCalculoBruto" style="font-size: 1.1rem; font-weight: 800; color: #94a3b8; margin-top: 2px;">$ 0 COP</div>
+            <div id="statSancionCalculoFormula" style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Días × % Diario × Contrato</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #f59e0b;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Tope Máximo Legal (10%)</div>
+            <div id="statSancionTopeLegal" style="font-size: 1.1rem; font-weight: 800; color: #fbbf24; margin-top: 2px;">$ 0 COP</div>
+            <div style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Límite Consejo de Estado</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #dc2626;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Monto Final Tasado</div>
+            <div id="statSancionMontoTasado" style="font-size: 1.15rem; font-weight: 800; color: #f87171; margin-top: 2px;">$ 0 COP</div>
+            <div id="statSancionPctContrato" style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">0.00% del contrato</div>
+          </div>
+        </div>
+
+        <!-- Banner de Dictamen de Proporcionalidad -->
+        <div id="sancionDictamenBanner" class="card-glass" style="background: rgba(220, 38, 38, 0.1); border: 1px solid rgba(220, 38, 38, 0.3); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 12px;">
+          <div style="display: flex; gap: 8px; align-items: flex-start;">
+            <span style="font-size: 1.1rem;">⚖️</span>
+            <div>
+              <div id="sancionDictamenTitulo" style="font-size: 0.78rem; font-weight: 700; color: #fca5a5;">
+                Dictamen Pericial de Proporcionalidad & Legalidad
+              </div>
+              <div id="sancionDictamenTexto" style="font-size: 0.7rem; color: var(--text-faint); margin-top: 2px;">
+                La tasación respeta el principio de proporcionalidad y no supera el tope legal del 10% fijado por el Consejo de Estado.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PESTAÑA 2: AUDIENCIA Y DESCARGOS ================= -->
+      <div id="tabContentSancionAudiencia" style="display: none;">
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 12px;">
+          <div style="font-size: 0.75rem; font-weight: 700; color: var(--champagne); margin-bottom: 8px;">
+            🏛️ Ficha de la Audiencia del Art. 86 Ley 1474
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin-bottom: 8px;">
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Entidad Sancionadora:</label>
+              <input type="text" id="sancionEntidad" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Aseguradora Garante:</label>
+              <input type="text" id="sancionAseguradora" value="SEGUROS DEL ESTADO S.A." style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Número de Póliza:</label>
+              <input type="text" id="sancionPoliza" value="POL-CUMP-2026-99" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Fecha Citación Audiencia:</label>
+              <input type="date" id="sancionFechaCitacion" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Hechos Imputados por Interventoría:</label>
+              <textarea id="sancionHechosImputados" rows="3" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">Presunto retraso injustificado en la entrega del hito de cimentación y entrega de informes de obra.</textarea>
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Argumentos de Defensa y Alegatos Técnicos:</label>
+              <textarea id="sancionArgumentosDefensa" rows="3" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">El contratista acredita que el atraso obedeció a la mora de la Entidad en la entrega de predios y a bloqueos comunales ajenos a su esfera de control.</textarea>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end;">
+            <button id="btnGuardarExpedienteSancionatorio" class="btn-action" style="background: rgba(220, 38, 38, 0.2); border: 1px solid #dc2626; color: #fca5a5; font-size: 0.72rem; padding: 5px 14px;">
+              💾 Radicar / Guardar Expediente Sancionatorio
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PESTAÑA 3: EXPEDIENTE Y ACTUACIONES ================= -->
+      <div id="tabContentSancionActuaciones" style="display: none;">
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 12px;">
+          <div style="font-size: 0.75rem; font-weight: 700; color: var(--champagne); margin-bottom: 8px;">
+            ➕ Registrar Actuación Procesal en el Expediente
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-bottom: 8px;">
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Fecha Actuación:</label>
+              <input type="date" id="sancionActFecha" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Tipo de Actuación:</label>
+              <select id="sancionActTipo" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">
+                <option value="AUTO_CITACION_AUDIENCIA">Auto de Citación a Audiencia (Art. 86)</option>
+                <option value="INFORME_INTERVENTORIA">Informe de Interventoría de Imputación de Hechos</option>
+                <option value="MEMORIAL_DESCARGOS" selected>Memorial Formal de Descargos y Pruebas</option>
+                <option value="PRUEBAS_APORTADAS">Dictamen Pericial de Parte Aportado</option>
+                <option value="RECURSO_REPOSICION">Recurso de Reposición en Audiencia</option>
+                <option value="RESOLUCION_SANCION">Resolución Sancionatoria Notificada</option>
+                <option value="PROCESO_ARCHIVADO">Auto de Archivo y Exoneración</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Documento Soporte / Radicado:</label>
+              <input type="text" id="sancionActSoporte" value="Memorial_Descargos_01.pdf" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+          </div>
+
+          <div style="margin-bottom: 8px;">
+            <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Descripción Detallada de la Actuación:</label>
+            <textarea id="sancionActDescripcion" rows="2" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">Radicación del memorial de alegatos técnicos con acreditación de fuerza mayor por invierno y mora en predios.</textarea>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end;">
+            <button id="btnAgregarActuacionProcesal" class="btn-action" style="background: rgba(220, 38, 38, 0.2); border: 1px solid #dc2626; color: #fca5a5; font-size: 0.72rem; padding: 5px 14px;">
+              + Radicar Actuación
+            </button>
+          </div>
+        </div>
+
+        <!-- Tabla de Actuaciones -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 12px;">
+          <div style="overflow-x: auto;">
+            <table class="table-styled" style="width: 100%; font-size: 0.72rem;">
+              <thead>
+                <tr style="background: rgba(220, 38, 38, 0.15); color: #fca5a5;">
+                  <th style="padding: 6px 8px;">Fecha</th>
+                  <th style="padding: 6px 8px;">Tipo Actuación</th>
+                  <th style="padding: 6px 8px;">Descripción Procesal</th>
+                  <th style="padding: 6px 8px;">Documento</th>
+                </tr>
+              </thead>
+              <tbody id="tbodySancionActuaciones">
+                <!-- Inyección JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer y Descargas -->
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-top: 1px solid var(--hairline); padding-top: 12px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button id="btnDownloadSancionPdf" class="btn-action" style="font-size: 0.78rem; padding: 6px 14px; background: rgba(220, 38, 38, 0.2); border: 1px solid #dc2626; color: #fca5a5; font-weight: 700;">
+            📄 Memorial de Descargos (PDF)
+          </button>
+          <button id="btnDownloadSancionExcel" class="btn-action" style="font-size: 0.78rem; padding: 6px 14px; background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; color: #fbbf24; font-weight: 700;">
+            📊 Cuadro Pericial de Multas (.xlsx)
+          </button>
+        </div>
+        <div>
+          <button id="btnCloseSancionModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Facturación Electrónica DIAN, Cuentas de Cobro & Deducciones (Ley 1106 / E.T.) -->
+  <div id="facturacionModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 920px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="entity-badge" style="background: #0f766e; color: #fff;">FACTURACIÓN DIAN</div>
+          <span style="font-size: 0.8rem; font-weight: 700; color: #5eead4;">Liquidación Tributaria, 5% Obra Pública (Ley 1106) & Retenciones</span>
+        </div>
+        <button class="modal-close" id="btnCloseFacturacionModal">&times;</button>
+      </div>
+
+      <!-- Barra de Identificación del Contrato & Factura -->
+      <div class="card-glass" style="background: rgba(15, 118, 110, 0.08); border: 1px solid rgba(15, 118, 110, 0.25); padding: 10px 14px; border-radius: var(--radius-sm); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <div>
+          <span id="facturaBadgeContrato" style="font-size: 0.75rem; font-weight: 800; color: #5eead4; background: rgba(15, 118, 110, 0.2); padding: 2px 8px; border-radius: 4px;">CTO-2026-001</span>
+          <span id="facturaBadgeProceso" style="font-size: 0.72rem; color: var(--text-faint); margin-left: 6px;">LP-OBRA-2026</span>
+          <div id="facturaContratistaDisplay" style="font-size: 0.78rem; font-weight: 600; color: var(--text-primary); margin-top: 3px;">Consorcio / Contratista</div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-size: 0.65rem; color: var(--text-faint);">Neto Autorizado a Girar</div>
+          <div id="facturaNetoHeaderDisplay" style="font-size: 1.05rem; font-weight: 800; color: #34d399;">$ 0 COP</div>
+        </div>
+      </div>
+
+      <!-- Pestañas del Módulo de Facturación -->
+      <div style="display: flex; gap: 6px; margin-bottom: 14px; border-bottom: 1px solid var(--hairline); padding-bottom: 6px;">
+        <button id="tabBtnFacturaLiquidacion" class="btn-action active" style="font-size: 0.75rem; padding: 5px 12px; border-radius: var(--radius-sm);">
+          🧾 Liquidación Tributaria & Retenciones
+        </button>
+        <button id="tabBtnFacturaRadicacion" class="btn-action" style="font-size: 0.75rem; padding: 5px 12px; border-radius: var(--radius-sm);">
+          🏛️ Radicación & Orden de Pago
+        </button>
+        <button id="tabBtnFacturaHistorial" class="btn-action" style="font-size: 0.75rem; padding: 5px 12px; border-radius: var(--radius-sm);">
+          📊 Historial de Cuentas del Contrato
+        </button>
+      </div>
+
+      <!-- ================= PESTAÑA 1: LIQUIDACIÓN TRIBUTARIA ================= -->
+      <div id="tabContentFacturaLiquidacion">
+        <!-- Parámetros de Facturación y Base -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 12px;">
+          <div style="font-size: 0.75rem; font-weight: 700; color: var(--champagne); margin-bottom: 8px;">
+            🧮 Valor del Acta, Modalidad Tributaria y Amortización
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-bottom: 10px;">
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Valor Bruto Facturado en Acta:</label>
+              <input type="number" id="facValorBruto" value="200000000" min="1" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Modalidad Tributaria:</label>
+              <select id="facModalidad" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">
+                <option value="OBRA_PUBLICA_AIU" selected>Obra Pública con AIU (Art. 462-1 E.T.)</option>
+                <option value="GENERAL_IVA_19">Régimen General (IVA 19% Pleno)</option>
+                <option value="SERVICIOS_PROFESIONALES">Servicios Profesionales / Consultoría</option>
+                <option value="EXENTO_IVA">Operación Exenta / Excluida de IVA</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">% Utilidad AIU (Base IVA):</label>
+              <input type="number" id="facPorcentajeAiu" value="10.0" step="0.5" min="0" max="100" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">% Amortización de Anticipo:</label>
+              <input type="number" id="facAmortizacionPct" value="20.0" step="1" min="0" max="100" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Tarifa ReteFuente Renta (%):</label>
+              <input type="number" id="facReteFuentePct" value="2.0" step="0.5" min="0" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Tarifa ReteICA (‰ por mil):</label>
+              <input type="number" id="facReteIcaPorMil" value="9.66" step="0.01" min="0" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+          </div>
+
+          <!-- Selector de Deducciones y Estampillas -->
+          <div style="border-top: 1px dashed var(--hairline); padding-top: 8px;">
+            <div style="font-size: 0.68rem; font-weight: 700; color: #5eead4; margin-bottom: 4px;">
+              🏛️ Aplicación de Deducciones Especiales y Estampillas:
+            </div>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; font-size: 0.7rem; color: var(--text-faint);">
+              <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                <input type="checkbox" id="facChkLey1106" checked /> Contribución 5% Obra Pública (Ley 1106/2006 Art. 6)
+              </label>
+              <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                <input type="checkbox" id="facChkReteIva" checked /> ReteIVA 15% (Art. 437-1 E.T.)
+              </label>
+              <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                <input type="checkbox" id="facChkEstampillaAncianos" checked /> Estampilla Pro-Adulto Mayor 2% (Ley 1276/2009)
+              </label>
+              <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                <input type="checkbox" id="facChkEstampillaCultura" checked /> Estampilla Pro-Cultura 1% (Ley 397/1997)
+              </label>
+              <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                <input type="checkbox" id="facChkEstampillaDesarrollo" /> Estampilla Pro-Desarrollo 1%
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPIs de la Liquidación -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px;">
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #0f766e;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Subtotal Amortizado</div>
+            <div id="statFacSubtotalAmortizado" style="font-size: 1.1rem; font-weight: 800; color: #5eead4; margin-top: 2px;">$ 0 COP</div>
+            <div id="statFacAmortizadoDescuento" style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Amortizado: -$ 0 COP</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #3b82f6;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">IVA Liquidado</div>
+            <div id="statFacIvaLiquidado" style="font-size: 1.1rem; font-weight: 800; color: #93c5fd; margin-top: 2px;">$ 0 COP</div>
+            <div id="statFacBaseIva" style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Base: $ 0 COP</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #dc2626;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Total Retenciones & Deducciones</div>
+            <div id="statFacTotalDeducciones" style="font-size: 1.1rem; font-weight: 800; color: #f87171; margin-top: 2px;">-$ 0 COP</div>
+            <div id="statFacLey1106Monto" style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Ley 1106 (5%): $ 0 COP</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #10b981;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">VALOR NETO A GIRAR</div>
+            <div id="statFacNetoGirar" style="font-size: 1.25rem; font-weight: 800; color: #34d399; margin-top: 2px;">$ 0 COP</div>
+            <div id="statFacCargaPct" style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Carga tributaria: 0.0%</div>
+          </div>
+        </div>
+
+        <!-- Banner de Acreditación PILA -->
+        <div id="facPilaBanner" class="card-glass" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 12px;">
+          <div style="display: flex; gap: 8px; align-items: flex-start;">
+            <span style="font-size: 1.1rem;">📋</span>
+            <div>
+              <div id="facPilaTitulo" style="font-size: 0.78rem; font-weight: 700; color: #34d399;">
+                Control de Seguridad Social & Parafiscales (Art. 50 Ley 789 de 2002)
+              </div>
+              <div id="facPilaTexto" style="font-size: 0.7rem; color: var(--text-faint); margin-top: 2px;">
+                Planilla PILA certificada por el revisor fiscal/representante legal. Trámite de giro procedente ante Tesorería.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PESTAÑA 2: RADICACIÓN Y ORDEN DE PAGO ================= -->
+      <div id="tabContentFacturaRadicacion" style="display: none;">
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 12px;">
+          <div style="font-size: 0.75rem; font-weight: 700; color: var(--champagne); margin-bottom: 8px;">
+            🏛️ Datos Fiscales de Radicación & Orden de Pago
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-bottom: 8px;">
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Número Factura / Cuenta:</label>
+              <input type="text" id="facNumeroCuenta" value="FAC-E-0089" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Tipo Documento:</label>
+              <select id="facTipoDoc" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">
+                <option value="FACTURA_ELECTRONICA_DIAN" selected>Factura Electrónica de Venta (DIAN)</option>
+                <option value="CUENTA_DE_COBRO_PARCIAL">Cuenta de Cobro Parcial de Obra</option>
+                <option value="ACTA_FINAL_LIQUIDACION">Acta de Liquidación y Pago Final</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Fecha Emisión:</label>
+              <input type="date" id="facFechaEmision" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Fecha Radicación:</label>
+              <input type="date" id="facFechaRadicacion" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Número Planilla PILA:</label>
+              <input type="text" id="facPlanillaPila" value="PILA-8877665544" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Estado del Trámite:</label>
+              <select id="facEstadoPago" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">
+                <option value="RADICADA">Radicada en Ventanilla</option>
+                <option value="AUDITADA_SUPERVISION" selected>Aprobada por Supervisión / Interventoría</option>
+                <option value="ORDEN_PAGO_EMITIDA">Orden de Pago Expedida (Tesorería)</option>
+                <option value="PAGADA_TESORERIA">Pagada y Girada</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 8px;">
+            <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Código Único de Factura Electrónica (CUFE DIAN):</label>
+            <input type="text" id="facCufeDian" value="c8b4f23e7890a12d34e56f7890ab12cd34ef567890ab12cd34ef567890ab12cd" style="width: 100%; padding: 5px; font-size: 0.68rem; font-family: monospace; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+
+          <div style="display: flex; justify-content: flex-end;">
+            <button id="btnGuardarFacturaCuenta" class="btn-action" style="background: rgba(15, 118, 110, 0.2); border: 1px solid #0f766e; color: #5eead4; font-size: 0.72rem; padding: 5px 14px;">
+              💾 Guardar / Radicar Factura en PostgreSQL
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PESTAÑA 3: HISTORIAL ================= -->
+      <div id="tabContentFacturaHistorial" style="display: none;">
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 12px;">
+          <div style="font-size: 0.75rem; font-weight: 700; color: var(--champagne); margin-bottom: 8px;">
+            📊 Cuentas y Facturas Radicadas para este Contrato
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="table-styled" style="width: 100%; font-size: 0.72rem;">
+              <thead>
+                <tr style="background: rgba(15, 118, 110, 0.15); color: #5eead4;">
+                  <th style="padding: 6px 8px;">Factura / Radicado</th>
+                  <th style="padding: 6px 8px;">Fecha</th>
+                  <th style="padding: 6px 8px; text-align: right;">Bruto Acta</th>
+                  <th style="padding: 6px 8px; text-align: right;">Ley 1106 (5%)</th>
+                  <th style="padding: 6px 8px; text-align: right;">Total Retenciones</th>
+                  <th style="padding: 6px 8px; text-align: right;">Neto a Girar</th>
+                  <th style="padding: 6px 8px; text-align: center;">Estado</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyFacturasContrato">
+                <!-- Inyección JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer y Descargas -->
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-top: 1px solid var(--hairline); padding-top: 12px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button id="btnDownloadFacturaPdf" class="btn-action" style="font-size: 0.78rem; padding: 6px 14px; background: rgba(15, 118, 110, 0.2); border: 1px solid #0f766e; color: #5eead4; font-weight: 700;">
+            📄 Orden Oficial de Pago (PDF)
+          </button>
+          <button id="btnDownloadFacturaExcel" class="btn-action" style="font-size: 0.78rem; padding: 6px 14px; background: rgba(5, 150, 105, 0.15); border: 1px solid #059669; color: #6ee7b7; font-weight: 700;">
+            📊 Liquidación Tributaria (.xlsx)
+          </button>
+        </div>
+        <div>
+          <button id="btnCloseFacturaModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
             Cerrar
           </button>
         </div>

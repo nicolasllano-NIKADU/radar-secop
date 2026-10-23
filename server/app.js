@@ -41,6 +41,8 @@ const anticiposFiduciaEngine = require('./anticiposFiduciaEngine');
 const equilibrioEconomicoEngine = require('./equilibrioEconomicoEngine');
 const contractLiquidationEngine = require('./contractLiquidationEngine');
 const supervisionInterventoriaEngine = require('./supervisionInterventoriaEngine');
+const sancionatorioEngine = require('./sancionatorioEngine');
+const taxInvoiceLiquidationEngine = require('./taxInvoiceLiquidationEngine');
 const initDb = require('./initDb');
 
 const app = express();
@@ -4344,6 +4346,721 @@ app.post('/api/interventoria/exportar-excel', async (req, res) => {
     res.send(xlsxBuffer);
   } catch (err) {
     console.error('Error exportando Excel de interventoría:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== MÓDULO SANCIONATORIO Y DEBIDO PROCESO (ART. 86 LEY 1474/2011) ====================
+
+// 1. Tasación proporcional de multas con tope legal del 10%
+app.post('/api/sancionatorios/tasar-multa', (req, res) => {
+  try {
+    const {
+      valorContrato,
+      tipologiaSancion,
+      diasMora,
+      porcentajeDiario,
+      topeMaximoPct,
+      eximentesAlegados
+    } = req.body;
+
+    const tasacion = sancionatorioEngine.tasarSancionProporcional({
+      valorContrato: Number(valorContrato) || 0,
+      tipologiaSancion: tipologiaSancion || 'MULTA_DIARIA_MORA',
+      diasMora: parseInt(diasMora, 10) || 0,
+      porcentajeDiario: Number(porcentajeDiario) || 0.1,
+      topeMaximoPct: Number(topeMaximoPct) || 10.0,
+      eximentesAlegados: Array.isArray(eximentesAlegados) ? eximentesAlegados : []
+    });
+
+    res.json({ success: true, tasacion });
+  } catch (err) {
+    console.error('Error en tasación de multa sancionatoria:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 2. Guardar expediente sancionatorio
+app.post('/api/sancionatorios/guardar-expediente', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const {
+      proceso_numero,
+      contrato_numero,
+      entidad_nombre,
+      contratista_nombre,
+      contratista_nit,
+      aseguradora_nombre,
+      numero_poliza_cumplimiento,
+      tipologia_sancion,
+      fecha_citacion_audiencia,
+      fecha_hechos_informe,
+      hechos_imputados_interventoria,
+      valor_contrato_base,
+      dias_mora_imputados,
+      porcentaje_multa_diario,
+      tope_maximo_multa_pct,
+      monto_multa_tasada,
+      argumentos_defensa_contratista,
+      eximentes_responsabilidad,
+      estado_proceso,
+      resolucion_numero,
+      observaciones,
+      actuaciones
+    } = req.body;
+
+    if (!contrato_numero || !entidad_nombre || !contratista_nombre) {
+      return res.status(400).json({
+        success: false,
+        error: 'Campos requeridos: contrato_numero, entidad_nombre, contratista_nombre'
+      });
+    }
+
+    const insExp = `
+      INSERT INTO sancionatorio_expedientes (
+        proceso_numero, contrato_numero, entidad_nombre, contratista_nombre, contratista_nit,
+        aseguradora_nombre, numero_poliza_cumplimiento, tipologia_sancion, fecha_citacion_audiencia,
+        fecha_hechos_informe, hechos_imputados_interventoria, valor_contrato_base, dias_mora_imputados,
+        porcentaje_multa_diario, tope_maximo_multa_pct, monto_multa_tasada, argumentos_defensa_contratista,
+        eximentes_responsabilidad, estado_proceso, resolucion_numero, observaciones
+      ) VALUES (
+        $1, $2, $3, $4, $5,
+        $6, $7, $8, $9,
+        $10, $11, $12, $13,
+        $14, $15, $16, $17,
+        $18, $19, $20, $21
+      )
+      RETURNING *;
+    `;
+
+    const eximentesJson = JSON.stringify(Array.isArray(eximentes_responsabilidad) ? eximentes_responsabilidad : []);
+
+    const expRes = await dbPostgres.query(insExp, [
+      proceso_numero || '',
+      contrato_numero,
+      entidad_nombre,
+      contratista_nombre,
+      contratista_nit || 'N/A',
+      aseguradora_nombre || '',
+      numero_poliza_cumplimiento || '',
+      tipologia_sancion || 'MULTA_DIARIA_MORA',
+      fecha_citacion_audiencia || new Date().toISOString().split('T')[0],
+      fecha_hechos_informe || null,
+      hechos_imputados_interventoria || 'Sin especificar',
+      Number(valor_contrato_base) || 1,
+      parseInt(dias_mora_imputados, 10) || 0,
+      Number(porcentaje_multa_diario) || 0.1,
+      Number(tope_maximo_multa_pct) || 10.0,
+      Number(monto_multa_tasada) || 0,
+      argumentos_defensa_contratista || '',
+      eximentesJson,
+      estado_proceso || 'AUDIENCIA_CITADA',
+      resolucion_numero || null,
+      observaciones || ''
+    ]);
+
+    const expedienteGuardado = expRes.rows[0];
+
+    // Si vienen actuaciones iniciales, guardarlas
+    let actuacionesGuardadas = 0;
+    if (Array.isArray(actuaciones) && actuaciones.length > 0) {
+      for (const act of actuaciones) {
+        await dbPostgres.query(
+          `INSERT INTO sancionatorio_actuaciones (
+            expediente_id, fecha_actuacion, tipo_actuacion, descripcion_actuacion, documento_soporte_nombre
+          ) VALUES ($1, $2, $3, $4, $5)`,
+          [
+            expedienteGuardado.id,
+            act.fecha_actuacion || new Date().toISOString().split('T')[0],
+            act.tipo_actuacion || 'INFORME_INTERVENTORIA',
+            act.descripcion_actuacion || 'Actuación registrada',
+            act.documento_soporte_nombre || ''
+          ]
+        );
+        actuacionesGuardadas++;
+      }
+    }
+
+    res.json({
+      success: true,
+      mensaje: 'Expediente sancionatorio registrado exitosamente',
+      expediente: expedienteGuardado,
+      actuacionesGuardadas
+    });
+  } catch (err) {
+    console.error('Error guardando expediente sancionatorio:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 3. Consultar historial de expedientes sancionatorios
+app.get('/api/sancionatorios/historial', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const { search, limit = 50 } = req.query;
+
+    let query = `
+      SELECT e.*,
+        (SELECT COUNT(*) FROM sancionatorio_actuaciones a WHERE a.expediente_id = e.id) as total_actuaciones
+      FROM sancionatorio_expedientes e
+    `;
+    const params = [];
+
+    if (search) {
+      query += ` WHERE e.contrato_numero ILIKE $1 OR e.proceso_numero ILIKE $1 OR e.entidad_nombre ILIKE $1 OR e.contratista_nombre ILIKE $1`;
+      params.push(`%${search}%`);
+      query += ` ORDER BY e.id DESC LIMIT $2`;
+      params.push(parseInt(limit, 10));
+    } else {
+      query += ` ORDER BY e.id DESC LIMIT $1`;
+      params.push(parseInt(limit, 10));
+    }
+
+    const result = await dbPostgres.query(query, params);
+    res.json({ success: true, count: result.rows.length, expedientes: result.rows });
+  } catch (err) {
+    console.error('Error consultando historial de expedientes sancionatorios:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 4. Detalle de expediente con sus actuaciones procesales
+app.get('/api/sancionatorios/detalle/:id', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const id = parseInt(req.params.id, 10);
+
+    const expRes = await dbPostgres.query('SELECT * FROM sancionatorio_expedientes WHERE id = $1', [id]);
+    if (expRes.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Expediente sancionatorio no encontrado' });
+    }
+
+    const expediente = expRes.rows[0];
+    const actRes = await dbPostgres.query(
+      'SELECT * FROM sancionatorio_actuaciones WHERE expediente_id = $1 ORDER BY fecha_actuacion DESC, id DESC',
+      [id]
+    );
+
+    res.json({
+      success: true,
+      expediente,
+      actuaciones: actRes.rows
+    });
+  } catch (err) {
+    console.error('Error obteniendo detalle de expediente sancionatorio:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 5. Registrar nueva actuación procesal en el expediente
+app.post('/api/sancionatorios/registrar-actuacion', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const {
+      expediente_id,
+      fecha_actuacion,
+      tipo_actuacion,
+      descripcion_actuacion,
+      documento_soporte_nombre,
+      nuevo_estado_expediente
+    } = req.body;
+
+    if (!expediente_id || !descripcion_actuacion) {
+      return res.status(400).json({ success: false, error: 'Campos requeridos: expediente_id, descripcion_actuacion' });
+    }
+
+    const insAct = `
+      INSERT INTO sancionatorio_actuaciones (
+        expediente_id, fecha_actuacion, tipo_actuacion, descripcion_actuacion, documento_soporte_nombre
+      ) VALUES ($1, $2, $3, $4, $5)
+      RETURNING *;
+    `;
+
+    const actRes = await dbPostgres.query(insAct, [
+      parseInt(expediente_id, 10),
+      fecha_actuacion || new Date().toISOString().split('T')[0],
+      tipo_actuacion || 'MEMORIAL_DESCARGOS',
+      descripcion_actuacion,
+      documento_soporte_nombre || ''
+    ]);
+
+    if (nuevo_estado_expediente) {
+      await dbPostgres.query(
+        'UPDATE sancionatorio_expedientes SET estado_proceso = $1, updated_at = NOW() WHERE id = $2',
+        [nuevo_estado_expediente, parseInt(expediente_id, 10)]
+      );
+    }
+
+    res.json({
+      success: true,
+      mensaje: 'Actuación procesal radicada exitosamente',
+      actuacion: actRes.rows[0]
+    });
+  } catch (err) {
+    console.error('Error registrando actuación procesal:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 6. Exportar Memorial de Descargos en PDF
+app.post('/api/sancionatorios/exportar-pdf', async (req, res) => {
+  try {
+    const data = req.body;
+    if (!data.tasacion && data.valor_contrato_base) {
+      data.tasacion = sancionatorioEngine.tasarSancionProporcional({
+        valorContrato: data.valor_contrato_base,
+        tipologiaSancion: data.tipologia_sancion,
+        diasMora: data.dias_mora_imputados,
+        porcentajeDiario: data.porcentaje_multa_diario,
+        topeMaximoPct: data.tope_maximo_multa_pct,
+        eximentesAlegados: data.eximentes_responsabilidad
+      });
+    }
+
+    const pdfBuffer = await sancionatorioEngine.generarAlegatosDescargosPdf(data);
+    const safeRef = (data.contrato_numero || 'EXPEDIENTE').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Descargos_Art86_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error exportando PDF de descargos sancionatorio:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 7. Exportar Memorial de Descargos en PDF por ID de expediente
+app.get('/api/sancionatorios/exportar-pdf/:id', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const id = parseInt(req.params.id, 10);
+
+    const expRes = await dbPostgres.query('SELECT * FROM sancionatorio_expedientes WHERE id = $1', [id]);
+    if (expRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Expediente no encontrado' });
+
+    const exp = expRes.rows[0];
+    const tasacion = sancionatorioEngine.tasarSancionProporcional({
+      valorContrato: parseFloat(exp.valor_contrato_base),
+      tipologiaSancion: exp.tipologia_sancion,
+      diasMora: parseInt(exp.dias_mora_imputados, 10),
+      porcentajeDiario: parseFloat(exp.porcentaje_multa_diario),
+      topeMaximoPct: parseFloat(exp.tope_maximo_multa_pct),
+      eximentesAlegados: Array.isArray(exp.eximentes_responsabilidad) ? exp.eximentes_responsabilidad : []
+    });
+
+    const pdfData = {
+      proceso_numero: exp.proceso_numero,
+      contrato_numero: exp.contrato_numero,
+      entidad_nombre: exp.entidad_nombre,
+      contratista_nombre: exp.contratista_nombre,
+      contratista_nit: exp.contratista_nit,
+      aseguradora_nombre: exp.aseguradora_nombre,
+      numero_poliza_cumplimiento: exp.numero_poliza_cumplimiento,
+      fecha_citacion: exp.fecha_citacion_audiencia ? new Date(exp.fecha_citacion_audiencia).toISOString().split('T')[0] : '',
+      hechos_imputados: exp.hechos_imputados_interventoria,
+      argumentos_defensa: exp.argumentos_defensa_contratista,
+      tasacion
+    };
+
+    const pdfBuffer = await sancionatorioEngine.generarAlegatosDescargosPdf(pdfData);
+    const safeRef = (exp.contrato_numero || 'EXPEDIENTE').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Descargos_Art86_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error exportando PDF por ID:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 8. Exportar Cuadro Pericial de Multas en Excel
+app.post('/api/sancionatorios/exportar-excel', async (req, res) => {
+  try {
+    const data = req.body;
+    if (!data.tasacion && data.valor_contrato_base) {
+      data.tasacion = sancionatorioEngine.tasarSancionProporcional({
+        valorContrato: data.valor_contrato_base,
+        tipologiaSancion: data.tipologia_sancion,
+        diasMora: data.dias_mora_imputados,
+        porcentajeDiario: data.porcentaje_multa_diario,
+        topeMaximoPct: data.tope_maximo_multa_pct,
+        eximentesAlegados: data.eximentes_responsabilidad
+      });
+    }
+
+    const xlsxBuffer = await sancionatorioEngine.generarCuadroSancionesExcel(data);
+    const safeRef = (data.contrato_numero || 'EXPEDIENTE').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="Tasacion_Multas_Art86_${safeRef}.xlsx"`);
+    res.send(xlsxBuffer);
+  } catch (err) {
+    console.error('Error exportando Excel de tasación sancionatoria:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 9. Exportar Cuadro Pericial de Multas en Excel por ID de expediente
+app.get('/api/sancionatorios/exportar-excel/:id', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const id = parseInt(req.params.id, 10);
+
+    const expRes = await dbPostgres.query('SELECT * FROM sancionatorio_expedientes WHERE id = $1', [id]);
+    if (expRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Expediente no encontrado' });
+
+    const exp = expRes.rows[0];
+    const tasacion = sancionatorioEngine.tasarSancionProporcional({
+      valorContrato: parseFloat(exp.valor_contrato_base),
+      tipologiaSancion: exp.tipologia_sancion,
+      diasMora: parseInt(exp.dias_mora_imputados, 10),
+      porcentajeDiario: parseFloat(exp.porcentaje_multa_diario),
+      topeMaximoPct: parseFloat(exp.tope_maximo_multa_pct),
+      eximentesAlegados: Array.isArray(exp.eximentes_responsabilidad) ? exp.eximentes_responsabilidad : []
+    });
+
+    const excelData = {
+      proceso_numero: exp.proceso_numero,
+      contrato_numero: exp.contrato_numero,
+      entidad_nombre: exp.entidad_nombre,
+      contratista_nombre: exp.contratista_nombre,
+      aseguradora_nombre: exp.aseguradora_nombre,
+      tasacion
+    };
+
+    const xlsxBuffer = await sancionatorioEngine.generarCuadroSancionesExcel(excelData);
+    const safeRef = (exp.contrato_numero || 'EXPEDIENTE').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="Tasacion_Multas_Art86_${safeRef}.xlsx"`);
+    res.send(xlsxBuffer);
+  } catch (err) {
+    console.error('Error exportando Excel por ID:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== MÓDULO FACTURACIÓN DIAN & DEDUCCIONES TRIBUTARIAS (LEY 1106/2006) ====================
+
+// 1. Simulación y liquidación de cuenta de cobro / factura
+app.post('/api/facturacion/liquidar-cuenta', (req, res) => {
+  try {
+    const liquidacion = taxInvoiceLiquidationEngine.liquidarCuentaCobroActa(req.body);
+    res.json({ success: true, liquidacion });
+  } catch (err) {
+    console.error('Error liquidando cuenta de cobro tributaria:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 2. Guardar registro de facturación / cuenta de cobro en PostgreSQL
+app.post('/api/facturacion/guardar-cuenta', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const {
+      contrato_numero,
+      proceso_numero,
+      entidad_nombre,
+      contratista_nombre,
+      contratista_nit,
+      numero_factura_cuenta,
+      fecha_emision,
+      fecha_radicacion,
+      cufe_dian,
+      tipo_documento,
+      modalidad_tributaria,
+      valor_bruto_facturado,
+      porcentaje_aiu,
+      base_gravable_iva,
+      iva_liquidado,
+      amortizacion_anticipo_monto,
+      subtotal_amortizado,
+      contribucion_obra_publica_5pct,
+      retencion_fuente_renta_pct,
+      retencion_fuente_renta_monto,
+      rete_ica_tarifa_por_mil,
+      rete_ica_monto,
+      rete_iva_pct,
+      rete_iva_monto,
+      estampilla_pro_ancianos_pct,
+      estampilla_pro_ancianos_monto,
+      estampilla_pro_cultura_pct,
+      estampilla_pro_cultura_monto,
+      estampilla_pro_desarrollo_pct,
+      estampilla_pro_desarrollo_monto,
+      total_deducciones_tributarias,
+      neto_a_girar_contratista,
+      verificacion_pila_seguridad_social,
+      numero_planilla_pila,
+      estado_pago,
+      observaciones
+    } = req.body;
+
+    if (!contrato_numero || !entidad_nombre || !contratista_nombre || !numero_factura_cuenta) {
+      return res.status(400).json({
+        success: false,
+        error: 'Campos requeridos: contrato_numero, entidad_nombre, contratista_nombre, numero_factura_cuenta'
+      });
+    }
+
+    const insQuery = `
+      INSERT INTO facturacion_cuentas_cobro (
+        contrato_numero, proceso_numero, entidad_nombre, contratista_nombre, contratista_nit,
+        numero_factura_cuenta, fecha_emision, fecha_radicacion, cufe_dian, tipo_documento,
+        modalidad_tributaria, valor_bruto_facturado, porcentaje_aiu, base_gravable_iva, iva_liquidado,
+        amortizacion_anticipo_monto, subtotal_amortizado, contribucion_obra_publica_5pct,
+        retencion_fuente_renta_pct, retencion_fuente_renta_monto, rete_ica_tarifa_por_mil, rete_ica_monto,
+        rete_iva_pct, rete_iva_monto, estampilla_pro_ancianos_pct, estampilla_pro_ancianos_monto,
+        estampilla_pro_cultura_pct, estampilla_pro_cultura_monto, estampilla_pro_desarrollo_pct,
+        estampilla_pro_desarrollo_monto, total_deducciones_tributarias, neto_a_girar_contratista,
+        verificacion_pila_seguridad_social, numero_planilla_pila, estado_pago, observaciones
+      ) VALUES (
+        $1, $2, $3, $4, $5,
+        $6, $7, $8, $9, $10,
+        $11, $12, $13, $14, $15,
+        $16, $17, $18,
+        $19, $20, $21, $22,
+        $23, $24, $25, $26,
+        $27, $28, $29,
+        $30, $31, $32,
+        $33, $34, $35, $36
+      )
+      RETURNING *;
+    `;
+
+    const insRes = await dbPostgres.query(insQuery, [
+      contrato_numero,
+      proceso_numero || '',
+      entidad_nombre,
+      contratista_nombre,
+      contratista_nit || 'N/A',
+      numero_factura_cuenta,
+      fecha_emision || new Date().toISOString().split('T')[0],
+      fecha_radicacion || new Date().toISOString().split('T')[0],
+      cufe_dian || '',
+      tipo_documento || 'FACTURA_ELECTRONICA_DIAN',
+      modalidad_tributaria || 'OBRA_PUBLICA_AIU',
+      Number(valor_bruto_facturado) || 0,
+      Number(porcentaje_aiu) || 0,
+      Number(base_gravable_iva) || 0,
+      Number(iva_liquidado) || 0,
+      Number(amortizacion_anticipo_monto) || 0,
+      Number(subtotal_amortizado) || 0,
+      Number(contribucion_obra_publica_5pct) || 0,
+      Number(retencion_fuente_renta_pct) || 2.0,
+      Number(retencion_fuente_renta_monto) || 0,
+      Number(rete_ica_tarifa_por_mil) || 9.66,
+      Number(rete_ica_monto) || 0,
+      Number(rete_iva_pct) || 15.0,
+      Number(rete_iva_monto) || 0,
+      Number(estampilla_pro_ancianos_pct) || 2.0,
+      Number(estampilla_pro_ancianos_monto) || 0,
+      Number(estampilla_pro_cultura_pct) || 1.0,
+      Number(estampilla_pro_cultura_monto) || 0,
+      Number(estampilla_pro_desarrollo_pct) || 1.0,
+      Number(estampilla_pro_desarrollo_monto) || 0,
+      Number(total_deducciones_tributarias) || 0,
+      Number(neto_a_girar_contratista) || 0,
+      Boolean(verificacion_pila_seguridad_social),
+      numero_planilla_pila || '',
+      estado_pago || 'RADICADA',
+      observaciones || ''
+    ]);
+
+    res.json({
+      success: true,
+      mensaje: 'Factura / Cuenta de cobro registrada exitosamente',
+      cuenta: insRes.rows[0]
+    });
+  } catch (err) {
+    console.error('Error guardando factura/cuenta de cobro:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 3. Consultar historial de facturas y cuentas de cobro
+app.get('/api/facturacion/historial', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const { search, limit = 50 } = req.query;
+
+    let query = `SELECT * FROM facturacion_cuentas_cobro`;
+    const params = [];
+
+    if (search) {
+      query += ` WHERE contrato_numero ILIKE $1 OR numero_factura_cuenta ILIKE $1 OR cufe_dian ILIKE $1 OR entidad_nombre ILIKE $1 OR contratista_nombre ILIKE $1`;
+      params.push(`%${search}%`);
+      query += ` ORDER BY id DESC LIMIT $2`;
+      params.push(parseInt(limit, 10));
+    } else {
+      query += ` ORDER BY id DESC LIMIT $1`;
+      params.push(parseInt(limit, 10));
+    }
+
+    const result = await dbPostgres.query(query, params);
+    res.json({ success: true, count: result.rows.length, cuentas: result.rows });
+  } catch (err) {
+    console.error('Error consultando historial de facturación:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 4. Detalle de una cuenta de cobro / factura
+app.get('/api/facturacion/detalle/:id', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const id = parseInt(req.params.id, 10);
+
+    const result = await dbPostgres.query('SELECT * FROM facturacion_cuentas_cobro WHERE id = $1', [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Cuenta de cobro no encontrada' });
+    }
+
+    res.json({ success: true, cuenta: result.rows[0] });
+  } catch (err) {
+    console.error('Error obteniendo detalle de factura:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 5. Descargar Orden de Pago en PDF
+app.post('/api/facturacion/exportar-pdf', async (req, res) => {
+  try {
+    const data = req.body;
+    if (!data.liquidacion && data.valor_bruto_facturado) {
+      data.liquidacion = taxInvoiceLiquidationEngine.liquidarCuentaCobroActa({
+        valorBruto: data.valor_bruto_facturado,
+        modalidadTributaria: data.modalidad_tributaria,
+        porcentajeAIU: data.porcentaje_aiu,
+        amortizacionAnticipoMonto: data.amortizacion_anticipo_monto,
+        tarifaReteFuentePct: data.retencion_fuente_renta_pct,
+        tarifaReteIcaPorMil: data.rete_ica_tarifa_por_mil
+      });
+    }
+
+    const pdfBuffer = await taxInvoiceLiquidationEngine.generarOrdenPagoPdf(data);
+    const safeRef = (data.numero_factura_cuenta || 'ORDEN_PAGO').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Orden_Pago_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error exportando PDF de orden de pago:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 6. Descargar Orden de Pago en PDF por ID
+app.get('/api/facturacion/exportar-pdf/:id', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const id = parseInt(req.params.id, 10);
+
+    const result = await dbPostgres.query('SELECT * FROM facturacion_cuentas_cobro WHERE id = $1', [id]);
+    if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Factura no encontrada' });
+
+    const c = result.rows[0];
+    const liquidacion = taxInvoiceLiquidationEngine.liquidarCuentaCobroActa({
+      valorBruto: parseFloat(c.valor_bruto_facturado),
+      modalidadTributaria: c.modalidad_tributaria,
+      porcentajeAIU: parseFloat(c.porcentaje_aiu),
+      amortizacionAnticipoMonto: parseFloat(c.amortizacion_anticipo_monto),
+      tarifaReteFuentePct: parseFloat(c.retencion_fuente_renta_pct),
+      tarifaReteIcaPorMil: parseFloat(c.rete_ica_tarifa_por_mil)
+    });
+
+    const pdfData = {
+      proceso_numero: c.proceso_numero,
+      contrato_numero: c.contrato_numero,
+      entidad_nombre: c.entidad_nombre,
+      contratista_nombre: c.contratista_nombre,
+      contratista_nit: c.contratista_nit,
+      numero_factura_cuenta: c.numero_factura_cuenta,
+      fecha_emision: c.fecha_emision ? new Date(c.fecha_emision).toISOString().split('T')[0] : '',
+      fecha_radicacion: c.fecha_radicacion ? new Date(c.fecha_radicacion).toISOString().split('T')[0] : '',
+      cufe_dian: c.cufe_dian,
+      tipo_documento: c.tipo_documento,
+      numero_planilla_pila: c.numero_planilla_pila,
+      liquidacion
+    };
+
+    const pdfBuffer = await taxInvoiceLiquidationEngine.generarOrdenPagoPdf(pdfData);
+    const safeRef = (c.numero_factura_cuenta || 'ORDEN_PAGO').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Orden_Pago_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error exportando PDF de orden de pago por ID:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 7. Descargar Liquidación Tributaria en Excel (.xlsx)
+app.post('/api/facturacion/exportar-excel', async (req, res) => {
+  try {
+    const data = req.body;
+    if (!data.liquidacion && data.valor_bruto_facturado) {
+      data.liquidacion = taxInvoiceLiquidationEngine.liquidarCuentaCobroActa({
+        valorBruto: data.valor_bruto_facturado,
+        modalidadTributaria: data.modalidad_tributaria,
+        porcentajeAIU: data.porcentaje_aiu,
+        amortizacionAnticipoMonto: data.amortizacion_anticipo_monto,
+        tarifaReteFuentePct: data.retencion_fuente_renta_pct,
+        tarifaReteIcaPorMil: data.rete_ica_tarifa_por_mil
+      });
+    }
+
+    const xlsxBuffer = await taxInvoiceLiquidationEngine.generarLiquidacionTributariaExcel(data);
+    const safeRef = (data.numero_factura_cuenta || 'LIQUIDACION').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="Liquidacion_Tributaria_${safeRef}.xlsx"`);
+    res.send(xlsxBuffer);
+  } catch (err) {
+    console.error('Error exportando Excel de liquidación tributaria:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 8. Descargar Liquidación Tributaria en Excel por ID
+app.get('/api/facturacion/exportar-excel/:id', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const id = parseInt(req.params.id, 10);
+
+    const result = await dbPostgres.query('SELECT * FROM facturacion_cuentas_cobro WHERE id = $1', [id]);
+    if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Factura no encontrada' });
+
+    const c = result.rows[0];
+    const liquidacion = taxInvoiceLiquidationEngine.liquidarCuentaCobroActa({
+      valorBruto: parseFloat(c.valor_bruto_facturado),
+      modalidadTributaria: c.modalidad_tributaria,
+      porcentajeAIU: parseFloat(c.porcentaje_aiu),
+      amortizacionAnticipoMonto: parseFloat(c.amortizacion_anticipo_monto),
+      tarifaReteFuentePct: parseFloat(c.retencion_fuente_renta_pct),
+      tarifaReteIcaPorMil: parseFloat(c.rete_ica_tarifa_por_mil)
+    });
+
+    const excelData = {
+      proceso_numero: c.proceso_numero,
+      contrato_numero: c.contrato_numero,
+      entidad_nombre: c.entidad_nombre,
+      contratista_nombre: c.contratista_nombre,
+      numero_factura_cuenta: c.numero_factura_cuenta,
+      cufe_dian: c.cufe_dian,
+      liquidacion
+    };
+
+    const xlsxBuffer = await taxInvoiceLiquidationEngine.generarLiquidacionTributariaExcel(excelData);
+    const safeRef = (c.numero_factura_cuenta || 'LIQUIDACION').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="Liquidacion_Tributaria_${safeRef}.xlsx"`);
+    res.send(xlsxBuffer);
+  } catch (err) {
+    console.error('Error exportando Excel por ID:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

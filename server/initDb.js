@@ -28,7 +28,9 @@ const SCHEMAS = [
   'schema_anticipos_fiducia.sql',
   'schema_equilibrio_economico.sql',
   'schema_liquidacion_contractual.sql',
-  'schema_supervision_interventoria.sql'
+  'schema_supervision_interventoria.sql',
+  'schema_sancionatorio_debido_proceso.sql',
+  'schema_facturacion_cuentas_cobro.sql'
 ];
 
 async function runAllMigrations() {
