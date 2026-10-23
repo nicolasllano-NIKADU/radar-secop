@@ -8942,6 +8942,323 @@ document.getElementById('btnSavePropuestaEconomica')?.addEventListener('click', 
   }
 });
 
+// ==================== MÓDULO: CRITERIOS DIFERENCIALES MIPYMES Y GÉNERO (LEY 2069 / DEC 1860) ====================
+let currentCriteriosEvaluacion = null;
+
+async function abrirModalCriteriosDiferenciales() {
+  const opp = oportunidades.find(o => o.id === activeModalId);
+  if (!opp) return;
+
+  const metaEl = document.getElementById('criteriosModalMeta');
+  if (metaEl) {
+    metaEl.textContent = `${opp.referencia || opp.id} • ${opp.entidad || 'Entidad Contratante'} • ${formatCOP(opp.precio_base || opp.cuantia)}`;
+  }
+
+  // Pre-llenar firmantes desde empresa activa
+  const lider = (userCompanies && userCompanies.length > 0) ? (userCompanies.find(c => c.es_propia) || userCompanies[0]) : null;
+  if (lider) {
+    const repNom = document.getElementById('critFirmanteRepNombre'); if (repNom) repNom.value = lider.representante_legal || '';
+    const repCc = document.getElementById('critFirmanteRepCedula'); if (repCc) repCc.value = lider.cedula_representante || '';
+  }
+
+  // Reset y abrir modal
+  const dash = document.getElementById('criteriosDashboardArea');
+  if (dash) dash.style.display = 'none';
+  const dlBtn = document.getElementById('btnDownloadCertificacionPdf');
+  if (dlBtn) dlBtn.style.display = 'none';
+  const saveBtn = document.getElementById('btnSaveCriteriosDiferenciales');
+  if (saveBtn) saveBtn.style.display = 'none';
+
+  document.getElementById('detailModal')?.classList.remove('open');
+  document.getElementById('criteriosDiferencialesModal')?.classList.add('open');
+
+  // Ejecutar evaluación automática
+  ejecutarEvaluacionCriterios();
+}
+
+document.getElementById('modalBtnCriteriosDiferenciales')?.addEventListener('click', abrirModalCriteriosDiferenciales);
+
+// Cerrar Modal Criterios
+document.getElementById('btnCloseCriteriosModalTop')?.addEventListener('click', () => {
+  document.getElementById('criteriosDiferencialesModal')?.classList.remove('open');
+});
+document.getElementById('btnCloseCriteriosModalBtn')?.addEventListener('click', () => {
+  document.getElementById('criteriosDiferencialesModal')?.classList.remove('open');
+});
+document.getElementById('criteriosDiferencialesModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'criteriosDiferencialesModal') {
+    document.getElementById('criteriosDiferencialesModal')?.classList.remove('open');
+  }
+});
+
+// Función para ejecutar evaluación completa
+async function ejecutarEvaluacionCriterios() {
+  const opp = oportunidades.find(o => o.id === activeModalId) || {};
+  const lider = (userCompanies && userCompanies.length > 0) ? (userCompanies.find(c => c.es_propia) || userCompanies[0]) : {};
+
+  const sector = document.getElementById('critSector')?.value || 'SERVICIOS';
+  const ingresosCop = parseFloat(document.getElementById('critIngresosCop')?.value || 1500000000);
+  const valorUvt = parseFloat(document.getElementById('critValorUvt')?.value || 49799);
+
+  const supuesto = document.getElementById('critSupuestoMujeres')?.value || 'SUPUESTO_A_PROPIEDAD_CONTROL';
+  const pctProp = parseFloat(document.getElementById('critPctPropiedad')?.value || 51);
+  const pctDir = parseFloat(document.getElementById('critPctDirectivo')?.value || 60);
+  const repMujer = document.getElementById('critRepLegalMujerMasAno')?.checked || false;
+
+  const industriaNac = document.getElementById('critCheckIndustriaNac')?.checked || false;
+  const discapacidad = document.getElementById('critCheckDiscapacidad')?.checked || false;
+  const primerEmpleo = document.getElementById('critCheckPrimerEmpleo')?.checked || false;
+  const reincorporados = document.getElementById('critCheckReincorporados')?.checked || false;
+
+  try {
+    const res = await fetch('/api/criterios-diferenciales/evaluar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        empresa: {
+          razon_social: lider.razon_social || 'EMPRESA PROPONENTE S.A.S.',
+          nit: lider.nit || '900.000.000-1',
+          representante_legal: document.getElementById('critFirmanteRepNombre')?.value || lider.representante_legal || 'Representante Legal'
+        },
+        proceso: {
+          referencia: opp.referencia || opp.id || 'PROC-001',
+          entidad: opp.entidad || 'Entidad Contratante',
+          cuantia: opp.precio_base || opp.cuantia || 500000000
+        },
+        ingresosBrutosCop: ingresosCop,
+        sector,
+        datosMujeres: {
+          supuesto,
+          porcentajePropiedadFemenina: pctProp,
+          porcentajeDirectivoFemenino: pctDir,
+          representanteMujerMasUnAno: repMujer,
+          esPersonaNaturalMujer: supuesto === 'SUPUESTO_C_PERSONA_NATURAL',
+          porcentajeAsociadosMujeres: supuesto === 'SUPUESTO_D_ASOCIATIVO' ? 55 : 0
+        },
+        acreditaDiscapacidad: discapacidad,
+        acreditaPrimerEmpleo: primerEmpleo,
+        acreditaReincorporadosVictimas: reincorporados,
+        acreditaIndustriaNacional: industriaNac
+      })
+    });
+
+    const json = await res.json();
+    if (!json.success || !json.data) throw new Error(json.error || 'Error evaluando criterios');
+
+    currentCriteriosEvaluacion = json.data;
+    const clas = json.data.clasificacion_tamano;
+    const muj = json.data.evaluacion_mujeres;
+    const lim = json.data.limitacion_convocatoria_mipyme;
+    const pts = json.data.puntajes_diferenciales;
+    const arbol = json.data.arbol_desempate;
+
+    // Renderizar Dashboard
+    const dash = document.getElementById('criteriosDashboardArea');
+    if (dash) {
+      dash.style.display = 'block';
+
+      dash.innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin-bottom: 12px;">
+          <!-- Tarjeta 1: Categoría Mipyme -->
+          <div style="background: var(--lacquer-surface); border: 1px solid var(--hairline); border-radius: var(--radius-sm); padding: 12px;">
+            <div style="font-size: 0.68rem; font-weight: 800; color: var(--champagne); text-transform: uppercase;">1. Tamaño Empresarial CCE</div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: #38bdf8; margin-top: 4px;">
+              ${clas.categoria_label}
+            </div>
+            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">
+              ${clas.ingresos_uvt} UVT (Sector: ${clas.sector})<br>
+              <span style="color: ${clas.es_mipyme ? 'var(--success)' : 'var(--text-faint)'}; font-weight: 700;">
+                ${clas.es_mipyme ? '✅ Calidad Mipyme Acreditada' : 'Gran Empresa'}
+              </span>
+            </div>
+          </div>
+
+          <!-- Tarjeta 2: Enfoque de Género -->
+          <div style="background: ${muj.es_empresa_mujeres ? 'rgba(236, 72, 153, 0.12)' : 'rgba(255,255,255,0.03)'}; border: 1px solid ${muj.es_empresa_mujeres ? '#ec4899' : 'var(--hairline)'}; border-radius: var(--radius-sm); padding: 12px;">
+            <div style="font-size: 0.68rem; font-weight: 800; color: #f472b6; text-transform: uppercase;">2. Emprendimiento Femenino</div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: ${muj.es_empresa_mujeres ? '#f472b6' : 'var(--text-faint)'}; margin-top: 4px;">
+              ${muj.es_empresa_mujeres ? '✅ Cumple Dec. 1860' : 'No Acreditado'}
+            </div>
+            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">
+              ${muj.es_empresa_mujeres ? 'Incentivo de Género: +1.0 Pts • Prioridad Desempate' : 'Sin acreditación de género'}
+            </div>
+          </div>
+
+          <!-- Tarjeta 3: Convocatoria Limitada a Mipyme -->
+          <div style="background: ${lim.es_apto ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)'}; border: 1px solid ${lim.es_apto ? 'var(--success)' : '#f59e0b'}; border-radius: var(--radius-sm); padding: 12px;">
+            <div style="font-size: 0.68rem; font-weight: 800; color: ${lim.es_apto ? 'var(--success)' : '#fde047'}; text-transform: uppercase;">3. Convocatoria Limitada</div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: ${lim.es_apto ? 'var(--success)' : '#fde047'}; margin-top: 4px;">
+              ${lim.es_apto ? '⚡ APTO PARA LIMITAR' : 'PROCESO ABIERTO'}
+            </div>
+            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">
+              Cuantía < USD $125.000 (Art. 30 Ley 2069/2020)
+            </div>
+          </div>
+
+          <!-- Tarjeta 4: Puntos Diferenciales & Desempate -->
+          <div style="background: var(--lacquer-surface); border: 1px solid var(--hairline); border-radius: var(--radius-sm); padding: 12px;">
+            <div style="font-size: 0.68rem; font-weight: 800; color: var(--champagne); text-transform: uppercase;">4. Prelación Desempate</div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: #10b981; margin-top: 4px;">
+              Nivel #${json.data.posicion_desempate} en Prelación
+            </div>
+            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">
+              Puntos Diferenciales: <b style="color: var(--success);">+${pts.total_puntos} Pts</b>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabla Visual del Árbol de Desempate Oficial -->
+        <div style="background: var(--lacquer-surface); border: 1px solid var(--hairline); border-radius: var(--radius-sm); padding: 12px;">
+          <div style="font-size: 0.75rem; font-weight: 700; color: var(--champagne); margin-bottom: 8px;">
+            📋 Escalafón Jerárquico de Desempate (Decreto 1860 de 2021 & Ley 2069 Art. 35)
+          </div>
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.7rem;">
+            <thead>
+              <tr style="background: var(--lacquer-deep); color: var(--text-faint); text-align: left;">
+                <th style="padding: 6px;">Nivel</th>
+                <th style="padding: 6px;">Criterio Legal de Desempate</th>
+                <th style="padding: 6px;">Fundamento</th>
+                <th style="padding: 6px; text-align: center;">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${arbol.map(a => `
+                <tr style="border-bottom: 1px solid var(--hairline);">
+                  <td style="padding: 6px; font-weight: 700; color: var(--champagne);">#${a.prioridad}</td>
+                  <td style="padding: 6px;">
+                    <div style="color: var(--text-primary); font-weight: 600;">${a.criterio}</div>
+                    <div style="font-size: 0.65rem; color: var(--text-muted);">${a.impacto}</div>
+                  </td>
+                  <td style="padding: 6px; color: var(--text-faint);">${a.fundamento}</td>
+                  <td style="padding: 6px; text-align: center;">
+                    <span style="font-size: 0.65rem; padding: 2px 6px; border-radius: 3px; background: ${a.cumple ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255,255,255,0.05)'}; color: ${a.cumple ? '#86efac' : 'var(--text-faint)'}; font-weight: 700;">
+                      ${a.cumple ? '✅ CUMPLE' : 'NO APLICA'}
+                    </span>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // Mostrar botones de PDF y Guardar
+    const dlBtn = document.getElementById('btnDownloadCertificacionPdf');
+    if (dlBtn) dlBtn.style.display = 'inline-flex';
+    const saveBtn = document.getElementById('btnSaveCriteriosDiferenciales');
+    if (saveBtn) saveBtn.style.display = 'inline-flex';
+    showToast('Matriz de Criterios Diferenciales evaluada con éxito');
+  } catch (e) {
+    showToast(`Error al evaluar criterios: ${e.message}`);
+  }
+}
+
+document.getElementById('btnEjecutarEvaluacionCriterios')?.addEventListener('click', ejecutarEvaluacionCriterios);
+
+// Descargar Certificación Oficial Conjunta en PDF
+document.getElementById('btnDownloadCertificacionPdf')?.addEventListener('click', async () => {
+  if (!currentCriteriosEvaluacion) return;
+  const opp = oportunidades.find(o => o.id === activeModalId) || {};
+  showToast('Generando Certificación Oficial Conjunta en PDF...');
+
+  const firmantes = {
+    representante: {
+      nombre: document.getElementById('critFirmanteRepNombre')?.value || 'Representante Legal',
+      cedula: document.getElementById('critFirmanteRepCedula')?.value || '1.000.000.000'
+    },
+    contador: {
+      nombre: document.getElementById('critFirmanteContNombre')?.value || 'Contador Público Titulado',
+      cedula: '52.000.000',
+      tarjeta_profesional: document.getElementById('critFirmanteContTP')?.value || '123456-T'
+    }
+  };
+
+  try {
+    const res = await fetch('/api/criterios-diferenciales/certificacion-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        evaluacion_data: currentCriteriosEvaluacion,
+        firmantes
+      })
+    });
+
+    if (!res.ok) throw new Error('Error al generar PDF de Certificación');
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Certificacion_Criterios_Diferenciales_Ley2069_${(opp.referencia || 'CRITERIOS').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    a.remove();
+    showToast('Certificación Oficial Conjunta descargada con éxito');
+  } catch (e) {
+    showToast(`Error al descargar PDF: ${e.message}`);
+  }
+});
+
+// Guardar Evaluación en Historial PostgreSQL
+document.getElementById('btnSaveCriteriosDiferenciales')?.addEventListener('click', async () => {
+  if (!currentCriteriosEvaluacion) return;
+  const opp = oportunidades.find(o => o.id === activeModalId) || {};
+  const lider = (userCompanies && userCompanies.length > 0) ? (userCompanies.find(c => c.es_propia) || userCompanies[0]) : null;
+  const clas = currentCriteriosEvaluacion.clasificacion_tamano;
+  const muj = currentCriteriosEvaluacion.evaluacion_mujeres;
+  const inc = currentCriteriosEvaluacion.inclusion_social;
+  const pts = currentCriteriosEvaluacion.puntajes_diferenciales;
+
+  const firmantes = {
+    representante: {
+      nombre: document.getElementById('critFirmanteRepNombre')?.value || 'Representante Legal',
+      cedula: document.getElementById('critFirmanteRepCedula')?.value || '1.000.000.000'
+    },
+    contador: {
+      nombre: document.getElementById('critFirmanteContNombre')?.value || 'Contador Público Titulado',
+      cedula: '52.000.000',
+      tarjeta_profesional: document.getElementById('critFirmanteContTP')?.value || '123456-T'
+    }
+  };
+
+  try {
+    const res = await fetch('/api/criterios-diferenciales/guardar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        proceso_referencia: opp.referencia || opp.id || 'PROC-001',
+        entidad: opp.entidad || 'Entidad Contratante',
+        empresa_id: lider ? lider.id : null,
+        sector_economico: clas.sector,
+        ingresos_brutos_cop: clas.ingresos_cop,
+        ingresos_uvt: clas.ingresos_uvt,
+        clasificacion_tamano: clas.categoria,
+        acredita_mipyme: clas.es_mipyme,
+        es_empresa_mujeres: muj.es_empresa_mujeres,
+        supuesto_mujeres: muj.supuesto_acreditado,
+        porcentaje_participacion_femenina: muj.porcentaje_propiedad || 0,
+        acredita_discapacidad: inc.acredita_discapacidad,
+        acredita_primer_empleo: inc.acredita_primer_empleo,
+        acredita_reincorporados_victimas: inc.acredita_reincorporados,
+        puntaje_diferencial_total: pts.total_puntos,
+        posicion_arbol_desempate: currentCriteriosEvaluacion.posicion_desempate,
+        resumen_evaluacion: currentCriteriosEvaluacion,
+        datos_firmantes: firmantes
+      })
+    });
+
+    const json = await res.json();
+    if (json.success) {
+      showToast('Evaluación de Criterios Diferenciales guardada en PostgreSQL');
+    } else {
+      showToast(`Error al guardar: ${json.error}`);
+    }
+  } catch (e) {
+    showToast('Error de conexión al guardar evaluación');
+  }
+});
+
 // ==================== INICIALIZACIÓN ====================
 window.addEventListener('DOMContentLoaded', () => {
   checkUserSession();

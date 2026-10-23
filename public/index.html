@@ -1464,6 +1464,15 @@
           </svg>
           <span>📑 Sobre Económico CCE</span>
         </button>
+        <button id="modalBtnCriteriosDiferenciales" class="btn-action" style="flex: 1; min-width: 140px; justify-content: center; background: rgba(236, 72, 153, 0.15); border: 1px solid #ec4899; color: #f472b6;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          <span>👩‍💼 Mipyme & Género (Ley 2069)</span>
+        </button>
         <button id="modalNotifyBtn" class="btn-action btn-action-tele" style="flex: 1; min-width: 140px; justify-content: center;">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <line x1="22" y1="2" x2="11" y2="13"/>
@@ -3841,6 +3850,166 @@
         </div>
         <div>
           <button id="btnClosePropuestaModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL CRITERIOS DIFERENCIALES MIPYMES Y GÉNERO (LEY 2069 / DEC 1860) ================= -->
+  <div id="criteriosDiferencialesModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 960px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header" style="border-bottom: 1px solid var(--hairline); padding-bottom: 12px; margin-bottom: 14px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="entity-badge" style="background: rgba(236, 72, 153, 0.2); border: 1px solid #ec4899; color: #f472b6; font-weight: 800; font-size: 0.72rem;">LEY 2069 / DEC. 1860</span>
+              <span style="font-size: 1.05rem; font-weight: 800; color: var(--champagne);">Matriz de Criterios Diferenciales Mipyme, Género & Desempate</span>
+            </div>
+            <div id="criteriosModalMeta" style="font-size: 0.78rem; color: var(--text-faint); margin-top: 4px;">
+              Proceso • Entidad • Cuantía
+            </div>
+          </div>
+          <button id="btnCloseCriteriosModalTop" class="btn-close-modal" aria-label="Cerrar modal">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Configuración de Clasificación Empresarial Decreto 957 de 2019 -->
+      <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+        <div style="font-size: 0.78rem; font-weight: 700; color: var(--champagne); margin-bottom: 10px; display: flex; justify-content: space-between;">
+          <span>🏢 1. Clasificación de Tamaño Empresarial (Decreto 957 de 2019)</span>
+          <span style="font-size: 0.7rem; color: var(--text-faint);">Ingresos Ordinarios Anuales en UVT</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Sector Económico:</label>
+            <select id="critSector" style="width: 100%; padding: 6px; font-size: 0.78rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">
+              <option value="SERVICIOS" selected>Servicios (Tope Mediana: 483.034 UVT)</option>
+              <option value="MANUFACTURA">Manufactura / Obras (Tope Mediana: 1.736.565 UVT)</option>
+              <option value="COMERCIO">Comercio (Tope Mediana: 2.160.692 UVT)</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Ingresos Operacionales Brutos (COP):</label>
+            <input type="number" id="critIngresosCop" value="1500000000" placeholder="Ej: 1500000000" style="width: 100%; padding: 6px; font-size: 0.78rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Valor UVT Aplicable (COP):</label>
+            <input type="number" id="critValorUvt" value="49799" style="width: 100%; padding: 6px; font-size: 0.78rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuración de Emprendimiento Femenino Decreto 1860 de 2021 -->
+      <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+        <div style="font-size: 0.78rem; font-weight: 700; color: #f472b6; margin-bottom: 10px; display: flex; justify-content: space-between;">
+          <span>👩‍💼 2. Acreditación de Empresas de Mujeres (Decreto 1860 de 2021)</span>
+          <span style="font-size: 0.7rem; color: var(--text-faint);">Incentivo de Género y Prioridad de Desempate</span>
+        </div>
+        <div style="margin-bottom: 10px;">
+          <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Supuesto Normativo Aplicable:</label>
+          <select id="critSupuestoMujeres" style="width: 100%; padding: 6px; font-size: 0.78rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">
+            <option value="SUPUESTO_A_PROPIEDAD_CONTROL" selected>Supuesto A: >50% Cuotas en Mujeres y Representación Legal Femenina >= 1 año</option>
+            <option value="SUPUESTO_B_DIRECCION">Supuesto B: >=50% Empleos de Nivel Directivo Ocupados por Mujeres >= 1 año</option>
+            <option value="SUPUESTO_C_PERSONA_NATURAL">Supuesto C: Persona Natural Mujer con Matrícula Mercantil >= 1 año</option>
+            <option value="SUPUESTO_D_ASOCIATIVO">Supuesto D: Asociación o Cooperativa con >=50% Asociadas Mujeres</option>
+            <option value="NINGUNO">Ninguno (No Acredita Enfoque de Género)</option>
+          </select>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">% Propiedad / Cuotas Femeninas:</label>
+            <input type="number" id="critPctPropiedad" value="51" min="0" max="100" style="width: 100%; padding: 6px; font-size: 0.78rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">% Cargos Directivos Femeninos:</label>
+            <input type="number" id="critPctDirectivo" value="60" min="0" max="100" style="width: 100%; padding: 6px; font-size: 0.78rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; padding-top: 16px;">
+            <input type="checkbox" id="critRepLegalMujerMasAno" checked style="accent-color: #ec4899; cursor: pointer;" />
+            <label for="critRepLegalMujerMasAno" style="font-size: 0.72rem; color: var(--text-primary); cursor: pointer;">Representante legal mujer >= 1 año</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Otros Factores de Inclusión Social y Desempate -->
+      <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+        <div style="font-size: 0.78rem; font-weight: 700; color: var(--champagne); margin-bottom: 10px;">
+          ⚖️ 3. Otros Criterios de Inclusión Social y Desempate (Ley 2069 Art. 35)
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; font-size: 0.75rem;">
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="critCheckIndustriaNac" checked style="accent-color: var(--success);" />
+            <span>🇨🇴 Industria Nacional (Ley 816/2003, +10 Pts)</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="critCheckDiscapacidad" style="accent-color: var(--tech-cyan);" />
+            <span>♿ Personal con Discapacidad (>=10%, Dec. 392/2018)</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="critCheckPrimerEmpleo" style="accent-color: var(--gold);" />
+            <span>🎓 Primer Empleo Jóvenes 18-28 (Ley 1780/2016)</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="critCheckReincorporados" style="accent-color: #818cf8;" />
+            <span>🕊️ Población Reincorporada / Víctimas (Ley 1448)</span>
+          </label>
+        </div>
+        <div style="margin-top: 12px; display: flex; justify-content: flex-end;">
+          <button id="btnEjecutarEvaluacionCriterios" class="btn-action btn-action-primary" style="padding: 6px 16px; font-size: 0.78rem;">
+            <span>⚡ Evaluar Matriz de Criterios Diferenciales</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Dashboard de Resultados y Árbol de Desempate (Inyectado) -->
+      <div id="criteriosDashboardArea" style="margin-bottom: 14px; display: none;">
+        <!-- Inyectado dinámicamente -->
+      </div>
+
+      <!-- Firmantes de la Certificación Oficial -->
+      <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+        <div style="font-size: 0.78rem; font-weight: 700; color: var(--champagne); margin-bottom: 10px;">
+          ✍️ 4. Suscripción Conjunta de la Certificación (Representante Legal & Contador / Revisor Fiscal)
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px;">
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Representante Legal:</label>
+            <input type="text" id="critFirmanteRepNombre" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Cédula Representante:</label>
+            <input type="text" id="critFirmanteRepCedula" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Contador Público / Revisor Fiscal:</label>
+            <input type="text" id="critFirmanteContNombre" value="Contador Público Titulado" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+          <div>
+            <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Tarjeta Profesional (TP):</label>
+            <input type="text" id="critFirmanteContTP" value="123456-T" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer y Acciones -->
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-top: 1px solid var(--hairline); padding-top: 12px;">
+        <div style="display: flex; gap: 8px;">
+          <button id="btnDownloadCertificacionPdf" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px; background: rgba(236, 72, 153, 0.2); border: 1px solid #ec4899; color: #f472b6; font-weight: 700; display: none;">
+            📄 Descargar Certificación Oficial (PDF)
+          </button>
+          <button id="btnSaveCriteriosDiferenciales" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px; background: rgba(16, 185, 129, 0.15); border: 1px solid var(--success); color: var(--success); display: none;">
+            💾 Guardar Evaluación
+          </button>
+        </div>
+        <div>
+          <button id="btnCloseCriteriosModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
             Cerrar
           </button>
         </div>

@@ -36,6 +36,7 @@ const telegramBotEngine = require('./telegramBotEngine');
 const garantiasEngine = require('./garantiasEngine');
 const apuEngine = require('./apuEngine');
 const economicProposalEngine = require('./economicProposalEngine');
+const criteriosDiferencialesEngine = require('./criteriosDiferencialesEngine');
 const initDb = require('./initDb');
 
 const app = express();
@@ -2849,6 +2850,173 @@ app.get('/api/propuesta-economica/excel/:id', async (req, res) => {
     res.send(excelBuffer);
   } catch (err) {
     console.error('Error generando Excel desde DB:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== MÓDULO CRITERIOS DIFERENCIALES MIPYMES Y GÉNERO (LEY 2069 & DEC 1860) ====================
+
+app.post('/api/criterios-diferenciales/evaluar', (req, res) => {
+  try {
+    const evaluacion = criteriosDiferencialesEngine.evaluarMatrizCriterios(req.body);
+    res.json({ success: true, data: evaluacion });
+  } catch (err) {
+    console.error('Error evaluando criterios diferenciales:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/criterios-diferenciales/guardar', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const {
+      proceso_referencia,
+      entidad,
+      empresa_id,
+      sector_economico,
+      ingresos_brutos_cop,
+      ingresos_uvt,
+      clasificacion_tamano,
+      acredita_mipyme,
+      es_empresa_mujeres,
+      supuesto_mujeres,
+      porcentaje_participacion_femenina,
+      acredita_discapacidad,
+      acredita_primer_empleo,
+      acredita_reincorporados_victimas,
+      puntaje_diferencial_total,
+      posicion_arbol_desempate,
+      resumen_evaluacion,
+      datos_firmantes
+    } = req.body;
+
+    const sql = `
+      INSERT INTO criterios_diferenciales_evaluaciones (
+        proceso_referencia, entidad, empresa_id,
+        sector_economico, ingresos_brutos_cop, ingresos_uvt,
+        clasificacion_tamano, acredita_mipyme, es_empresa_mujeres,
+        supuesto_mujeres, porcentaje_participacion_femenina,
+        acredita_discapacidad, acredita_primer_empleo, acredita_reincorporados_victimas,
+        puntaje_diferencial_total, posicion_arbol_desempate,
+        resumen_evaluacion, datos_firmantes
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+      RETURNING *;
+    `;
+
+    const q = await dbPostgres.query(sql, [
+      proceso_referencia || 'PROC-CRIT-DIF',
+      entidad || 'Entidad Contratante',
+      empresa_id ? parseInt(empresa_id, 10) : null,
+      sector_economico || 'SERVICIOS',
+      parseFloat(ingresos_brutos_cop) || 0,
+      parseFloat(ingresos_uvt) || 0,
+      clasificacion_tamano || 'PEQUEÑA',
+      Boolean(acredita_mipyme),
+      Boolean(es_empresa_mujeres),
+      supuesto_mujeres || 'NINGUNO',
+      parseFloat(porcentaje_participacion_femenina) || 0,
+      Boolean(acredita_discapacidad),
+      Boolean(acredita_primer_empleo),
+      Boolean(acredita_reincorporados_victimas),
+      parseFloat(puntaje_diferencial_total) || 0,
+      parseInt(posicion_arbol_desempate, 10) || 1,
+      JSON.stringify(resumen_evaluacion || {}),
+      JSON.stringify(datos_firmantes || {})
+    ]);
+
+    res.json({ success: true, data: q.rows[0] });
+  } catch (err) {
+    console.error('Error guardando criterios diferenciales:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/criterios-diferenciales/historial', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const empresaId = req.query.empresa_id ? parseInt(req.query.empresa_id, 10) : null;
+    const ref = req.query.referencia || null;
+
+    let query = `SELECT * FROM criterios_diferenciales_evaluaciones`;
+    const params = [];
+
+    if (empresaId) {
+      params.push(empresaId);
+      query += ` WHERE empresa_id = $${params.length}`;
+    }
+    if (ref) {
+      params.push(ref);
+      query += params.length === 1 ? ` WHERE proceso_referencia = $1` : ` AND proceso_referencia = $2`;
+    }
+
+    query += ` ORDER BY creado_en DESC LIMIT 50`;
+    const q = await dbPostgres.query(query, params);
+    res.json({ success: true, count: q.rows.length, data: q.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/criterios-diferenciales/certificacion-pdf', async (req, res) => {
+  try {
+    const { evaluacion_data, firmantes = {} } = req.body;
+    if (!evaluacion_data) {
+      return res.status(400).json({ success: false, error: 'Datos de evaluación requeridos' });
+    }
+
+    const pdfBuffer = await criteriosDiferencialesEngine.generarCertificacionPdf(evaluacion_data, firmantes);
+    const safeRef = ((evaluacion_data.proceso && evaluacion_data.proceso.referencia) || 'CRITERIOS_DIFERENCIALES').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Certificacion_Criterios_Diferenciales_Ley2069_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF de certificación de criterios diferenciales:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/criterios-diferenciales/certificacion-pdf/:id', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const id = parseInt(req.params.id, 10);
+    const q = await dbPostgres.query('SELECT * FROM criterios_diferenciales_evaluaciones WHERE id = $1', [id]);
+    if (q.rows.length === 0) return res.status(404).json({ success: false, error: 'Evaluación no encontrada' });
+
+    const row = q.rows[0];
+    const evaluacionData = row.resumen_evaluacion || {
+      empresa: { razon_social: 'Proponente' },
+      proceso: { referencia: row.proceso_referencia, entidad: row.entidad },
+      clasificacion_tamano: {
+        categoria_label: row.clasificacion_tamano,
+        ingresos_cop: parseFloat(row.ingresos_brutos_cop),
+        ingresos_uvt: parseFloat(row.ingresos_uvt),
+        sector: row.sector_economico
+      },
+      evaluacion_mujeres: {
+        es_empresa_mujeres: row.es_empresa_mujeres,
+        supuesto_acreditado: row.supuesto_mujeres,
+        detalle_fundamento: 'Certificación de cumplimiento de requisitos de género'
+      },
+      inclusion_social: {
+        acredita_discapacidad: row.acredita_discapacidad,
+        acredita_primer_empleo: row.acredita_primer_empleo,
+        acredita_reincorporados: row.acredita_reincorporados_victimas,
+        acredita_industria_nacional: true
+      },
+      puntajes_diferenciales: { total_puntos: parseFloat(row.puntaje_diferencial_total) },
+      posicion_desempate: row.posicion_arbol_desempate,
+      arbol_desempate: []
+    };
+
+    const pdfBuffer = await criteriosDiferencialesEngine.generarCertificacionPdf(evaluacionData, row.datos_firmantes || {});
+    const safeRef = (row.proceso_referencia).replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Certificacion_Criterios_Diferenciales_Ley2069_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF de certificación desde DB:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
