@@ -1473,6 +1473,13 @@
           </svg>
           <span>👩‍💼 Mipyme & Género (Ley 2069)</span>
         </button>
+        <button id="modalBtnAnticipos" class="btn-action" style="flex: 1; min-width: 140px; justify-content: center; background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #6ee7b7;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+          </svg>
+          <span>🏦 Anticipos & Fiducia (Ley 1474)</span>
+        </button>
         <button id="modalNotifyBtn" class="btn-action btn-action-tele" style="flex: 1; min-width: 140px; justify-content: center;">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <line x1="22" y1="2" x2="11" y2="13"/>
@@ -4013,6 +4020,327 @@
         </div>
         <div>
           <button id="btnCloseCriteriosModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL TRAZABILIDAD DE ANTICIPOS Y CUENTA FIDUCIA (LEY 1474 / LEY 80) ================= -->
+  <div id="anticiposModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 1040px; max-height: 92vh; overflow-y: auto;">
+      <div class="modal-header" style="border-bottom: 1px solid var(--hairline); padding-bottom: 12px; margin-bottom: 14px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 1.3rem;">🏦</span>
+              <h2 style="font-size: 1.15rem; font-weight: 800; color: #10b981; margin: 0;">
+                Módulo de Trazabilidad de Anticipos y Cuenta Fiducia
+              </h2>
+              <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; font-size: 0.7rem; font-weight: 700;">
+                Ley 1474/2011 Art. 91
+              </span>
+            </div>
+            <p style="font-size: 0.72rem; color: var(--text-faint); margin: 3px 0 0 0;">
+              Patrimonio Autónomo Irrevocable • Plan de Inversión • Cronograma de Amortización Mensual • Control de Rendimientos DGCPTN
+            </p>
+          </div>
+          <button id="btnCloseAnticiposModal" class="btn-icon" title="Cerrar modal" style="color: var(--text-faint);">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <!-- Pestañas de Navegación -->
+      <div style="display: flex; gap: 8px; border-bottom: 1px solid var(--hairline); padding-bottom: 10px; margin-bottom: 16px;">
+        <button id="tabBtnAnticiposSimulador" class="filter-pill active" style="font-size: 0.78rem; padding: 6px 14px; font-weight: 700;">
+          📈 1. Simulador & Cronograma de Amortización
+        </button>
+        <button id="tabBtnAnticiposRubros" class="filter-pill" style="font-size: 0.78rem; padding: 6px 14px;">
+          🏗️ 2. Plan de Inversión Inicial (Rubros)
+        </button>
+        <button id="tabBtnAnticiposHistorial" class="filter-pill" style="font-size: 0.78rem; padding: 6px 14px;">
+          📂 3. Historial de Anticipos Guardados
+        </button>
+      </div>
+
+      <!-- ================= PESTAÑA 1: SIMULADOR Y CRONOGRAMA ================= -->
+      <div id="tabContentAnticiposSimulador">
+        <!-- Ficha de Entrada Contractual -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+          <div style="font-size: 0.8rem; font-weight: 700; color: #10b981; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+            <span>📋 Parámetros Contractuales y Financieros del Anticipo</span>
+            <span style="font-size: 0.7rem; color: var(--text-faint);">Límite Legal Art. 40 Ley 80: Máx 50%</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px;">
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Número de Proceso:</label>
+              <input type="text" id="antProcesoNum" placeholder="Ej. LP-OBRA-2026-001" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Número de Contrato:</label>
+              <input type="text" id="antContratoNum" placeholder="Ej. CTO-2026-045" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Entidad Contratante:</label>
+              <input type="text" id="antEntidadNombre" placeholder="Ej. Instituto Nacional de Vías" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Contratista / Consorcio:</label>
+              <input type="text" id="antContratistaNombre" placeholder="Ej. Consorcio Vial 2026" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">NIT Contratista:</label>
+              <input type="text" id="antContratistaNit" placeholder="Ej. 901.456.789-1" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Valor Total Contrato (COP):</label>
+              <input type="number" id="antValorContrato" value="1200000000" step="1000000" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">% Anticipo Solicitado / Aprobado:</label>
+              <div style="display: flex; gap: 6px; align-items: center;">
+                <input type="number" id="antPctAnticipo" value="20" min="1" max="50" step="1" style="width: 65px; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+                <span style="font-size: 0.75rem; font-weight: 700; color: #10b981;">%</span>
+                <span id="antBadgeMontoCalculado" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; font-size: 0.72rem; font-weight: 700;">$ 240.000.000 COP</span>
+              </div>
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Plazo Contractual (Meses):</label>
+              <input type="number" id="antPlazoMeses" value="6" min="1" max="60" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Sociedad Fiduciaria:</label>
+              <select id="antFiduciariaNombre" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">
+                <option value="FIDUCIARIA BANCOLOMBIA S.A.">Fiduciaria Bancolombia S.A.</option>
+                <option value="FIDUPREVISORA S.A.">Fiduprevisora S.A.</option>
+                <option value="FIDUCIARIA LA PREVISORA S.A.">Fiduciaria La Previsora S.A.</option>
+                <option value="ALIANZA FIDUCIARIA S.A.">Alianza Fiduciaria S.A.</option>
+                <option value="FIDUCIARIA BOGOTÁ S.A.">Fiduciaria Bogotá S.A.</option>
+                <option value="FIDUCIARIA CENTRAL S.A.">Fiduciaria Central S.A.</option>
+                <option value="OTRA SOCIEDAD FIDUCIARIA">Otra Sociedad Fiduciaria</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">N° Encargo Fiduciario / Patrimonio:</label>
+              <input type="text" id="antNumeroEncargo" value="PA-FID-2026-987" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.68rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Tasa Rend. Fiduciario Anual (% E.A.):</label>
+              <input type="number" id="antTasaRendimiento" value="9.5" step="0.1" style="width: 100%; padding: 6px; font-size: 0.75rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+          </div>
+
+          <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+            <button id="btnRecalcularSimulacionAnticipo" class="btn-action" style="background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; color: #34d399; font-size: 0.78rem; font-weight: 700; padding: 6px 14px;">
+              ⚡ Simular Cronograma de Amortización
+            </button>
+          </div>
+        </div>
+
+        <!-- Cockpit de Métricas y Semáforo de Amortización -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 14px;">
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #10b981;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Anticipo Aprobado (COP)</div>
+            <div id="statAnticipoTotalMonto" style="font-size: 1.1rem; font-weight: 800; color: #34d399; margin-top: 2px;">$ 0</div>
+            <div id="statAnticipoPctBadge" style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">0.00% del contrato</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #3b82f6;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Total Amortizado Programado</div>
+            <div id="statTotalAmortizadoMonto" style="font-size: 1.1rem; font-weight: 800; color: #60a5fa; margin-top: 2px;">$ 0</div>
+            <div id="statAmortizadoPctBadge" style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">0.00% del anticipo</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #f59e0b;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Saldo Final Insoluto</div>
+            <div id="statSaldoFinalMonto" style="font-size: 1.1rem; font-weight: 800; color: #fbbf24; margin-top: 2px;">$ 0</div>
+            <div id="statSaldoEstadoBadge" style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Amortización Completa</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #a855f7;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Rendimientos Fiduciarios (DGCPTN)</div>
+            <div id="statRendimientosTotalesMonto" style="font-size: 1.1rem; font-weight: 800; color: #c084fc; margin-top: 2px;">$ 0</div>
+            <div style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Reintegro Ley 1474/2011</div>
+          </div>
+        </div>
+
+        <!-- Barra de Progreso de Amortización -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px 14px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+          <div style="display: flex; justify-content: space-between; font-size: 0.72rem; font-weight: 700; margin-bottom: 6px;">
+            <span style="color: var(--champagne);">Amortización Acumulada del Anticipo</span>
+            <span id="progressBarAnticipoLabel" style="color: #10b981;">0% Amortizado ($ 0 / $ 0)</span>
+          </div>
+          <div style="width: 100%; height: 10px; background: rgba(255,255,255,0.06); border-radius: 5px; overflow: hidden; position: relative;">
+            <div id="progressBarAnticipoFill" style="width: 0%; height: 100%; background: linear-gradient(90deg, #10b981, #059669); transition: width 0.4s ease;"></div>
+          </div>
+        </div>
+
+        <!-- Tabla Dinámica del Cronograma de Actas Parciales -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 14px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+            <div style="font-size: 0.78rem; font-weight: 700; color: #10b981;">
+              📑 Cronograma de Amortización en Actas Parciales de Obra / Servicios
+            </div>
+            <span style="font-size: 0.68rem; color: var(--text-faint);">
+              * En la última acta se exige por ley liquidar el 100% del saldo insoluto remanente.
+            </span>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="table-styled" style="width: 100%; font-size: 0.72rem;">
+              <thead>
+                <tr style="background: rgba(16, 185, 129, 0.15); color: #34d399;">
+                  <th style="padding: 6px 8px; text-align: center;">N° Acta</th>
+                  <th style="padding: 6px 8px;">Fecha Est.</th>
+                  <th style="padding: 6px 8px; text-align: right;">Avance Bruto (COP)</th>
+                  <th style="padding: 6px 8px; text-align: right;">% Amort.</th>
+                  <th style="padding: 6px 8px; text-align: right;">Valor Amortizado</th>
+                  <th style="padding: 6px 8px; text-align: right;">Saldo Restante</th>
+                  <th style="padding: 6px 8px; text-align: right;">Rendimientos Mes</th>
+                  <th style="padding: 6px 8px; text-align: center;">Garantía Vigente</th>
+                  <th style="padding: 6px 8px; text-align: center;">Estado</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyCronogramaAnticipo">
+                <!-- Inyección JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PESTAÑA 2: PLAN DE INVERSIÓN (RUBROS) ================= -->
+      <div id="tabContentAnticiposRubros" style="display: none;">
+        <!-- Banner Normativo Ley 1474 / CCE -->
+        <div class="card-glass" style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+          <div style="display: flex; gap: 8px; align-items: flex-start;">
+            <span style="font-size: 1.1rem;">⚠️</span>
+            <div style="font-size: 0.72rem; color: #fde68a;">
+              <strong>Requisitos Obligatorios del Plan de Inversión (Art. 91 Ley 1474 de 2011):</strong>
+              Los recursos del anticipo son exclusivamente para financiar el arranque del contrato (campamentos, maquinaria, acopio inicial, nómina inicial). 
+              <span style="text-decoration: underline;">Queda prohibido imputar costos de comisión fiduciaria o gastos ajenos a la ejecución directa</span>. 
+              La suma de los rubros debe corresponder exactamente al 100% del anticipo concedido.
+            </div>
+          </div>
+        </div>
+
+        <!-- Medidor de Balanceo del Plan de Inversión -->
+        <div id="antBalanceAlertBox" class="card-glass" style="padding: 10px 14px; border-radius: var(--radius-sm); margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <span id="antBalanceStatusText" style="font-size: 0.8rem; font-weight: 700;">Verificando balance...</span>
+            <div id="antBalanceSubText" style="font-size: 0.68rem; color: var(--text-faint);">Suma de rubros vs Monto Total de Anticipo</div>
+          </div>
+          <div style="text-align: right;">
+            <div id="antBalanceMontoText" style="font-size: 0.95rem; font-weight: 800;">$ 0 / $ 0</div>
+          </div>
+        </div>
+
+        <!-- Formulario para Añadir Rubro -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+          <div style="font-size: 0.75rem; font-weight: 700; color: var(--champagne); margin-bottom: 8px;">
+            ➕ Agregar Rubro al Plan de Inversión
+          </div>
+          <div style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 8px; align-items: flex-end;">
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Tipo de Rubro Técnico:</label>
+              <select id="antNuevoRubroTipo" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);">
+                <option value="CAMPAMENTO_SENALIZACION">Campamento, Cerramiento y Señalización Provisional (Máx 15%)</option>
+                <option value="ACOPIO_MATERIALES" selected>Acopio y Adquisición Anticipada de Materiales (Máx 50%)</option>
+                <option value="MAQUINARIA_EQUIPOS">Movilización de Maquinaria y Equipos (Máx 30%)</option>
+                <option value="NOMINA_ARRANQUE">Nómina Inicial de Arranque (Mes 1) (Máx 20%)</option>
+                <option value="ENSAYOS_LABORATORIO">Ensayos de Laboratorio y Topografía Inicial (Máx 10%)</option>
+                <option value="OTROS_PRELIMINARES">Otros Costos Preliminares Justificados</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Justificación Técnica:</label>
+              <input type="text" id="antNuevoRubroJustificacion" placeholder="Ej. Acero corrugado 60ksi" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Monto Asignado (COP):</label>
+              <input type="number" id="antNuevoRubroValor" placeholder="Ej. 50000000" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <button id="btnAgregarRubroAnticipo" class="btn-action" style="background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; color: #34d399; font-size: 0.72rem; padding: 5px 12px; height: 30px;">
+                + Agregar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabla de Rubros Actuales -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+          <div style="overflow-x: auto;">
+            <table class="table-styled" style="width: 100%; font-size: 0.72rem;">
+              <thead>
+                <tr style="background: rgba(16, 185, 129, 0.15); color: #34d399;">
+                  <th style="padding: 6px 8px;">Concepto / Rubro</th>
+                  <th style="padding: 6px 8px;">Justificación</th>
+                  <th style="padding: 6px 8px; text-align: right;">Valor (COP)</th>
+                  <th style="padding: 6px 8px; text-align: right;">% Anticipo</th>
+                  <th style="padding: 6px 8px; text-align: center;">Estado Técnico</th>
+                  <th style="padding: 6px 8px; text-align: center;">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyRubrosAnticipo">
+                <!-- Inyección JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PESTAÑA 3: HISTORIAL DE ANTICIPOS ================= -->
+      <div id="tabContentAnticiposHistorial" style="display: none;">
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span style="font-size: 0.78rem; font-weight: 700; color: var(--champagne);">
+              Historial de Contratos con Manejo de Anticipo y Fiducia
+            </span>
+            <button id="btnRecargarHistorialAnticipos" class="btn-action" style="font-size: 0.7rem; padding: 4px 10px;">
+              🔄 Actualizar Lista
+            </button>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="table-styled" style="width: 100%; font-size: 0.72rem;">
+              <thead>
+                <tr style="background: rgba(255, 255, 255, 0.05); color: var(--text-faint);">
+                  <th style="padding: 6px 8px;">Contrato / Proceso</th>
+                  <th style="padding: 6px 8px;">Entidad</th>
+                  <th style="padding: 6px 8px;">Fiduciaria & Encargo</th>
+                  <th style="padding: 6px 8px; text-align: right;">Valor Anticipo</th>
+                  <th style="padding: 6px 8px; text-align: right;">Amortizado Real</th>
+                  <th style="padding: 6px 8px; text-align: center;">Estado</th>
+                  <th style="padding: 6px 8px; text-align: center;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyHistorialAnticipos">
+                <!-- Inyección JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer y Acciones -->
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-top: 1px solid var(--hairline); padding-top: 12px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button id="btnDownloadAnticipoPdf" class="btn-action" style="font-size: 0.78rem; padding: 6px 14px; background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; color: #34d399; font-weight: 700;">
+            📄 Dictamen Oficial (PDF)
+          </button>
+          <button id="btnDownloadAnticipoExcel" class="btn-action" style="font-size: 0.78rem; padding: 6px 14px; background: rgba(59, 130, 246, 0.15); border: 1px solid #3b82f6; color: #93c5fd; font-weight: 700;">
+            📊 Cronograma Excel (.xlsx)
+          </button>
+          <button id="btnSaveAnticipoPlan" class="btn-action" style="font-size: 0.78rem; padding: 6px 14px; background: rgba(212, 175, 55, 0.15); border: 1px solid var(--gold); color: var(--champagne); font-weight: 700;">
+            💾 Guardar Plan en Base de Datos
+          </button>
+        </div>
+        <div>
+          <button id="btnCloseAnticiposModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
             Cerrar
           </button>
         </div>

@@ -24,7 +24,8 @@ const SCHEMAS = [
   'schema_garantias_cce.sql',
   'schema_apu_analisis.sql',
   'schema_propuesta_economica.sql',
-  'schema_criterios_diferenciales.sql'
+  'schema_criterios_diferenciales.sql',
+  'schema_anticipos_fiducia.sql'
 ];
 
 async function runAllMigrations() {

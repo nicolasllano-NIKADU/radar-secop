@@ -9304,6 +9304,559 @@ document.getElementById('btnSaveCriteriosDiferenciales')?.addEventListener('clic
   }
 });
 
+// ====================================================================
+// MÓDULO DE TRAZABILIDAD DE ANTICIPOS Y CUENTA FIDUCIA (LEY 1474/2011)
+// ====================================================================
+
+let currentAnticipoSimulacion = null;
+let currentAnticipoRubros = [];
+let currentAnticipoPlanGuardadoId = null;
+
+// Apertura y Poblado Inicial del Modal de Anticipos
+function abrirModalAnticipos() {
+  const opp = oportunidades.find(o => o.id === activeModalId) || {};
+  const lider = (userCompanies && userCompanies.length > 0) ? (userCompanies.find(c => c.es_propia) || userCompanies[0]) : null;
+
+  // Poblado de metadatos del contrato / proceso
+  const procEl = document.getElementById('antProcesoNum');
+  if (procEl) procEl.value = opp.referencia || opp.id || 'LP-OBRA-2026-001';
+
+  const ctoEl = document.getElementById('antContratoNum');
+  if (ctoEl) ctoEl.value = opp.referencia ? `CTO-${opp.referencia.replace(/[^a-zA-Z0-9]/g, '')}` : 'CTO-2026-045';
+
+  const entEl = document.getElementById('antEntidadNombre');
+  if (entEl) entEl.value = opp.entidad || 'Entidad Contratante Estatal';
+
+  const contNomEl = document.getElementById('antContratistaNombre');
+  if (contNomEl) contNomEl.value = lider ? lider.razon_social : 'CONSORCIO INFRAESTRUCTURA COLOMBIA';
+
+  const contNitEl = document.getElementById('antContratistaNit');
+  if (contNitEl) contNitEl.value = lider ? lider.nit : '901.884.221-5';
+
+  const valCtoEl = document.getElementById('antValorContrato');
+  const precio = opp.precio_base || opp.cuantia || 1200000000;
+  if (valCtoEl) valCtoEl.value = precio;
+
+  // Configuración de rubros iniciales equilibrados al 20% del anticipo
+  const pctAnticipo = 20;
+  const montoAnticipo = (precio * pctAnticipo) / 100;
+
+  currentAnticipoRubros = [
+    { codigo: 'CAMPAMENTO_SENALIZACION', nombre: 'Campamento y Señalización Provisional', valor: Math.round(montoAnticipo * 0.125), justificacion: 'Caseta de obra, cerramiento y señalización' },
+    { codigo: 'ACOPIO_MATERIALES', nombre: 'Acopio y Compra Anticipada de Materiales', valor: Math.round(montoAnticipo * 0.50), justificacion: 'Acero de refuerzo, cemento y tuberías directas' },
+    { codigo: 'MAQUINARIA_EQUIPOS', nombre: 'Movilización de Maquinaria y Equipos', valor: Math.round(montoAnticipo * 0.20), justificacion: 'Fletes y calibración en sitio' },
+    { codigo: 'NOMINA_ARRANQUE', nombre: 'Nómina Inicial de Arranque (Mes 1)', valor: Math.round(montoAnticipo * 0.125), justificacion: 'Cuadrilla operativa y topografía inicial' },
+    { codigo: 'ENSAYOS_LABORATORIO', nombre: 'Ensayos de Laboratorio y Suelos', valor: Math.round(montoAnticipo * 0.05), justificacion: 'Ensayos de resistencia y diseño de mezcla' }
+  ];
+
+  // Ajustar el último rubro para cuadrar exactamente al centavo
+  const sumR = currentAnticipoRubros.reduce((acc, r) => acc + r.valor, 0);
+  if (sumR !== montoAnticipo) {
+    currentAnticipoRubros[currentAnticipoRubros.length - 1].valor += (montoAnticipo - sumR);
+  }
+
+  // Activar pestaña 1 por defecto
+  cambiarTabAnticipos('tabContentAnticiposSimulador', 'tabBtnAnticiposSimulador');
+
+  document.getElementById('detailModal')?.classList.remove('open');
+  document.getElementById('anticiposModal')?.classList.add('open');
+
+  // Ejecutar simulación inicial
+  recalcularSimulacionAnticipo();
+  renderRubrosAnticipo();
+}
+
+// Navegación entre pestañas del modal de anticipos
+function cambiarTabAnticipos(tabContentId, tabBtnId) {
+  ['tabContentAnticiposSimulador', 'tabContentAnticiposRubros', 'tabContentAnticiposHistorial'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = (id === tabContentId) ? 'block' : 'none';
+  });
+
+  ['tabBtnAnticiposSimulador', 'tabBtnAnticiposRubros', 'tabBtnAnticiposHistorial'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      if (id === tabBtnId) btn.classList.add('active');
+      else btn.classList.remove('active');
+    }
+  });
+
+  if (tabContentId === 'tabContentAnticiposHistorial') {
+    cargarHistorialAnticipos();
+  } else if (tabContentId === 'tabContentAnticiposRubros') {
+    renderRubrosAnticipo();
+  }
+}
+
+document.getElementById('tabBtnAnticiposSimulador')?.addEventListener('click', () => {
+  cambiarTabAnticipos('tabContentAnticiposSimulador', 'tabBtnAnticiposSimulador');
+});
+document.getElementById('tabBtnAnticiposRubros')?.addEventListener('click', () => {
+  cambiarTabAnticipos('tabContentAnticiposRubros', 'tabBtnAnticiposRubros');
+});
+document.getElementById('tabBtnAnticiposHistorial')?.addEventListener('click', () => {
+  cambiarTabAnticipos('tabContentAnticiposHistorial', 'tabBtnAnticiposHistorial');
+});
+
+// Eventos de apertura y cierre
+document.getElementById('modalBtnAnticipos')?.addEventListener('click', abrirModalAnticipos);
+document.getElementById('btnCloseAnticiposModal')?.addEventListener('click', () => {
+  document.getElementById('anticiposModal')?.classList.remove('open');
+});
+document.getElementById('btnCloseAnticiposModalBtn')?.addEventListener('click', () => {
+  document.getElementById('anticiposModal')?.classList.remove('open');
+});
+document.getElementById('anticiposModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'anticiposModal') {
+    document.getElementById('anticiposModal')?.classList.remove('open');
+  }
+});
+
+// Actualizar badge al cambiar porcentaje o valor
+document.getElementById('antPctAnticipo')?.addEventListener('input', () => {
+  const cto = parseFloat(document.getElementById('antValorContrato')?.value || 0);
+  let pct = parseFloat(document.getElementById('antPctAnticipo')?.value || 0);
+  if (pct > 50) {
+    pct = 50;
+    document.getElementById('antPctAnticipo').value = 50;
+    showToast('El límite legal de anticipo es 50.00% (Ley 80/1993 Art. 40)');
+  }
+  const monto = (cto * pct) / 100;
+  const badge = document.getElementById('antBadgeMontoCalculado');
+  if (badge) badge.textContent = `$ ${monto.toLocaleString('es-CO')} COP`;
+});
+
+document.getElementById('antValorContrato')?.addEventListener('input', () => {
+  const cto = parseFloat(document.getElementById('antValorContrato')?.value || 0);
+  const pct = parseFloat(document.getElementById('antPctAnticipo')?.value || 0);
+  const monto = (cto * pct) / 100;
+  const badge = document.getElementById('antBadgeMontoCalculado');
+  if (badge) badge.textContent = `$ ${monto.toLocaleString('es-CO')} COP`;
+});
+
+// Ejecución de la simulación algorítmica
+async function recalcularSimulacionAnticipo() {
+  const valorContrato = parseFloat(document.getElementById('antValorContrato')?.value || 0);
+  const anticipoPct = parseFloat(document.getElementById('antPctAnticipo')?.value || 20);
+  const plazoMeses = parseInt(document.getElementById('antPlazoMeses')?.value || 6, 10);
+  const tasaRendimiento = parseFloat(document.getElementById('antTasaRendimiento')?.value || 9.5);
+
+  if (anticipoPct > 50) {
+    showToast('Alerta: El anticipo no puede exceder el 50% según Ley 80 Art. 40');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/anticipos/simular-amortizacion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        valorContrato,
+        anticipoPct,
+        plazoMeses,
+        tasaRendimientoFiduciarioAnual: tasaRendimiento
+      })
+    });
+
+    const data = await res.json();
+    if (!data.success) {
+      showToast(`Error en simulación: ${data.error}`);
+      return;
+    }
+
+    currentAnticipoSimulacion = data.simulacion;
+    renderSimulacionResultados(data.simulacion);
+  } catch (err) {
+    console.error('Error calculando simulación de anticipos:', err);
+    showToast('Error al conectar con el motor de anticipos');
+  }
+}
+
+document.getElementById('btnRecalcularSimulacionAnticipo')?.addEventListener('click', recalcularSimulacionAnticipo);
+
+// Renderizado de resultados de la simulación en pantalla
+function renderSimulacionResultados(sim) {
+  // KPIs
+  const elTot = document.getElementById('statAnticipoTotalMonto');
+  if (elTot) elTot.textContent = `$ ${sim.anticipo_monto.toLocaleString('es-CO')}`;
+
+  const elPct = document.getElementById('statAnticipoPctBadge');
+  if (elPct) elPct.textContent = `${sim.anticipo_porcentaje}% del valor del contrato`;
+
+  const elAmort = document.getElementById('statTotalAmortizadoMonto');
+  if (elAmort) elAmort.textContent = `$ ${sim.total_amortizado.toLocaleString('es-CO')}`;
+
+  const elAmortPct = document.getElementById('statAmortizadoPctBadge');
+  const pctAmort = sim.anticipo_monto > 0 ? (sim.total_amortizado / sim.anticipo_monto) * 100 : 0;
+  if (elAmortPct) elAmortPct.textContent = `${pctAmort.toFixed(1)}% del anticipo amortizado`;
+
+  const elSaldo = document.getElementById('statSaldoFinalMonto');
+  if (elSaldo) elSaldo.textContent = `$ ${sim.saldo_final_pendiente.toLocaleString('es-CO')}`;
+
+  const elSaldoBadge = document.getElementById('statSaldoEstadoBadge');
+  if (elSaldoBadge) {
+    if (sim.saldo_final_pendiente === 0) {
+      elSaldoBadge.textContent = 'Amortización Completa (100%)';
+      elSaldoBadge.style.color = '#34d399';
+    } else {
+      elSaldoBadge.textContent = 'Déficit de Amortización';
+      elSaldoBadge.style.color = '#f87171';
+    }
+  }
+
+  const elRend = document.getElementById('statRendimientosTotalesMonto');
+  if (elRend) elRend.textContent = `$ ${sim.rendimientos_totales_proyectados.toLocaleString('es-CO')}`;
+
+  // Barra de progreso
+  const fill = document.getElementById('progressBarAnticipoFill');
+  const label = document.getElementById('progressBarAnticipoLabel');
+  if (fill) fill.style.width = `${pctAmort}%`;
+  if (label) label.textContent = `${pctAmort.toFixed(1)}% Amortizado ($ ${sim.total_amortizado.toLocaleString('es-CO')} / $ ${sim.anticipo_monto.toLocaleString('es-CO')})`;
+
+  // Tabla del cronograma
+  const tbody = document.getElementById('tbodyCronogramaAnticipo');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+  sim.cronograma_actas.forEach(acta => {
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
+    tr.innerHTML = `
+      <td style="padding: 6px 8px; text-align: center; font-weight: 700;">Acta ${acta.numero_acta}</td>
+      <td style="padding: 6px 8px; color: var(--text-faint);">${acta.fecha_proyectada}</td>
+      <td style="padding: 6px 8px; text-align: right;">$ ${acta.valor_bruto_acta.toLocaleString('es-CO')}</td>
+      <td style="padding: 6px 8px; text-align: right; font-weight: 700; color: #3b82f6;">${acta.porcentaje_amortizacion}%</td>
+      <td style="padding: 6px 8px; text-align: right; font-weight: 700; color: #10b981;">$ ${acta.valor_amortizado.toLocaleString('es-CO')}</td>
+      <td style="padding: 6px 8px; text-align: right; font-weight: 700;">$ ${acta.saldo_anticipo_restante.toLocaleString('es-CO')}</td>
+      <td style="padding: 6px 8px; text-align: right; color: #c084fc;">$ ${acta.rendimientos_generados_mes.toLocaleString('es-CO')}</td>
+      <td style="padding: 6px 8px; text-align: center; font-size: 0.68rem; color: #38bdf8;">$ ${acta.garantia_requerida_saldo.toLocaleString('es-CO')}</td>
+      <td style="padding: 6px 8px; text-align: center;">
+        <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; font-size: 0.65rem;">
+          ${acta.estado_acta}
+        </span>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// Renderizado de Rubros del Plan de Inversión
+function renderRubrosAnticipo() {
+  const tbody = document.getElementById('tbodyRubrosAnticipo');
+  if (!tbody) return;
+
+  const cto = parseFloat(document.getElementById('antValorContrato')?.value || 0);
+  const pct = parseFloat(document.getElementById('antPctAnticipo')?.value || 20);
+  const montoAnticipo = (cto * pct) / 100;
+
+  tbody.innerHTML = '';
+  let sumRubros = 0;
+
+  currentAnticipoRubros.forEach((r, idx) => {
+    sumRubros += r.valor;
+    const pctR = montoAnticipo > 0 ? (r.valor / montoAnticipo) * 100 : 0;
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
+    tr.innerHTML = `
+      <td style="padding: 6px 8px; font-weight: 600;">${r.nombre || r.codigo}</td>
+      <td style="padding: 6px 8px; color: var(--text-faint); font-size: 0.68rem;">${r.justificacion || 'Gastos de arranque'}</td>
+      <td style="padding: 6px 8px; text-align: right; font-weight: 700;">$ ${r.valor.toLocaleString('es-CO')}</td>
+      <td style="padding: 6px 8px; text-align: right; color: #10b981; font-weight: 700;">${pctR.toFixed(2)}%</td>
+      <td style="padding: 6px 8px; text-align: center;">
+        <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; font-size: 0.65rem;">ADMISIBLE</span>
+      </td>
+      <td style="padding: 6px 8px; text-align: center;">
+        <button class="btn-icon" onclick="eliminarRubroAnticipo(${idx})" title="Eliminar rubro" style="color: #f87171; font-size: 0.8rem;">
+          🗑️
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Actualizar banner de balance
+  const box = document.getElementById('antBalanceAlertBox');
+  const statusTxt = document.getElementById('antBalanceStatusText');
+  const subTxt = document.getElementById('antBalanceSubText');
+  const montoTxt = document.getElementById('antBalanceMontoText');
+
+  if (montoTxt) montoTxt.textContent = `$ ${sumRubros.toLocaleString('es-CO')} / $ ${montoAnticipo.toLocaleString('es-CO')}`;
+
+  const dif = montoAnticipo - sumRubros;
+  if (Math.abs(dif) < 1) {
+    if (box) {
+      box.style.background = 'rgba(16, 185, 129, 0.15)';
+      box.style.border = '1px solid #10b981';
+    }
+    if (statusTxt) {
+      statusTxt.textContent = '✅ Plan de Inversión 100% Balanceado y Conforme';
+      statusTxt.style.color = '#34d399';
+    }
+    if (subTxt) subTxt.textContent = 'Cumple exactamente la asignación total del anticipo para el inicio de obra.';
+  } else if (dif > 0) {
+    if (box) {
+      box.style.background = 'rgba(245, 158, 11, 0.15)';
+      box.style.border = '1px solid #f59e0b';
+    }
+    if (statusTxt) {
+      statusTxt.textContent = `⚠️ Plan Incompleto: Faltan $ ${dif.toLocaleString('es-CO')}`;
+      statusTxt.style.color = '#fbbf24';
+    }
+    if (subTxt) subTxt.textContent = 'El contratista debe justificar la totalidad del valor del anticipo concedido.';
+  } else {
+    if (box) {
+      box.style.background = 'rgba(239, 68, 68, 0.15)';
+      box.style.border = '1px solid #ef4444';
+    }
+    if (statusTxt) {
+      statusTxt.textContent = `❌ Plan Excedido: Supera el anticipo en $ ${Math.abs(dif).toLocaleString('es-CO')}`;
+      statusTxt.style.color = '#f87171';
+    }
+    if (subTxt) subTxt.textContent = 'Los rubros sobrepasan el valor legal del anticipo aprobado.';
+  }
+}
+
+// Eliminar un rubro
+window.eliminarRubroAnticipo = function(idx) {
+  if (currentAnticipoRubros[idx]) {
+    currentAnticipoRubros.splice(idx, 1);
+    renderRubrosAnticipo();
+  }
+};
+
+// Agregar nuevo rubro
+document.getElementById('btnAgregarRubroAnticipo')?.addEventListener('click', () => {
+  const selTipo = document.getElementById('antNuevoRubroTipo');
+  const valMonto = parseFloat(document.getElementById('antNuevoRubroValor')?.value || 0);
+  const justif = document.getElementById('antNuevoRubroJustificacion')?.value || 'Preliminares de obra';
+
+  if (valMonto <= 0) {
+    showToast('Ingrese un monto válido para el rubro');
+    return;
+  }
+
+  const cod = selTipo ? selTipo.value : 'RUBRO_PRELIMINAR';
+  const nom = selTipo ? selTipo.options[selTipo.selectedIndex].text.split('(')[0].trim() : 'Rubro';
+
+  currentAnticipoRubros.push({
+    codigo: cod,
+    nombre: nom,
+    valor: valMonto,
+    justificacion: justif
+  });
+
+  if (document.getElementById('antNuevoRubroValor')) document.getElementById('antNuevoRubroValor').value = '';
+  if (document.getElementById('antNuevoRubroJustificacion')) document.getElementById('antNuevoRubroJustificacion').value = '';
+
+  renderRubrosAnticipo();
+  showToast('Rubro agregado al Plan de Inversión');
+});
+
+// Guardar Plan en Base de Datos PostgreSQL
+document.getElementById('btnSaveAnticipoPlan')?.addEventListener('click', async () => {
+  if (!currentAnticipoSimulacion) {
+    await recalcularSimulacionAnticipo();
+  }
+
+  const payload = {
+    proceso_numero: document.getElementById('antProcesoNum')?.value || 'SECOP-II-2026',
+    contrato_numero: document.getElementById('antContratoNum')?.value || 'CTO-2026-001',
+    entidad_nombre: document.getElementById('antEntidadNombre')?.value || 'Entidad Contratante',
+    contratista_nombre: document.getElementById('antContratistaNombre')?.value || 'Contratista Proponente',
+    contratista_nit: document.getElementById('antContratistaNit')?.value || '901.000.000-1',
+    valor_contrato: parseFloat(document.getElementById('antValorContrato')?.value || 0),
+    anticipo_porcentaje: parseFloat(document.getElementById('antPctAnticipo')?.value || 20),
+    anticipo_monto: currentAnticipoSimulacion ? currentAnticipoSimulacion.anticipo_monto : 0,
+    fiduciaria_nombre: document.getElementById('antFiduciariaNombre')?.value || 'FIDUCIARIA BANCOLOMBIA S.A.',
+    numero_encargo_patrimonio: document.getElementById('antNumeroEncargo')?.value || 'PA-2026-001',
+    tipo_instrumento: 'PATRIMONIO_AUTONOMO',
+    plazo_meses: parseInt(document.getElementById('antPlazoMeses')?.value || 6, 10),
+    tasa_rendimiento_anual: parseFloat(document.getElementById('antTasaRendimiento')?.value || 9.5),
+    rubros: currentAnticipoRubros,
+    cronograma_actas: currentAnticipoSimulacion ? currentAnticipoSimulacion.cronograma_actas : [],
+    observaciones: 'Plan estructurado bajo lineamientos Ley 1474/2011 Art. 91'
+  };
+
+  try {
+    const res = await fetch('/api/anticipos/guardar-plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const json = await res.json();
+    if (json.success) {
+      currentAnticipoPlanGuardadoId = json.plan.id;
+      showToast('✅ Plan de Anticipos y Fiducia guardado exitosamente en PostgreSQL');
+    } else {
+      showToast(`Error al guardar: ${json.error}`);
+    }
+  } catch (err) {
+    showToast('Error de conexión al guardar el plan de anticipo');
+  }
+});
+
+// Cargar Historial de Anticipos
+async function cargarHistorialAnticipos() {
+  const tbody = document.getElementById('tbodyHistorialAnticipos');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 12px; color: var(--text-faint);">Cargando historial de anticipos...</td></tr>';
+
+  try {
+    const res = await fetch('/api/anticipos/historial');
+    const json = await res.json();
+    if (!json.success || json.data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 12px; color: var(--text-faint);">No hay planes de anticipo guardados aún.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = '';
+    json.data.forEach(p => {
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
+      tr.innerHTML = `
+        <td style="padding: 6px 8px; font-weight: 700;">
+          <div>${p.contrato_numero}</div>
+          <div style="font-size: 0.65rem; color: var(--text-faint);">${p.proceso_numero || 'Sin ref'}</div>
+        </td>
+        <td style="padding: 6px 8px; font-size: 0.68rem;">${p.entidad_nombre}</td>
+        <td style="padding: 6px 8px; font-size: 0.68rem;">
+          <div>${p.fiduciaria_nombre}</div>
+          <div style="color: #38bdf8; font-size: 0.65rem;">${p.numero_encargo_patrimonio}</div>
+        </td>
+        <td style="padding: 6px 8px; text-align: right; font-weight: 700; color: #34d399;">
+          $ ${Number(p.anticipo_monto).toLocaleString('es-CO')}
+        </td>
+        <td style="padding: 6px 8px; text-align: right; font-weight: 700; color: #60a5fa;">
+          $ ${Number(p.total_amortizado_real || 0).toLocaleString('es-CO')}
+        </td>
+        <td style="padding: 6px 8px; text-align: center;">
+          <span class="badge" style="background: ${p.estado === 'AMORTIZADO' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(59, 130, 246, 0.2)'}; color: ${p.estado === 'AMORTIZADO' ? '#34d399' : '#60a5fa'}; font-size: 0.65rem;">
+            ${p.estado}
+          </span>
+        </td>
+        <td style="padding: 6px 8px; text-align: center;">
+          <div style="display: flex; gap: 4px; justify-content: center;">
+            <button class="btn-action" style="padding: 3px 6px; font-size: 0.65rem;" onclick="descargarAnticipoPdfDb(${p.id})">📄 PDF</button>
+            <button class="btn-action" style="padding: 3px 6px; font-size: 0.65rem;" onclick="descargarAnticipoExcelDb(${p.id})">📊 Excel</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 12px; color: #f87171;">Error consultando historial.</td></tr>';
+  }
+}
+
+document.getElementById('btnRecargarHistorialAnticipos')?.addEventListener('click', cargarHistorialAnticipos);
+
+// Funciones globales para descargar por ID desde la DB
+window.descargarAnticipoPdfDb = function(id) {
+  window.open(`/api/anticipos/exportar-pdf/${id}`, '_blank');
+};
+window.descargarAnticipoExcelDb = function(id) {
+  window.open(`/api/anticipos/exportar-excel/${id}`, '_blank');
+};
+
+// Descarga directa del Dictamen Oficial en PDF
+document.getElementById('btnDownloadAnticipoPdf')?.addEventListener('click', async () => {
+  if (!currentAnticipoSimulacion) {
+    await recalcularSimulacionAnticipo();
+  }
+
+  const payload = {
+    proceso_numero: document.getElementById('antProcesoNum')?.value || 'SECOP-II-2026',
+    contrato_numero: document.getElementById('antContratoNum')?.value || 'CTO-2026-001',
+    entidad_nombre: document.getElementById('antEntidadNombre')?.value || 'Entidad Contratante',
+    contratista_nombre: document.getElementById('antContratistaNombre')?.value || 'Contratista Proponente',
+    contratista_nit: document.getElementById('antContratistaNit')?.value || '901.000.000-1',
+    fiduciaria_nombre: document.getElementById('antFiduciariaNombre')?.value || 'FIDUCIARIA BANCOLOMBIA S.A.',
+    numero_encargo_patrimonio: document.getElementById('antNumeroEncargo')?.value || 'PA-2026-001',
+    tipo_instrumento: 'PATRIMONIO_AUTÓNOMO IRREVOCABLE',
+    valor_contrato: parseFloat(document.getElementById('antValorContrato')?.value || 0),
+    anticipo_porcentaje: parseFloat(document.getElementById('antPctAnticipo')?.value || 20),
+    anticipo_monto: currentAnticipoSimulacion ? currentAnticipoSimulacion.anticipo_monto : 0,
+    plazo_meses: parseInt(document.getElementById('antPlazoMeses')?.value || 6, 10),
+    tasa_rendimiento_anual: parseFloat(document.getElementById('antTasaRendimiento')?.value || 9.5),
+    rubros: currentAnticipoRubros,
+    simulacion: currentAnticipoSimulacion
+  };
+
+  try {
+    showToast('Generando Dictamen Oficial de Anticipo en PDF...');
+    const res = await fetch('/api/anticipos/exportar-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error('Error al generar PDF en el servidor');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Dictamen_Anticipo_Fiducia_${payload.contrato_numero.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    showToast('✅ Dictamen PDF descargado exitosamente');
+  } catch (err) {
+    showToast('Error al descargar el PDF del anticipo');
+  }
+});
+
+// Descarga directa del Cronograma en Excel (.xlsx)
+document.getElementById('btnDownloadAnticipoExcel')?.addEventListener('click', async () => {
+  if (!currentAnticipoSimulacion) {
+    await recalcularSimulacionAnticipo();
+  }
+
+  const payload = {
+    proceso_numero: document.getElementById('antProcesoNum')?.value || 'SECOP-II-2026',
+    contrato_numero: document.getElementById('antContratoNum')?.value || 'CTO-2026-001',
+    entidad_nombre: document.getElementById('antEntidadNombre')?.value || 'Entidad Contratante',
+    contratista_nombre: document.getElementById('antContratistaNombre')?.value || 'Contratista Proponente',
+    contratista_nit: document.getElementById('antContratistaNit')?.value || '901.000.000-1',
+    fiduciaria_nombre: document.getElementById('antFiduciariaNombre')?.value || 'FIDUCIARIA BANCOLOMBIA S.A.',
+    numero_encargo_patrimonio: document.getElementById('antNumeroEncargo')?.value || 'PA-2026-001',
+    tipo_instrumento: 'PATRIMONIO_AUTÓNOMO IRREVOCABLE',
+    valor_contrato: parseFloat(document.getElementById('antValorContrato')?.value || 0),
+    anticipo_porcentaje: parseFloat(document.getElementById('antPctAnticipo')?.value || 20),
+    anticipo_monto: currentAnticipoSimulacion ? currentAnticipoSimulacion.anticipo_monto : 0,
+    plazo_meses: parseInt(document.getElementById('antPlazoMeses')?.value || 6, 10),
+    tasa_rendimiento_anual: parseFloat(document.getElementById('antTasaRendimiento')?.value || 9.5),
+    rubros: currentAnticipoRubros,
+    simulacion: currentAnticipoSimulacion
+  };
+
+  try {
+    showToast('Generando Cronograma de Amortización en Excel...');
+    const res = await fetch('/api/anticipos/exportar-excel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error('Error al generar Excel en el servidor');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Cronograma_Amortizacion_Anticipo_${payload.contrato_numero.replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    showToast('✅ Cronograma Excel descargado exitosamente');
+  } catch (err) {
+    showToast('Error al descargar el archivo Excel del anticipo');
+  }
+});
+
 // ==================== INICIALIZACIÓN ====================
 window.addEventListener('DOMContentLoaded', () => {
   checkUserSession();

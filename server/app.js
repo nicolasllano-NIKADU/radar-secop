@@ -37,6 +37,7 @@ const garantiasEngine = require('./garantiasEngine');
 const apuEngine = require('./apuEngine');
 const economicProposalEngine = require('./economicProposalEngine');
 const criteriosDiferencialesEngine = require('./criteriosDiferencialesEngine');
+const anticiposFiduciaEngine = require('./anticiposFiduciaEngine');
 const initDb = require('./initDb');
 
 const app = express();
@@ -3093,6 +3094,487 @@ app.get('/api/criterios-diferenciales/certificacion-pdf/:id', async (req, res) =
     res.send(pdfBuffer);
   } catch (err) {
     console.error('Error generando PDF de certificación desde DB:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== MÓDULO DE ANTICIPOS Y CUENTA FIDUCIA (LEY 1474/2011) ====================
+
+// 1. Simulación y cálculo de amortización y rendimientos
+app.post('/api/anticipos/simular-amortizacion', (req, res) => {
+  try {
+    const {
+      valorContrato,
+      anticipoPct,
+      plazoMeses,
+      tasaRendimientoFiduciarioAnual,
+      actasProgramadas
+    } = req.body;
+
+    const simulacion = anticiposFiduciaEngine.simularPlanAmortizacion({
+      valorContrato: Number(valorContrato) || 0,
+      anticipoPct: Number(anticipoPct) || 0,
+      plazoMeses: Number(plazoMeses) || 6,
+      tasaRendimientoFiduciarioAnual: Number(tasaRendimientoFiduciarioAnual) || 9.5,
+      actasProgramadas
+    });
+
+    res.json({ success: true, simulacion });
+  } catch (err) {
+    console.error('Error en simulación de amortización de anticipo:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 2. Validación de Plan de Inversión Inicial frente a topes y Ley 80 / Ley 1474
+app.post('/api/anticipos/validar-rubros', (req, res) => {
+  try {
+    const { valorContrato, anticipoMonto, rubros } = req.body;
+    const resultado = anticiposFiduciaEngine.validarPlanInversion({
+      valorContrato: Number(valorContrato) || 0,
+      anticipoMonto: Number(anticipoMonto) || 0,
+      rubros: Array.isArray(rubros) ? rubros : []
+    });
+
+    res.json({ success: true, validacion: resultado });
+  } catch (err) {
+    console.error('Error validando plan de inversión:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 3. Guardar Plan de Inversión y Cronograma en PostgreSQL
+app.post('/api/anticipos/guardar-plan', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const {
+      proceso_numero,
+      contrato_numero,
+      entidad_nombre,
+      contratista_nombre,
+      contratista_nit,
+      valor_contrato,
+      anticipo_porcentaje,
+      anticipo_monto,
+      fiduciaria_nombre,
+      numero_encargo_patrimonio,
+      tipo_instrumento,
+      fecha_constitucion,
+      fecha_desembolso,
+      plazo_meses,
+      tasa_rendimiento_anual,
+      rubros,
+      cronograma_actas,
+      observaciones
+    } = req.body;
+
+    const contratoVal = Number(valor_contrato) || 0;
+    const pctVal = Number(anticipo_porcentaje) || 0;
+    const anticipoVal = Number(anticipo_monto) || ((contratoVal * pctVal) / 100);
+
+    const insertPlanSql = `
+      INSERT INTO anticipos_planes_inversion (
+        proceso_numero, contrato_numero, entidad_nombre, contratista_nombre,
+        contratista_nit, valor_contrato, anticipo_porcentaje, anticipo_monto,
+        fiduciaria_nombre, numero_encargo_patrimonio, tipo_instrumento,
+        fecha_constitucion, fecha_desembolso, plazo_meses, tasa_rendimiento_anual,
+        rubros_inversion, estado, observaciones
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+      RETURNING *;
+    `;
+
+    const planParams = [
+      proceso_numero || 'SIN-PROCESO',
+      contrato_numero || 'SIN-CONTRATO',
+      entidad_nombre || 'Entidad Contratante',
+      contratista_nombre || 'Contratista Proponente',
+      contratista_nit || '000000000-0',
+      contratoVal,
+      pctVal,
+      anticipoVal,
+      fiduciaria_nombre || 'Sociedad Fiduciaria',
+      numero_encargo_patrimonio || 'ENCARGO-001',
+      tipo_instrumento || 'PATRIMONIO_AUTONOMO',
+      fecha_constitucion || new Date().toISOString().split('T')[0],
+      fecha_desembolso || new Date().toISOString().split('T')[0],
+      parseInt(plazo_meses, 10) || 6,
+      parseFloat(tasa_rendimiento_anual) || 9.5,
+      JSON.stringify(rubros || []),
+      'ACTIVO',
+      observaciones || 'Plan registrado conforme a Ley 1474/2011'
+    ];
+
+    const resultPlan = await dbPostgres.query(insertPlanSql, planParams);
+    const planGuardado = resultPlan.rows[0];
+
+    // Guardar actas del cronograma si vienen presentes
+    if (Array.isArray(cronograma_actas) && cronograma_actas.length > 0) {
+      for (const a of cronograma_actas) {
+        const insertActaSql = `
+          INSERT INTO anticipos_amortizaciones_mensuales (
+            plan_id, numero_acta, fecha_acta, valor_bruto_acta,
+            porcentaje_amortizacion, valor_amortizado, saldo_anticipo_previo,
+            saldo_anticipo_restante, porcentaje_ejecucion_acumulada,
+            rendimientos_generados_mes, rendimientos_reintegrados_tesoro,
+            reintegro_soporte_num, estado_acta
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);
+        `;
+        await dbPostgres.query(insertActaSql, [
+          planGuardado.id,
+          parseInt(a.numero_acta, 10) || 1,
+          a.fecha_proyectada || a.fecha_acta || new Date().toISOString().split('T')[0],
+          Number(a.valor_bruto_acta) || 0,
+          Number(a.porcentaje_amortizacion) || pctVal,
+          Number(a.valor_amortizado) || 0,
+          Number(a.saldo_anticipo_previo) || anticipoVal,
+          Number(a.saldo_anticipo_restante) || 0,
+          Number(a.porcentaje_ejecucion_acumulada) || 0,
+          Number(a.rendimientos_generados_mes) || 0,
+          Number(a.rendimientos_reintegrados_tesoro) || 0,
+          a.reintegro_soporte_num || null,
+          a.estado_acta || 'PROYECTADA'
+        ]);
+      }
+    }
+
+    res.json({
+      success: true,
+      mensaje: 'Plan de inversión y cronograma de amortización guardados exitosamente',
+      plan: planGuardado
+    });
+  } catch (err) {
+    console.error('Error guardando plan de anticipos:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 4. Historial de Planes de Anticipo
+app.get('/api/anticipos/historial', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const { search, limit = 50 } = req.query;
+
+    let querySql = `
+      SELECT p.*,
+        (SELECT COUNT(*) FROM anticipos_amortizaciones_mensuales a WHERE a.plan_id = p.id) as total_actas,
+        (SELECT COALESCE(SUM(valor_amortizado), 0) FROM anticipos_amortizaciones_mensuales a WHERE a.plan_id = p.id) as total_amortizado_real,
+        (SELECT COALESCE(SUM(rendimientos_generados_mes), 0) FROM anticipos_amortizaciones_mensuales a WHERE a.plan_id = p.id) as rendimientos_totales
+      FROM anticipos_planes_inversion p
+    `;
+    const params = [];
+
+    if (search && search.trim() !== '') {
+      querySql += ` WHERE p.proceso_numero ILIKE $1 OR p.contrato_numero ILIKE $1 OR p.entidad_nombre ILIKE $1 OR p.contratista_nombre ILIKE $1 `;
+      params.push(`%${search.trim()}%`);
+    }
+
+    querySql += ` ORDER BY p.created_at DESC LIMIT $${params.length + 1}`;
+    params.push(parseInt(limit, 10));
+
+    const result = await dbPostgres.query(querySql, params);
+    res.json({ success: true, count: result.rows.length, data: result.rows });
+  } catch (err) {
+    console.error('Error consultando historial de anticipos:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 5. Detalle individual de un Plan de Anticipo con sus actas
+app.get('/api/anticipos/detalle/:id', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const id = parseInt(req.params.id, 10);
+
+    const planRes = await dbPostgres.query('SELECT * FROM anticipos_planes_inversion WHERE id = $1', [id]);
+    if (planRes.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Plan de anticipo no encontrado' });
+    }
+
+    const plan = planRes.rows[0];
+    const actasRes = await dbPostgres.query(
+      'SELECT * FROM anticipos_amortizaciones_mensuales WHERE plan_id = $1 ORDER BY numero_acta ASC',
+      [id]
+    );
+
+    res.json({
+      success: true,
+      plan: plan,
+      actas: actasRes.rows
+    });
+  } catch (err) {
+    console.error('Error obteniendo detalle de anticipo:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 6. Registrar o actualizar un Acta Parcial de Amortización Real
+app.post('/api/anticipos/registrar-acta-amortizacion', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const {
+      plan_id,
+      numero_acta,
+      fecha_acta,
+      valor_bruto_acta,
+      porcentaje_amortizacion,
+      valor_amortizado,
+      saldo_anticipo_previo,
+      saldo_anticipo_restante,
+      porcentaje_ejecucion_acumulada,
+      rendimientos_generados_mes,
+      rendimientos_reintegrados_tesoro,
+      reintegro_soporte_num,
+      estado_acta
+    } = req.body;
+
+    const planIdInt = parseInt(plan_id, 10);
+    const numActaInt = parseInt(numero_acta, 10);
+
+    // Verificar si ya existe para actualizar o insertar
+    const checkSql = 'SELECT id FROM anticipos_amortizaciones_mensuales WHERE plan_id = $1 AND numero_acta = $2';
+    const checkRes = await dbPostgres.query(checkSql, [planIdInt, numActaInt]);
+
+    let actaGuardada;
+    if (checkRes.rows.length > 0) {
+      const updateSql = `
+        UPDATE anticipos_amortizaciones_mensuales
+        SET fecha_acta = $1, valor_bruto_acta = $2, porcentaje_amortizacion = $3,
+            valor_amortizado = $4, saldo_anticipo_previo = $5, saldo_anticipo_restante = $6,
+            porcentaje_ejecucion_acumulada = $7, rendimientos_generados_mes = $8,
+            rendimientos_reintegrados_tesoro = $9, reintegro_soporte_num = $10,
+            estado_acta = $11
+        WHERE plan_id = $12 AND numero_acta = $13
+        RETURNING *;
+      `;
+      const updateRes = await dbPostgres.query(updateSql, [
+        fecha_acta || new Date().toISOString().split('T')[0],
+        Number(valor_bruto_acta) || 0,
+        Number(porcentaje_amortizacion) || 0,
+        Number(valor_amortizado) || 0,
+        Number(saldo_anticipo_previo) || 0,
+        Number(saldo_anticipo_restante) || 0,
+        Number(porcentaje_ejecucion_acumulada) || 0,
+        Number(rendimientos_generados_mes) || 0,
+        Number(rendimientos_reintegrados_tesoro) || 0,
+        reintegro_soporte_num || null,
+        estado_acta || 'APROBADA',
+        planIdInt,
+        numActaInt
+      ]);
+      actaGuardada = updateRes.rows[0];
+    } else {
+      const insertSql = `
+        INSERT INTO anticipos_amortizaciones_mensuales (
+          plan_id, numero_acta, fecha_acta, valor_bruto_acta,
+          porcentaje_amortizacion, valor_amortizado, saldo_anticipo_previo,
+          saldo_anticipo_restante, porcentaje_ejecucion_acumulada,
+          rendimientos_generados_mes, rendimientos_reintegrados_tesoro,
+          reintegro_soporte_num, estado_acta
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        RETURNING *;
+      `;
+      const insertRes = await dbPostgres.query(insertSql, [
+        planIdInt,
+        numActaInt,
+        fecha_acta || new Date().toISOString().split('T')[0],
+        Number(valor_bruto_acta) || 0,
+        Number(porcentaje_amortizacion) || 0,
+        Number(valor_amortizado) || 0,
+        Number(saldo_anticipo_previo) || 0,
+        Number(saldo_anticipo_restante) || 0,
+        Number(porcentaje_ejecucion_acumulada) || 0,
+        Number(rendimientos_generados_mes) || 0,
+        Number(rendimientos_reintegrados_tesoro) || 0,
+        reintegro_soporte_num || null,
+        estado_acta || 'APROBADA'
+      ]);
+      actaGuardada = insertRes.rows[0];
+    }
+
+    // Si el saldo restante llegó a cero, marcar plan como AMORTIZADO
+    if (Number(saldo_anticipo_restante) <= 0.01) {
+      await dbPostgres.query("UPDATE anticipos_planes_inversion SET estado = 'AMORTIZADO', updated_at = NOW() WHERE id = $1", [planIdInt]);
+    } else {
+      await dbPostgres.query("UPDATE anticipos_planes_inversion SET estado = 'EN_EJECUCION', updated_at = NOW() WHERE id = $1", [planIdInt]);
+    }
+
+    res.json({ success: true, mensaje: 'Acta registrada correctamente', acta: actaGuardada });
+  } catch (err) {
+    console.error('Error registrando acta de amortización:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 7. Descargar Dictamen Oficial en PDF (Vía POST con datos de simulación directa)
+app.post('/api/anticipos/exportar-pdf', async (req, res) => {
+  try {
+    const data = req.body;
+    const pdfBuffer = await anticiposFiduciaEngine.generarPlanAmortizacionPdf(data);
+    const safeRef = (data.contrato_numero || 'ANTICIPO').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Dictamen_Anticipo_Fiducia_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error exportando PDF de anticipo:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 8. Descargar Dictamen Oficial en PDF (Vía GET por ID de Base de Datos)
+app.get('/api/anticipos/exportar-pdf/:id', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const id = parseInt(req.params.id, 10);
+
+    const planRes = await dbPostgres.query('SELECT * FROM anticipos_planes_inversion WHERE id = $1', [id]);
+    if (planRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Plan no encontrado' });
+
+    const plan = planRes.rows[0];
+    const actasRes = await dbPostgres.query(
+      'SELECT * FROM anticipos_amortizaciones_mensuales WHERE plan_id = $1 ORDER BY numero_acta ASC',
+      [id]
+    );
+
+    let rubros = [];
+    try {
+      rubros = typeof plan.rubros_inversion === 'string' ? JSON.parse(plan.rubros_inversion) : (plan.rubros_inversion || []);
+    } catch (_) {}
+
+    const actasFormatted = actasRes.rows.map(a => ({
+      numero_acta: a.numero_acta,
+      fecha_proyectada: a.fecha_acta ? new Date(a.fecha_acta).toISOString().split('T')[0] : '',
+      valor_bruto_acta: parseFloat(a.valor_bruto_acta),
+      porcentaje_amortizacion: parseFloat(a.porcentaje_amortizacion),
+      valor_amortizado: parseFloat(a.valor_amortizado),
+      saldo_anticipo_previo: parseFloat(a.saldo_anticipo_previo),
+      saldo_anticipo_restante: parseFloat(a.saldo_anticipo_restante),
+      rendimientos_generados_mes: parseFloat(a.rendimientos_generados_mes),
+      reintegro_tesoro_acumulado: parseFloat(a.rendimientos_reintegrados_tesoro),
+      estado_acta: a.estado_acta
+    }));
+
+    const simulacionCalculada = anticiposFiduciaEngine.simularPlanAmortizacion({
+      valorContrato: parseFloat(plan.valor_contrato),
+      anticipoPct: parseFloat(plan.anticipo_porcentaje),
+      plazoMeses: parseInt(plan.plazo_meses, 10),
+      tasaRendimientoFiduciarioAnual: parseFloat(plan.tasa_rendimiento_anual),
+      actasProgramadas: actasFormatted.length > 0 ? actasFormatted : null
+    });
+
+    const pdfData = {
+      proceso_numero: plan.proceso_numero,
+      contrato_numero: plan.contrato_numero,
+      entidad_nombre: plan.entidad_nombre,
+      contratista_nombre: plan.contratista_nombre,
+      contratista_nit: plan.contratista_nit,
+      fiduciaria_nombre: plan.fiduciaria_nombre,
+      numero_encargo_patrimonio: plan.numero_encargo_patrimonio,
+      tipo_instrumento: plan.tipo_instrumento,
+      valor_contrato: parseFloat(plan.valor_contrato),
+      anticipo_porcentaje: parseFloat(plan.anticipo_porcentaje),
+      anticipo_monto: parseFloat(plan.anticipo_monto),
+      plazo_meses: parseInt(plan.plazo_meses, 10),
+      tasa_rendimiento_anual: parseFloat(plan.tasa_rendimiento_anual),
+      rubros: rubros,
+      simulacion: simulacionCalculada
+    };
+
+    const pdfBuffer = await anticiposFiduciaEngine.generarPlanAmortizacionPdf(pdfData);
+    const safeRef = (plan.contrato_numero || 'ANTICIPO').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Dictamen_Anticipo_Fiducia_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error generando PDF de anticipo por ID:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 9. Descargar Plantilla y Cronograma en Excel (.xlsx) (Vía POST directo)
+app.post('/api/anticipos/exportar-excel', async (req, res) => {
+  try {
+    const data = req.body;
+    const xlsxBuffer = await anticiposFiduciaEngine.generarPlanAmortizacionExcel(data);
+    const safeRef = (data.contrato_numero || 'ANTICIPO').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="Cronograma_Amortizacion_Anticipo_${safeRef}.xlsx"`);
+    res.send(xlsxBuffer);
+  } catch (err) {
+    console.error('Error exportando Excel de anticipo:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 10. Descargar Plantilla y Cronograma en Excel (.xlsx) (Vía GET por ID)
+app.get('/api/anticipos/exportar-excel/:id', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const id = parseInt(req.params.id, 10);
+
+    const planRes = await dbPostgres.query('SELECT * FROM anticipos_planes_inversion WHERE id = $1', [id]);
+    if (planRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Plan no encontrado' });
+
+    const plan = planRes.rows[0];
+    const actasRes = await dbPostgres.query(
+      'SELECT * FROM anticipos_amortizaciones_mensuales WHERE plan_id = $1 ORDER BY numero_acta ASC',
+      [id]
+    );
+
+    let rubros = [];
+    try {
+      rubros = typeof plan.rubros_inversion === 'string' ? JSON.parse(plan.rubros_inversion) : (plan.rubros_inversion || []);
+    } catch (_) {}
+
+    const actasFormatted = actasRes.rows.map(a => ({
+      numero_acta: a.numero_acta,
+      fecha_proyectada: a.fecha_acta ? new Date(a.fecha_acta).toISOString().split('T')[0] : '',
+      valor_bruto_acta: parseFloat(a.valor_bruto_acta),
+      porcentaje_amortizacion: parseFloat(a.porcentaje_amortizacion),
+      valor_amortizado: parseFloat(a.valor_amortizado),
+      saldo_anticipo_previo: parseFloat(a.saldo_anticipo_previo),
+      saldo_anticipo_restante: parseFloat(a.saldo_anticipo_restante),
+      rendimientos_generados_mes: parseFloat(a.rendimientos_generados_mes),
+      reintegro_tesoro_acumulado: parseFloat(a.rendimientos_reintegrados_tesoro),
+      estado_acta: a.estado_acta
+    }));
+
+    const simulacionCalculada = anticiposFiduciaEngine.simularPlanAmortizacion({
+      valorContrato: parseFloat(plan.valor_contrato),
+      anticipoPct: parseFloat(plan.anticipo_porcentaje),
+      plazoMeses: parseInt(plan.plazo_meses, 10),
+      tasaRendimientoFiduciarioAnual: parseFloat(plan.tasa_rendimiento_anual),
+      actasProgramadas: actasFormatted.length > 0 ? actasFormatted : null
+    });
+
+    const excelData = {
+      proceso_numero: plan.proceso_numero,
+      contrato_numero: plan.contrato_numero,
+      entidad_nombre: plan.entidad_nombre,
+      contratista_nombre: plan.contratista_nombre,
+      contratista_nit: plan.contratista_nit,
+      fiduciaria_nombre: plan.fiduciaria_nombre,
+      numero_encargo_patrimonio: plan.numero_encargo_patrimonio,
+      tipo_instrumento: plan.tipo_instrumento,
+      valor_contrato: parseFloat(plan.valor_contrato),
+      anticipo_porcentaje: parseFloat(plan.anticipo_porcentaje),
+      anticipo_monto: parseFloat(plan.anticipo_monto),
+      plazo_meses: parseInt(plan.plazo_meses, 10),
+      tasa_rendimiento_anual: parseFloat(plan.tasa_rendimiento_anual),
+      rubros: rubros,
+      simulacion: simulacionCalculada
+    };
+
+    const xlsxBuffer = await anticiposFiduciaEngine.generarPlanAmortizacionExcel(excelData);
+    const safeRef = (plan.contrato_numero || 'ANTICIPO').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="Cronograma_Amortizacion_Anticipo_${safeRef}.xlsx"`);
+    res.send(xlsxBuffer);
+  } catch (err) {
+    console.error('Error generando Excel de anticipo por ID:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
