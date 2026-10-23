@@ -4,3 +4,6 @@ scratch/
 *.log
 .DS_Store
 .gemini/
+tools/
+graphify-out/
+
