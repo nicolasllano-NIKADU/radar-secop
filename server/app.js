@@ -43,6 +43,7 @@ const contractLiquidationEngine = require('./contractLiquidationEngine');
 const supervisionInterventoriaEngine = require('./supervisionInterventoriaEngine');
 const sancionatorioEngine = require('./sancionatorioEngine');
 const taxInvoiceLiquidationEngine = require('./taxInvoiceLiquidationEngine');
+const softwareAIEngine = require('./softwareAIEngine');
 const initDb = require('./initDb');
 
 const app = express();
@@ -5061,6 +5062,280 @@ app.get('/api/facturacion/exportar-excel/:id', async (req, res) => {
     res.send(xlsxBuffer);
   } catch (err) {
     console.error('Error exportando Excel por ID:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== MÓDULO SOFTWARE, CONSULTORÍA & SERVICIOS DE IA (LEY 1150) ====================
+
+// 1. Cálculo de Factor Multiplicador CCE
+app.post('/api/tech-ai/calcular-factor-multiplicador', (req, res) => {
+  try {
+    const resultado = softwareAIEngine.calcularFactorMultiplicador(req.body);
+    res.json({ success: true, ...resultado });
+  } catch (err) {
+    console.error('Error calculando Factor Multiplicador:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 2. Estimar presupuesto integral de proyecto de Software e IA
+app.post('/api/tech-ai/estimar-costos', (req, res) => {
+  try {
+    const estimacion = softwareAIEngine.estimarPresupuestoSoftwareIA(req.body);
+    res.json({ success: true, estimacion });
+  } catch (err) {
+    console.error('Error estimando presupuesto de software e IA:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 3. Guardar proyecto tecnológico en PostgreSQL
+app.post('/api/tech-ai/guardar-proyecto', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const {
+      contrato_numero,
+      proceso_numero,
+      entidad_nombre,
+      contratista_nombre,
+      contratista_nit,
+      nombre_proyecto_software,
+      descripcion_alcance,
+      modalidad_estimacion,
+      roles_equipo,
+      factor_prestacional_pct,
+      factor_costos_indirectos_pct,
+      factor_utilidad_honorarios_pct,
+      factor_multiplicador_calculado,
+      costo_total_personal_mes,
+      costo_total_personal_proyecto,
+      duracion_meses,
+      sprints_totales,
+      consumo_cloud_tokens,
+      costo_total_cloud_tokens,
+      presupuesto_total_estimado
+    } = req.body;
+
+    if (!contrato_numero || !entidad_nombre || !nombre_proyecto_software) {
+      return res.status(400).json({
+        success: false,
+        error: 'Campos requeridos: contrato_numero, entidad_nombre, nombre_proyecto_software'
+      });
+    }
+
+    const insProj = `
+      INSERT INTO tech_ai_proyectos_estimacion (
+        contrato_numero, proceso_numero, entidad_nombre, contratista_nombre, contratista_nit,
+        nombre_proyecto_software, descripcion_alcance, modalidad_estimacion, roles_equipo,
+        factor_prestacional_pct, factor_costos_indirectos_pct, factor_utilidad_honorarios_pct,
+        factor_multiplicador_calculado, costo_total_personal_mes, costo_total_personal_proyecto,
+        duracion_meses, sprints_totales, consumo_cloud_tokens, costo_total_cloud_tokens,
+        presupuesto_total_estimado
+      ) VALUES (
+        $1, $2, $3, $4, $5,
+        $6, $7, $8, $9,
+        $10, $11, $12,
+        $13, $14, $15,
+        $16, $17, $18, $19,
+        $20
+      )
+      RETURNING *;
+    `;
+
+    const insRes = await dbPostgres.query(insProj, [
+      contrato_numero,
+      proceso_numero || '',
+      entidad_nombre,
+      contratista_nombre || 'NIKADU IA S.A.S.',
+      contratista_nit || '901.888.777-1',
+      nombre_proyecto_software,
+      descripcion_alcance || '',
+      modalidad_estimacion || 'FACTOR_MULTIPLICADOR_CCE',
+      JSON.stringify(Array.isArray(roles_equipo) ? roles_equipo : []),
+      Number(factor_prestacional_pct) || 52.0,
+      Number(factor_costos_indirectos_pct) || 25.0,
+      Number(factor_utilidad_honorarios_pct) || 15.0,
+      Number(factor_multiplicador_calculado) || 1.92,
+      Number(costo_total_personal_mes) || 0,
+      Number(costo_total_personal_proyecto) || 0,
+      parseInt(duracion_meses, 10) || 6,
+      parseInt(sprints_totales, 10) || 12,
+      JSON.stringify(consumo_cloud_tokens || {}),
+      Number(costo_total_cloud_tokens) || 0,
+      Number(presupuesto_total_estimado) || 0
+    ]);
+
+    res.json({
+      success: true,
+      mensaje: 'Proyecto de software e IA guardado exitosamente',
+      proyecto: insRes.rows[0]
+    });
+  } catch (err) {
+    console.error('Error guardando proyecto de software e IA:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 4. Historial de proyectos de software e IA
+app.get('/api/tech-ai/historial', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const { search, limit = 50 } = req.query;
+
+    let query = `
+      SELECT p.*,
+        (SELECT COUNT(*) FROM tech_ai_metricas_sla_calidad m WHERE m.proyecto_id = p.id) as total_evaluaciones_sla
+      FROM tech_ai_proyectos_estimacion p
+    `;
+    const params = [];
+
+    if (search) {
+      query += ` WHERE p.contrato_numero ILIKE $1 OR p.nombre_proyecto_software ILIKE $1 OR p.entidad_nombre ILIKE $1`;
+      params.push(`%${search}%`);
+      query += ` ORDER BY p.id DESC LIMIT $2`;
+      params.push(parseInt(limit, 10));
+    } else {
+      query += ` ORDER BY p.id DESC LIMIT $1`;
+      params.push(parseInt(limit, 10));
+    }
+
+    const result = await dbPostgres.query(query, params);
+    res.json({ success: true, count: result.rows.length, proyectos: result.rows });
+  } catch (err) {
+    console.error('Error consultando historial de proyectos TI:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 5. Detalle de proyecto con SLAs y propiedad intelectual
+app.get('/api/tech-ai/detalle/:id', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const id = parseInt(req.params.id, 10);
+
+    const pRes = await dbPostgres.query('SELECT * FROM tech_ai_proyectos_estimacion WHERE id = $1', [id]);
+    if (pRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Proyecto no encontrado' });
+
+    const proyecto = pRes.rows[0];
+    const slaRes = await dbPostgres.query('SELECT * FROM tech_ai_metricas_sla_calidad WHERE proyecto_id = $1 ORDER BY id DESC', [id]);
+    const piRes = await dbPostgres.query('SELECT * FROM tech_ai_propiedad_intelectual WHERE proyecto_id = $1 ORDER BY id DESC', [id]);
+
+    res.json({
+      success: true,
+      proyecto,
+      slas: slaRes.rows,
+      propiedad_intelectual: piRes.rows
+    });
+  } catch (err) {
+    console.error('Error obteniendo detalle de proyecto TI:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 6. Evaluar y registrar métricas de SLA y calidad de IA
+app.post('/api/tech-ai/evaluar-slas', async (req, res) => {
+  try {
+    const dbPostgres = require('./dbPostgres');
+    const evaluacion = softwareAIEngine.evaluarSlasYCalidadIA(req.body);
+
+    const { contrato_numero, proyecto_id, periodo_evaluacion } = req.body;
+    if (contrato_numero && periodo_evaluacion) {
+      await dbPostgres.query(
+        `INSERT INTO tech_ai_metricas_sla_calidad (
+          contrato_numero, proyecto_id, periodo_evaluacion, uptime_disponibilidad_pct,
+          latencia_promedio_ms, mttr_tiempo_recuperacion_horas, code_coverage_pct,
+          vulnerabilidades_owasp_criticas, precision_modelo_ia_pct, f1_score_ia_pct,
+          tasa_alucinacion_ia_pct, cumplimiento_global_sla, observaciones_supervision
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+        [
+          contrato_numero,
+          proyecto_id || null,
+          periodo_evaluacion,
+          req.body.uptimeReal || 99.95,
+          req.body.latenciaRealMs || 145,
+          req.body.mttrRealHoras || 1.2,
+          req.body.codeCoveragePct || 88.5,
+          req.body.vulnerabilidadesCriticas || 0,
+          req.body.precisionModeloIaPct || 94.2,
+          req.body.f1ScoreIaPct || 93.8,
+          req.body.tasaAlucinacionIaPct || 1.2,
+          evaluacion.estado_global,
+          evaluacion.dictamen_supervision
+        ]
+      );
+    }
+
+    res.json({ success: true, evaluacion });
+  } catch (err) {
+    console.error('Error evaluando SLAs de software e IA:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 7. Calificar equipo para Concurso de Méritos (Ley 1150)
+app.post('/api/tech-ai/calificar-equipo-concurso', (req, res) => {
+  try {
+    const resultado = softwareAIEngine.evaluarEquipoConcursoMeritos(req.body);
+    res.json({ success: true, ...resultado });
+  } catch (err) {
+    console.error('Error calificando equipo para concurso de méritos:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 8. Exportar Ficha Técnica de Software e IA en PDF
+app.post('/api/tech-ai/exportar-pdf', async (req, res) => {
+  try {
+    const data = req.body;
+    if (!data.estimacion && data.roles) {
+      data.estimacion = softwareAIEngine.estimarPresupuestoSoftwareIA({
+        roles: data.roles,
+        factorMultiplicador: data.factorMultiplicador,
+        duracionMeses: data.duracionMeses,
+        sprintsTotales: data.sprintsTotales,
+        consumoCloudTokens: data.consumoCloudTokens
+      });
+    }
+
+    if (!data.slas) {
+      data.slas = softwareAIEngine.evaluarSlasYCalidadIA(data);
+    }
+
+    const pdfBuffer = await softwareAIEngine.generarDictamenTecnicoSoftwarePdf(data);
+    const safeRef = (data.contrato_numero || 'TI_IA').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Propuesta_Tecnica_Software_IA_${safeRef}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Error exportando PDF técnico de software e IA:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 9. Exportar Memoria de Costeo en Excel (.xlsx)
+app.post('/api/tech-ai/exportar-excel', async (req, res) => {
+  try {
+    const data = req.body;
+    if (!data.estimacion && data.roles) {
+      data.estimacion = softwareAIEngine.estimarPresupuestoSoftwareIA({
+        roles: data.roles,
+        factorMultiplicador: data.factorMultiplicador,
+        duracionMeses: data.duracionMeses,
+        sprintsTotales: data.sprintsTotales,
+        consumoCloudTokens: data.consumoCloudTokens
+      });
+    }
+
+    const xlsxBuffer = await softwareAIEngine.generarMemoriaCosteoSoftwareExcel(data);
+    const safeRef = (data.contrato_numero || 'TI_IA').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="Memoria_Costeo_Software_IA_${safeRef}.xlsx"`);
+    res.send(xlsxBuffer);
+  } catch (err) {
+    console.error('Error exportando Excel de software e IA:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

@@ -672,6 +672,16 @@
         </button>
       </div>
 
+      <!-- Selector de Modo de Tipología Contractual (Diferenciación Obra vs Software/IA) -->
+      <div style="display: flex; gap: 8px; margin-bottom: 14px; background: var(--lacquer-surface); padding: 4px; border-radius: var(--radius-sm); border: 1px solid var(--hairline); width: fit-content; flex-wrap: wrap;">
+        <button id="btnModeCockpitObra" class="btn-action active" style="font-size: 0.72rem; padding: 4px 12px; border-radius: 4px;">
+          🏗️ Modo Obra Civil & Infraestructura
+        </button>
+        <button id="btnModeCockpitTech" class="btn-action" style="font-size: 0.72rem; padding: 4px 12px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #6ee7b7;">
+          🤖 Modo Software, Consultoría & IA (NIKADU IA)
+        </button>
+      </div>
+
       <!-- Barra de KPIs Ejecutivos del Cockpit 360° -->
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 16px;">
         <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid var(--tech-cyan);">
@@ -1548,6 +1558,21 @@
             <line x1="6" y1="16" x2="10" y2="16"/>
           </svg>
           <span>🧾 Facturación DIAN & 5% Obra</span>
+        </button>
+        <button id="modalBtnSoftwareAI" class="btn-action" style="flex: 1; min-width: 140px; justify-content: center; background: rgba(16, 185, 129, 0.18); border: 1px solid #10b981; color: #6ee7b7;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <rect x="4" y="4" width="16" height="16" rx="2"/>
+            <rect x="9" y="9" width="6" height="6"/>
+            <line x1="9" y1="1" x2="9" y2="4"/>
+            <line x1="15" y1="1" x2="15" y2="4"/>
+            <line x1="9" y1="20" x2="9" y2="23"/>
+            <line x1="15" y1="20" x2="15" y2="23"/>
+            <line x1="20" y1="9" x2="23" y2="9"/>
+            <line x1="20" y1="14" x2="23" y2="14"/>
+            <line x1="1" y1="9" x2="4" y2="9"/>
+            <line x1="1" y1="14" x2="4" y2="14"/>
+          </svg>
+          <span>🤖 Software, TI & IA (Ley 1150)</span>
         </button>
         <button id="modalNotifyBtn" class="btn-action btn-action-tele" style="flex: 1; min-width: 140px; justify-content: center;">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -5721,6 +5746,249 @@
         </div>
         <div>
           <button id="btnCloseFacturaModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Software, Consultoría & Servicios de IA (Ley 1150 / Concurso de Méritos) -->
+  <div id="softwareAiModal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 950px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="entity-badge" style="background: #10b981; color: #000; font-weight: 800;">SOFTWARE & IA</div>
+          <span style="font-size: 0.8rem; font-weight: 700; color: #6ee7b7;">Suite de Tecnología, Consultoría & Servicios de Inteligencia Artificial (NIKADU IA)</span>
+        </div>
+        <button class="modal-close" id="btnCloseSoftwareAiModal">&times;</button>
+      </div>
+
+      <!-- Barra de Identificación del Proyecto TI & Proceso -->
+      <div class="card-glass" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); padding: 10px 14px; border-radius: var(--radius-sm); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <div>
+          <span id="techBadgeContrato" style="font-size: 0.75rem; font-weight: 800; color: #6ee7b7; background: rgba(16, 185, 129, 0.2); padding: 2px 8px; border-radius: 4px;">CTO-TI-2026-001</span>
+          <span id="techBadgeProceso" style="font-size: 0.72rem; color: var(--text-faint); margin-left: 6px;">CM-TI-2026</span>
+          <div id="techContratistaDisplay" style="font-size: 0.78rem; font-weight: 600; color: var(--text-primary); margin-top: 3px;">NIKADU IA S.A.S. (NIT: 901.888.777-1)</div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-size: 0.65rem; color: var(--text-faint);">Presupuesto Estimado (FM CCE)</div>
+          <div id="techPresupuestoHeaderDisplay" style="font-size: 1.05rem; font-weight: 800; color: #34d399;">$ 0 COP</div>
+        </div>
+      </div>
+
+      <!-- Pestañas del Módulo de Software e IA -->
+      <div style="display: flex; gap: 6px; margin-bottom: 14px; border-bottom: 1px solid var(--hairline); padding-bottom: 6px;">
+        <button id="tabBtnTechEstimacion" class="btn-action active" style="font-size: 0.75rem; padding: 5px 12px; border-radius: var(--radius-sm);">
+          🧮 Factor Multiplicador & Sprints/Tokens
+        </button>
+        <button id="tabBtnTechSlas" class="btn-action" style="font-size: 0.75rem; padding: 5px 12px; border-radius: var(--radius-sm);">
+          📊 SLAs, Uptime & Modelos IA
+        </button>
+        <button id="tabBtnTechConcurso" class="btn-action" style="font-size: 0.75rem; padding: 5px 12px; border-radius: var(--radius-sm);">
+          📜 Concurso de Méritos & Propiedad Intelectual
+        </button>
+      </div>
+
+      <!-- ================= PESTAÑA 1: FACTOR MULTIPLICADOR Y ESTIMACIÓN ================= -->
+      <div id="tabContentTechEstimacion">
+        <!-- Parámetros del Factor Multiplicador -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 12px;">
+          <div style="font-size: 0.75rem; font-weight: 700; color: var(--champagne); margin-bottom: 8px;">
+            🧮 Parámetros del Factor Multiplicador de Consultoría CCE (Decreto 1082/2015)
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; margin-bottom: 10px;">
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">% Prestaciones Sociales (CST/Ley 100):</label>
+              <input type="number" id="techFactorPrestacional" value="52.0" step="0.5" min="0" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">% Costos Indirectos & Herramientas:</label>
+              <input type="number" id="techFactorIndirectos" value="25.0" step="0.5" min="0" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">% Utilidad & Honorarios Profesionales:</label>
+              <input type="number" id="techFactorUtilidad" value="15.0" step="0.5" min="0" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Factor Multiplicador Resultante:</label>
+              <div id="techFactorMultiplicadorDisplay" style="font-size: 1.05rem; font-weight: 800; color: #34d399; margin-top: 4px;">1.920x</div>
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Duración (Meses) / Sprints:</label>
+              <div style="display: flex; gap: 4px;">
+                <input type="number" id="techDuracionMeses" value="6" min="1" style="width: 50%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" title="Meses" />
+                <input type="number" id="techSprintsTotales" value="12" min="1" style="width: 50%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" title="Sprints" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Tokens de IA y Cómputo Cloud -->
+          <div style="border-top: 1px dashed var(--hairline); padding-top: 8px;">
+            <div style="font-size: 0.68rem; font-weight: 700; color: #38bdf8; margin-bottom: 6px;">
+              ☁️ Inferencia de Modelos de IA & Cómputo Cloud (AWS / Azure / GCP / LLMs):
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px;">
+              <div>
+                <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Tokens LLM Estimados (Millones):</label>
+                <input type="number" id="techTokensMillon" value="100" min="0" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+              </div>
+              <div>
+                <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Costo por Millón de Tokens (COP):</label>
+                <input type="number" id="techCostoPorMillon" value="200000" min="0" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+              </div>
+              <div>
+                <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Infraestructura Cloud / GPUs Mes (COP):</label>
+                <input type="number" id="techCloudMes" value="5000000" min="0" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPIs de Estimación -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px;">
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #10b981;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Nómina Directa (Sueldos Base)</div>
+            <div id="statTechCostoDirectoMes" style="font-size: 1.1rem; font-weight: 800; color: #6ee7b7; margin-top: 2px;">$ 0 COP</div>
+            <div style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Costo salarial mensual</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #059669;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Tarifa con Factor Multiplicador</div>
+            <div id="statTechCostoTotalPersonalMes" style="font-size: 1.1rem; font-weight: 800; color: #34d399; margin-top: 2px;">$ 0 COP</div>
+            <div style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Facturación CCE mensual</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #38bdf8;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">Cómputo Cloud & Inferencia IA</div>
+            <div id="statTechCostoCloudTotal" style="font-size: 1.1rem; font-weight: 800; color: #7dd3fc; margin-top: 2px;">$ 0 COP</div>
+            <div style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Tokens + Servidores GPU</div>
+          </div>
+
+          <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 10px 14px; border-radius: var(--radius-sm); border-left: 3px solid #f59e0b;">
+            <div style="font-size: 0.68rem; color: var(--text-faint);">PRESUPUESTO TOTAL ESTIMADO</div>
+            <div id="statTechPresupuestoTotal" style="font-size: 1.2rem; font-weight: 800; color: #fbbf24; margin-top: 2px;">$ 0 COP</div>
+            <div id="statTechCostoPorSprint" style="font-size: 0.65rem; color: var(--text-faint); margin-top: 2px;">Por Sprint: $ 0 COP</div>
+          </div>
+        </div>
+
+        <!-- Banner de Blindaje Tributario TI -->
+        <div class="card-glass" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 12px;">
+          <div style="display: flex; gap: 8px; align-items: flex-start;">
+            <span style="font-size: 1.1rem;">🛡️</span>
+            <div>
+              <div style="font-size: 0.78rem; font-weight: 700; color: #34d399;">
+                Régimen Tributario Aplicable a Software e Inteligencia Artificial
+              </div>
+              <div style="font-size: 0.7rem; color: var(--text-faint); margin-top: 2px;">
+                ✅ <b>Exclusión de IVA:</b> Art. 476 Numerales 23 y 24 del Estatuto Tributario (Servicios de Cloud Computing y Desarrollo Web/Software).<br>
+                ✅ <b>No sujeción a Ley 1106:</b> La contribución del 5% de obra pública NO aplica a contratos de tecnología, software ni consultoría.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PESTAÑA 2: SLAS Y MODELOS IA ================= -->
+      <div id="tabContentTechSlas" style="display: none;">
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 12px;">
+          <div style="font-size: 0.75rem; font-weight: 700; color: var(--champagne); margin-bottom: 8px;">
+            📊 Supervisión de Acuerdos de Nivel de Servicio (SLA) & Métricas de IA
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-bottom: 8px;">
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Disponibilidad / Uptime Real (%):</label>
+              <input type="number" id="slaUptimeReal" value="99.98" step="0.01" min="0" max="100" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Latencia Promedio API (ms):</label>
+              <input type="number" id="slaLatenciaReal" value="120" min="0" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Tiempo Recuperación MTTR (horas):</label>
+              <input type="number" id="slaMttrReal" value="0.8" step="0.1" min="0" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Cobertura de Pruebas (%):</label>
+              <input type="number" id="slaCoverage" value="91.5" step="0.5" min="0" max="100" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Vulnerabilidades OWASP Críticas:</label>
+              <input type="number" id="slaVulnerabilidades" value="0" min="0" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+            <div>
+              <label style="font-size: 0.65rem; color: var(--text-faint); display: block; margin-bottom: 2px;">Tasa de Alucinación de IA (%):</label>
+              <input type="number" id="slaAlucinacion" value="0.8" step="0.1" min="0" max="100" style="width: 100%; padding: 5px; font-size: 0.72rem; background: var(--lacquer-deep); border: 1px solid var(--hairline); color: var(--text-primary); border-radius: var(--radius-sm);" />
+            </div>
+          </div>
+
+          <!-- Semáforo de Cumplimiento -->
+          <div id="slaDictamenBanner" class="card-glass" style="background: rgba(16, 185, 129, 0.12); border: 1px solid #10b981; padding: 10px; border-radius: var(--radius-sm); margin-top: 8px;">
+            <div style="font-size: 0.75rem; font-weight: 700; color: #34d399;" id="slaDictamenTitulo">
+              🟢 CONFORME ÓPTIMO: Todos los SLAs técnicos e indicadores de IA están dentro de la tolerancia contractual
+            </div>
+            <div style="font-size: 0.68rem; color: var(--text-faint); margin-top: 2px;" id="slaDictamenTexto">
+              Disponibilidad de plataforma > 99.90%, sin vulnerabilidades de seguridad y alucinación de modelos inferior al 2.0%.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PESTAÑA 3: CONCURSO DE MÉRITOS & PI ================= -->
+      <div id="tabContentTechConcurso" style="display: none;">
+        <!-- Concurso de Méritos Personal -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 12px;">
+          <div style="font-size: 0.75rem; font-weight: 700; color: var(--champagne); margin-bottom: 8px;">
+            🏛️ Evaluación de Equipo para Concurso de Méritos (Ley 1150 Art. 2 Num 3)
+          </div>
+          <div style="font-size: 0.7rem; color: var(--text-faint); margin-bottom: 8px;">
+            En consultoría y software complejo, la adjudicación depende del puntaje técnico del equipo propuesto.
+          </div>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <div style="background: var(--lacquer-deep); padding: 8px 12px; border-radius: var(--radius-sm); flex: 1;">
+              <span style="font-size: 0.65rem; color: var(--text-faint); display: block;">Puntaje Formación (Posgrados):</span>
+              <b id="techPtsFormacion" style="font-size: 1rem; color: var(--tech-cyan);">27.0 / 30 pts</b>
+            </div>
+            <div style="background: var(--lacquer-deep); padding: 8px 12px; border-radius: var(--radius-sm); flex: 1;">
+              <span style="font-size: 0.65rem; color: var(--text-faint); display: block;">Puntaje Experiencia Específica:</span>
+              <b id="techPtsExperiencia" style="font-size: 1rem; color: #34d399;">30.0 / 30 pts</b>
+            </div>
+            <div style="background: var(--lacquer-deep); padding: 8px 12px; border-radius: var(--radius-sm); flex: 1;">
+              <span style="font-size: 0.65rem; color: var(--text-faint); display: block;">Certificaciones (Cloud/PMP/IA):</span>
+              <b id="techPtsCertificaciones" style="font-size: 1rem; color: #fbbf24;">17.0 / 20 pts</b>
+            </div>
+            <div style="background: var(--lacquer-deep); padding: 8px 12px; border-radius: var(--radius-sm); flex: 1; border-left: 2px solid #10b981;">
+              <span style="font-size: 0.65rem; color: var(--text-faint); display: block;">PUNTAJE TÉCNICO TOTAL:</span>
+              <b id="techPtsTotal" style="font-size: 1.15rem; color: #10b981;">74.0 / 100 pts</b>
+            </div>
+          </div>
+        </div>
+
+        <!-- Propiedad Intelectual Ley 23/1982 -->
+        <div class="card-glass" style="background: var(--lacquer-surface); border: 1px solid var(--hairline); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 12px;">
+          <div style="font-size: 0.75rem; font-weight: 700; color: var(--champagne); margin-bottom: 6px;">
+            📜 Régimen de Propiedad Intelectual & Licencias de Software (Art. 20 Ley 23/1982 / Ley 1450/2011)
+          </div>
+          <div style="font-size: 0.7rem; color: var(--text-faint); line-height: 1.4;">
+            • <b>Cesión Patrimonial:</b> El código fuente y artefactos son de propiedad exclusiva de la Entidad Estatal contratante.<br>
+            • <b>Derechos Morales:</b> Conservados por el equipo desarrollador conforme al Convenio de Berna y legislación colombiana.<br>
+            • <b>Librerías Open Source:</b> Licenciamiento permisivo verificado (MIT, Apache 2.0, BSD). Blindaje total ante contaminación recíproca (GPL).
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer y Descargas -->
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-top: 1px solid var(--hairline); padding-top: 12px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button id="btnDownloadTechPdf" class="btn-action" style="font-size: 0.78rem; padding: 6px 14px; background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; color: #6ee7b7; font-weight: 700;">
+            📄 Ficha Técnica & SLAs (PDF)
+          </button>
+          <button id="btnDownloadTechExcel" class="btn-action" style="font-size: 0.78rem; padding: 6px 14px; background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; color: #7dd3fc; font-weight: 700;">
+            📊 Memoria de Costeo TI (.xlsx)
+          </button>
+        </div>
+        <div>
+          <button id="btnCloseTechModalBtn" class="btn-action" style="font-size: 0.8rem; padding: 6px 14px;">
             Cerrar
           </button>
         </div>

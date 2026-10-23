@@ -2213,6 +2213,9 @@ async function loadContracts() {
               <button onclick="abrirCockpitModulo(${c.id}, 'facturacion')" class="btn-action" style="font-size: 0.72rem; padding: 4px 10px; background: rgba(14, 165, 233, 0.12); border: 1px solid #0ea5e9; color: #bae6fd;" title="Facturación DIAN, 5% Obra y Retenciones">
                 🧾 Facturación & 5% Obra
               </button>
+              <button onclick="abrirCockpitModulo(${c.id}, 'tech_ai')" class="btn-action" style="font-size: 0.72rem; padding: 4px 10px; background: rgba(16, 185, 129, 0.18); border: 1px solid #10b981; color: #6ee7b7; font-weight: 700;" title="Suite de Software, Factor Multiplicador CCE, SLAs de IA y PI">
+                🤖 Software & IA (NIKADU)
+              </button>
               <button onclick="abrirModalPostAward(${c.id})" class="btn-action" style="font-size: 0.72rem; padding: 4px 10px; background: rgba(56, 189, 248, 0.12); border: 1px solid #38bdf8; color: #7dd3fc; font-weight: 700;">
                 📊 Tablero 360°
               </button>
@@ -2263,6 +2266,8 @@ window.abrirCockpitModulo = function(contratoId, modulo) {
     abrirModalSancionatorio(ctoParam);
   } else if (modulo === 'facturacion') {
     abrirModalFacturacion(ctoParam);
+  } else if (modulo === 'tech_ai') {
+    abrirModalSoftwareAI(ctoParam);
   }
 };
 
@@ -12014,6 +12019,439 @@ document.getElementById('btnDownloadFacturaExcel')?.addEventListener('click', as
     showToast('Error al descargar el archivo Excel tributario');
   }
 });
+
+// ============================================================================
+// MÓDULO ESPECIALIZADO: SOFTWARE, CONSULTORÍA & SERVICIOS DE IA (LEY 1150)
+// NIKADU IA - Factor Multiplicador CCE, SLAs de IA, Concurso de Méritos & PI
+// ============================================================================
+
+let currentTechData = null;
+let currentTechCalculoEstimacion = null;
+let currentTechSlas = null;
+let currentTechConcurso = null;
+
+const defaultTechRoles = [
+  { rol: 'Director de Proyecto / Scrum Master', cantidad: 1, dedicacion_pct: 100, salario_base_mensual: 14000000 },
+  { rol: 'Tech Lead / Arquitecto Cloud & IA', cantidad: 1, dedicacion_pct: 100, salario_base_mensual: 16000000 },
+  { rol: 'Senior Fullstack Engineer', cantidad: 2, dedicacion_pct: 100, salario_base_mensual: 11000000 },
+  { rol: 'Data & ML/LLM Specialist', cantidad: 1, dedicacion_pct: 100, salario_base_mensual: 12500000 },
+  { rol: 'QA Automation Engineer', cantidad: 1, dedicacion_pct: 100, salario_base_mensual: 7500000 }
+];
+
+const defaultTechEquipo = [
+  {
+    nombre: 'Ing. Carlos Mendoza (Líder IA)',
+    nivel_formacion: 'MAESTRIA',
+    anos_experiencia: 9,
+    certificaciones: ['AWS Solutions Architect', 'TensorFlow Developer', 'Scrum Master']
+  },
+  {
+    nombre: 'Ing. Diana Rojas (Tech Lead)',
+    nivel_formacion: 'ESPECIALIZACION',
+    anos_experiencia: 7,
+    certificaciones: ['Azure Solutions Architect', 'Kubernetes CKA']
+  }
+];
+
+// Apertura y precarga del Modal de Software e IA
+window.abrirModalSoftwareAI = function(contratoParam) {
+  const lider = userCompanies.find(u => u.es_propia) || userCompanies[0];
+  const cto = contratoParam || (contractsCache && contractsCache[0]) || {
+    numero_contrato: 'CTO-TI-2026-001',
+    proceso_numero: 'CM-TI-2026-012',
+    entidad_nombre: 'Ministerio de Tecnologías de la Información y las Comunicaciones (MinTIC)',
+    contratista_nombre: lider ? lider.razon_social : 'NIKADU IA S.A.S.',
+    contratista_nit: lider ? lider.nit : '901.888.777-1',
+    valor_contrato: 879440000
+  };
+
+  currentTechData = {
+    contrato_numero: cto.numero_contrato || 'CTO-TI-2026-001',
+    proceso_numero: cto.proceso_numero || cto.referencia_proceso || 'CM-TI-2026-012',
+    entidad_nombre: cto.entidad_nombre || cto.entidad_contratante || 'MinTIC Colombia',
+    contratista_nombre: cto.contratista_nombre || 'NIKADU IA S.A.S.',
+    contratista_nit: cto.contratista_nit || '901.888.777-1',
+    valor_contrato: parseFloat(cto.valor_contrato || cto.valor_adjudicado) || 879440000
+  };
+
+  const badgeCto = document.getElementById('techBadgeContrato');
+  if (badgeCto) badgeCto.textContent = currentTechData.contrato_numero;
+
+  const badgeProc = document.getElementById('techBadgeProceso');
+  if (badgeProc) badgeProc.textContent = currentTechData.proceso_numero;
+
+  const contDisp = document.getElementById('techContratistaDisplay');
+  if (contDisp) contDisp.textContent = `${currentTechData.contratista_nombre} (NIT: ${currentTechData.contratista_nit})`;
+
+  cambiarTabTech('tabContentTechEstimacion', 'tabBtnTechEstimacion');
+
+  document.getElementById('detailModal')?.classList.remove('open');
+  document.getElementById('softwareAiModal')?.classList.add('open');
+
+  recalcularEstimacionTech();
+  recalcularSlasTech();
+  evaluarConcursoTech();
+};
+
+function cambiarTabTech(tabContentId, tabBtnId) {
+  ['tabContentTechEstimacion', 'tabContentTechSlas', 'tabContentTechConcurso'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = (id === tabContentId) ? 'block' : 'none';
+  });
+
+  ['tabBtnTechEstimacion', 'tabBtnTechSlas', 'tabBtnTechConcurso'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      if (id === tabBtnId) btn.classList.add('active');
+      else btn.classList.remove('active');
+    }
+  });
+}
+
+document.getElementById('tabBtnTechEstimacion')?.addEventListener('click', () => {
+  cambiarTabTech('tabContentTechEstimacion', 'tabBtnTechEstimacion');
+});
+document.getElementById('tabBtnTechSlas')?.addEventListener('click', () => {
+  cambiarTabTech('tabContentTechSlas', 'tabBtnTechSlas');
+});
+document.getElementById('tabBtnTechConcurso')?.addEventListener('click', () => {
+  cambiarTabTech('tabContentTechConcurso', 'tabBtnTechConcurso');
+});
+
+// Eventos de apertura y cierre del Modal Software e IA
+document.getElementById('modalBtnSoftwareAI')?.addEventListener('click', () => abrirModalSoftwareAI());
+document.getElementById('btnCloseSoftwareAiModal')?.addEventListener('click', () => {
+  document.getElementById('softwareAiModal')?.classList.remove('open');
+});
+document.getElementById('btnCloseTechModalBtn')?.addEventListener('click', () => {
+  document.getElementById('softwareAiModal')?.classList.remove('open');
+});
+document.getElementById('softwareAiModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'softwareAiModal') {
+    document.getElementById('softwareAiModal')?.classList.remove('open');
+  }
+});
+
+// Recalcular Factor Multiplicador y Estimación Integral de Software e IA
+async function recalcularEstimacionTech() {
+  const pPct = parseFloat(document.getElementById('techFactorPrestacional')?.value) || 52.0;
+  const iPct = parseFloat(document.getElementById('techFactorIndirectos')?.value) || 25.0;
+  const uPct = parseFloat(document.getElementById('techFactorUtilidad')?.value) || 15.0;
+
+  const fm = 1 + (pPct / 100) + (iPct / 100) + (uPct / 100);
+  const dispFm = document.getElementById('techFactorMultiplicadorDisplay');
+  if (dispFm) dispFm.textContent = `${fm.toFixed(3)}x`;
+
+  const duracionMeses = parseInt(document.getElementById('techDuracionMeses')?.value, 10) || 6;
+  const sprintsTotales = parseInt(document.getElementById('techSprintsTotales')?.value, 10) || 12;
+  const tokensMillon = parseFloat(document.getElementById('techTokensMillon')?.value) || 100;
+  const costoPorMillon = parseFloat(document.getElementById('techCostoPorMillon')?.value) || 200000;
+  const cloudMes = parseFloat(document.getElementById('techCloudMes')?.value) || 5000000;
+
+  const payload = {
+    roles: defaultTechRoles,
+    factorMultiplicador: {
+      factor_prestacional_pct: pPct,
+      factor_costos_indirectos_pct: iPct,
+      factor_utilidad_honorarios_pct: uPct
+    },
+    duracionMeses,
+    sprintsTotales,
+    consumoCloudTokens: {
+      tokens_estimados_millones: tokensMillon,
+      costo_por_millon_cop: costoPorMillon,
+      infraestructura_cloud_mensual_cop: cloudMes
+    }
+  };
+
+  try {
+    const res = await fetch('/api/tech-ai/estimar-costos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (!data.success || !data.estimacion) return;
+
+    currentTechCalculoEstimacion = data.estimacion;
+    const est = data.estimacion;
+
+    const elDirecto = document.getElementById('statTechCostoDirectoMes');
+    if (elDirecto) elDirecto.textContent = `$ ${Number(est.costo_directo_personal_mensual || 0).toLocaleString('es-CO')}`;
+
+    const elTotalPers = document.getElementById('statTechCostoTotalPersonalMes');
+    if (elTotalPers) elTotalPers.textContent = `$ ${Number(est.costo_total_personal_mensual || 0).toLocaleString('es-CO')}`;
+
+    const elCloud = document.getElementById('statTechCostoCloudTotal');
+    if (elCloud) elCloud.textContent = `$ ${Number(est.costo_total_cloud_tokens || 0).toLocaleString('es-CO')}`;
+
+    const elPresupuesto = document.getElementById('statTechPresupuestoTotal');
+    if (elPresupuesto) elPresupuesto.textContent = `$ ${Number(est.presupuesto_total_estimado_cop || 0).toLocaleString('es-CO')}`;
+
+    const elSprint = document.getElementById('statTechCostoPorSprint');
+    if (elSprint) elSprint.textContent = `Por Sprint: $ ${Number(est.costo_promedio_por_sprint || 0).toLocaleString('es-CO')}`;
+
+    const elHeader = document.getElementById('techPresupuestoHeaderDisplay');
+    if (elHeader) elHeader.textContent = `$ ${Number(est.presupuesto_total_estimado_cop || 0).toLocaleString('es-CO')}`;
+  } catch (err) {
+    console.error('Error calculando estimación de Software e IA:', err);
+  }
+}
+
+// Reactividad de inputs de estimación
+['techFactorPrestacional', 'techFactorIndirectos', 'techFactorUtilidad', 'techDuracionMeses', 'techSprintsTotales', 'techTokensMillon', 'techCostoPorMillon', 'techCloudMes'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', () => recalcularEstimacionTech());
+});
+
+// Recalcular SLAs y Métricas de Modelos de IA
+async function recalcularSlasTech() {
+  const uptime = parseFloat(document.getElementById('slaUptimeReal')?.value) || 99.98;
+  const latencia = parseFloat(document.getElementById('slaLatenciaReal')?.value) || 120;
+  const mttr = parseFloat(document.getElementById('slaMttrReal')?.value) || 0.8;
+  const coverage = parseFloat(document.getElementById('slaCoverage')?.value) || 91.5;
+  const vuln = parseInt(document.getElementById('slaVulnerabilidades')?.value, 10) || 0;
+  const alucinacion = parseFloat(document.getElementById('slaAlucinacion')?.value) || 0.8;
+
+  const payload = {
+    uptime_disponibilidad_pct: uptime,
+    latencia_promedio_ms: latencia,
+    mttr_tiempo_recuperacion_horas: mttr,
+    code_coverage_pct: coverage,
+    vulnerabilidades_owasp_criticas: vuln,
+    tasa_alucinacion_ia_pct: alucinacion,
+    precision_modelo_ia_pct: 98.5,
+    f1_score_ia_pct: 97.8
+  };
+
+  try {
+    const res = await fetch('/api/tech-ai/evaluar-slas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (!data.success || !data.evaluacion) return;
+
+    currentTechSlas = data.evaluacion;
+    const ev = data.evaluacion;
+
+    const banner = document.getElementById('slaDictamenBanner');
+    const tit = document.getElementById('slaDictamenTitulo');
+    const txt = document.getElementById('slaDictamenTexto');
+
+    if (tit) {
+      if (ev.cumplimiento_global_sla === 'CUMPLE_OPTIMO') {
+        tit.textContent = '🟢 CONFORME ÓPTIMO: Todos los SLAs técnicos e indicadores de IA están dentro de la tolerancia contractual';
+        tit.style.color = '#34d399';
+        if (banner) {
+          banner.style.border = '1px solid #10b981';
+          banner.style.background = 'rgba(16, 185, 129, 0.12)';
+        }
+      } else if (ev.cumplimiento_global_sla === 'CUMPLE_CON_OBSERVACIONES') {
+        tit.textContent = '🟡 CUMPLE CON OBSERVACIONES: Se detectaron métricas en límite preventivo de alerta';
+        tit.style.color = '#fbbf24';
+        if (banner) {
+          banner.style.border = '1px solid #f59e0b';
+          banner.style.background = 'rgba(245, 158, 11, 0.12)';
+        }
+      } else {
+        tit.textContent = '🔴 INCUMPLIMIENTO CRÍTICO DE SLA: Riesgo de aplicación de apremios y deducciones contractuales';
+        tit.style.color = '#f87171';
+        if (banner) {
+          banner.style.border = '1px solid #ef4444';
+          banner.style.background = 'rgba(239, 68, 68, 0.15)';
+        }
+      }
+    }
+
+    if (txt) {
+      txt.textContent = ev.observaciones_supervision || `Disponibilidad de plataforma > ${uptime}%, sin vulnerabilidades de seguridad y tasa de alucinación ${alucinacion}%.`;
+    }
+  } catch (err) {
+    console.error('Error evaluando SLAs de Software e IA:', err);
+  }
+}
+
+// Reactividad de inputs de SLAs
+['slaUptimeReal', 'slaLatenciaReal', 'slaMttrReal', 'slaCoverage', 'slaVulnerabilidades', 'slaAlucinacion'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', () => recalcularSlasTech());
+});
+
+// Evaluar equipo para Concurso de Méritos (Ley 1150)
+async function evaluarConcursoTech() {
+  try {
+    const res = await fetch('/api/tech-ai/calificar-equipo-concurso', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ equipo: defaultTechEquipo })
+    });
+
+    const data = await res.json();
+    if (!data.success) return;
+
+    currentTechConcurso = data;
+
+    const elForm = document.getElementById('techPtsFormacion');
+    if (elForm) elForm.textContent = `${Number(data.puntaje_formacion || 27).toFixed(1)} / 30 pts`;
+
+    const elExp = document.getElementById('techPtsExperiencia');
+    if (elExp) elExp.textContent = `${Number(data.puntaje_experiencia || 30).toFixed(1)} / 30 pts`;
+
+    const elCert = document.getElementById('techPtsCertificaciones');
+    if (elCert) elCert.textContent = `${Number(data.puntaje_certificaciones || 17).toFixed(1)} / 20 pts`;
+
+    const elTot = document.getElementById('techPtsTotal');
+    if (elTot) elTot.textContent = `${Number(data.puntaje_total_obtenido || 74).toFixed(1)} / 100 pts`;
+  } catch (err) {
+    console.error('Error calificando equipo para Concurso de Méritos:', err);
+  }
+}
+
+// Descargar Ficha Técnica & SLAs en PDF
+document.getElementById('btnDownloadTechPdf')?.addEventListener('click', async () => {
+  if (!currentTechCalculoEstimacion) await recalcularEstimacionTech();
+  if (!currentTechSlas) await recalcularSlasTech();
+
+  const payload = {
+    contrato_numero: currentTechData?.contrato_numero || 'CTO-TI-2026-001',
+    proceso_numero: currentTechData?.proceso_numero || 'CM-TI-2026-012',
+    entidad_nombre: currentTechData?.entidad_nombre || 'MinTIC Colombia',
+    contratista_nombre: currentTechData?.contratista_nombre || 'NIKADU IA S.A.S.',
+    contratista_nit: currentTechData?.contratista_nit || '901.888.777-1',
+    nombre_proyecto_software: 'Ecosistema de Inteligencia Artificial para Licitaciones Públicas',
+    roles: defaultTechRoles,
+    estimacion: currentTechCalculoEstimacion,
+    slas: currentTechSlas
+  };
+
+  try {
+    showToast('Generando Ficha Técnica & SLAs en PDF...');
+    const res = await fetch('/api/tech-ai/exportar-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error('Error generando PDF en el servidor');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Ficha_Tecnica_Software_IA_${payload.contrato_numero.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    showToast('✅ Ficha Técnica PDF de Software e IA descargada exitosamente');
+  } catch (err) {
+    showToast('Error al descargar el PDF de Software e IA');
+  }
+});
+
+// Descargar Memoria de Costeo TI en Excel (.xlsx)
+document.getElementById('btnDownloadTechExcel')?.addEventListener('click', async () => {
+  if (!currentTechCalculoEstimacion) await recalcularEstimacionTech();
+
+  const payload = {
+    contrato_numero: currentTechData?.contrato_numero || 'CTO-TI-2026-001',
+    proceso_numero: currentTechData?.proceso_numero || 'CM-TI-2026-012',
+    entidad_nombre: currentTechData?.entidad_nombre || 'MinTIC Colombia',
+    contratista_nombre: currentTechData?.contratista_nombre || 'NIKADU IA S.A.S.',
+    roles: defaultTechRoles,
+    factorMultiplicador: {
+      factor_prestacional_pct: parseFloat(document.getElementById('techFactorPrestacional')?.value) || 52.0,
+      factor_costos_indirectos_pct: parseFloat(document.getElementById('techFactorIndirectos')?.value) || 25.0,
+      factor_utilidad_honorarios_pct: parseFloat(document.getElementById('techFactorUtilidad')?.value) || 15.0
+    },
+    duracionMeses: parseInt(document.getElementById('techDuracionMeses')?.value, 10) || 6,
+    sprintsTotales: parseInt(document.getElementById('techSprintsTotales')?.value, 10) || 12,
+    consumoCloudTokens: {
+      tokens_estimados_millones: parseFloat(document.getElementById('techTokensMillon')?.value) || 100,
+      costo_por_millon_cop: parseFloat(document.getElementById('techCostoPorMillon')?.value) || 200000,
+      infraestructura_cloud_mensual_cop: parseFloat(document.getElementById('techCloudMes')?.value) || 5000000
+    },
+    estimacion: currentTechCalculoEstimacion
+  };
+
+  try {
+    showToast('Generando Memoria de Costeo TI en Excel...');
+    const res = await fetch('/api/tech-ai/exportar-excel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error('Error generando Excel en el servidor');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Memoria_Costeo_TI_IA_${payload.contrato_numero.replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    showToast('✅ Memoria de Costeo Excel descargada exitosamente');
+  } catch (err) {
+    showToast('Error al descargar el archivo Excel de costeo TI');
+  }
+});
+
+// Selector de Modo de Tipología Contractual en el Cockpit (Obra Civil vs Software / Consultoría / IA)
+let cockpitTipologiaModo = 'obra'; // 'obra' | 'tech'
+
+document.getElementById('btnModeCockpitObra')?.addEventListener('click', () => {
+  cockpitTipologiaModo = 'obra';
+  document.getElementById('btnModeCockpitObra')?.classList.add('active');
+  document.getElementById('btnModeCockpitTech')?.classList.remove('active');
+  showToast('🏗️ Modo Cockpit Activo: Obra Civil & Infraestructura (NSR-10, APU, Anticipos, Ley 1106)');
+  filtrarContratosPorTipologia();
+});
+
+document.getElementById('btnModeCockpitTech')?.addEventListener('click', () => {
+  cockpitTipologiaModo = 'tech';
+  document.getElementById('btnModeCockpitTech')?.classList.add('active');
+  document.getElementById('btnModeCockpitObra')?.classList.remove('active');
+  showToast('🤖 Modo Cockpit Activo: Software, Consultoría & Servicios de IA (Ley 1150, FM CCE, SLAs, PI)');
+  filtrarContratosPorTipologia();
+});
+
+function filtrarContratosPorTipologia() {
+  const container = document.getElementById('contractsList');
+  if (!container || !contractsCache || contractsCache.length === 0) return;
+
+  const cards = container.children;
+  for (let i = 0; i < cards.length; i++) {
+    const card = cards[i];
+    const text = card.textContent.toLowerCase();
+    const isTech = text.includes('software') || text.includes('ia') || text.includes('inteligencia artificial') || 
+                   text.includes('tecnología') || text.includes('datos') || text.includes('sistema') || 
+                   text.includes('consultoría') || text.includes('plataforma') || text.includes('computo') ||
+                   text.includes('desarrollo');
+
+    if (cockpitTipologiaModo === 'tech') {
+      if (isTech) {
+        card.style.display = 'flex';
+        card.style.borderColor = '#10b981';
+        card.style.boxShadow = '0 0 15px rgba(16, 185, 129, 0.2)';
+      } else {
+        card.style.display = 'flex';
+        card.style.opacity = '0.55';
+        card.style.borderColor = 'var(--hairline)';
+        card.style.boxShadow = 'none';
+      }
+    } else {
+      card.style.display = 'flex';
+      card.style.opacity = '1';
+      card.style.borderColor = 'var(--hairline)';
+      card.style.boxShadow = 'none';
+    }
+  }
+}
 
 // ==================== INICIALIZACIÓN ====================
 window.addEventListener('DOMContentLoaded', () => {

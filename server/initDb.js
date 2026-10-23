@@ -30,7 +30,8 @@ const SCHEMAS = [
   'schema_liquidacion_contractual.sql',
   'schema_supervision_interventoria.sql',
   'schema_sancionatorio_debido_proceso.sql',
-  'schema_facturacion_cuentas_cobro.sql'
+  'schema_facturacion_cuentas_cobro.sql',
+  'schema_software_ai_procurement.sql'
 ];
 
 async function runAllMigrations() {
